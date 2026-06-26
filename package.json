@@ -1,0 +1,20 @@
+{
+  "name": "sentiment-mern-integration",
+  "version": "1.0.0",
+  "description": "This package runs the React frontend, Node.js backend, and Python sentiment model service together.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "client": "npm run dev --prefix client",
+    "server": "npm run dev --prefix server",
+    "sentiment": "cd sentiment-service && venv\\Scripts\\python.exe -m uvicorn app:app --reload --host 0.0.0.0 --port 8000",
+    "dev": "concurrently -n CLIENT,SERVER,SENTIMENT -c blue,green,magenta \"npm run client\" \"npm run server\" \"npm run sentiment\"",
+    "test": "echo \"No tests configured\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
