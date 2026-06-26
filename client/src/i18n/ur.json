@@ -92,6 +92,9 @@
     "phonePlaceholder": "03001234567",
     "passwordPlaceholder": "اپنا پاس ورڈ درج کریں",
     "passwordRegisterPlaceholder": "کم از کم 6 حروف",
+    "showPassword": "پاس ورڈ دکھائیں",
+    "hidePassword": "پاس ورڈ چھپائیں",
+    "selectLanguage": "زبان منتخب کریں",
     "languagePlaceholder": "ur"
   },
   "property": {
@@ -110,6 +113,7 @@
     "approved": "منظور",
     "rejected": "مسترد",
     "noPropertiesFound": "کوئی پراپرٹی نہیں ملی",
+    "noImage": "کوئی تصویر دستیاب نہیں",
     "propertyDetails": "پراپرٹی کی تفصیل",
     "makeBooking": "بکنگ کریں",
     "offlineBooking": "آف لائن بکنگ",

@@ -92,6 +92,9 @@
     "phonePlaceholder": "03001234567",
     "passwordPlaceholder": "Enter your password",
     "passwordRegisterPlaceholder": "Minimum 6 characters",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "selectLanguage": "Select language",
     "languagePlaceholder": "en"
   },
   "property": {
@@ -110,6 +113,7 @@
     "approved": "Approved",
     "rejected": "Rejected",
     "noPropertiesFound": "No properties found",
+    "noImage": "No image available",
     "propertyDetails": "Property Details",
     "makeBooking": "Make Booking",
     "offlineBooking": "Offline Booking",

@@ -1,10 +1,19 @@
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Loader2, UserPlus } from "lucide-react";
+import {
+  Languages,
+  Loader2,
+  Mail,
+  Phone,
+  User,
+  UserCircle,
+  UserPlus,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import AuthLayout from "@/components/layout/AuthLayout";
 import PageLoader from "@/components/layout/PageLoader";
+import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,9 +33,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LANGUAGE_OPTIONS } from "@/utils/languageUtils";
 
 const RegisterPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { register, isAuthenticated, user, getDashboardPath, loading } =
     useAuth();
@@ -36,7 +46,7 @@ const RegisterPage = () => {
     phone: "",
     password: "",
     role: "guest",
-    languagePref: "en",
+    languagePref: i18n.language?.split("-")[0] || "en",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +62,12 @@ const RegisterPage = () => {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError("");
+  };
+
+  const handleLanguageChange = (value) => {
+    setFormData((prev) => ({ ...prev, languagePref: value }));
+    i18n.changeLanguage(value);
     setError("");
   };
 
@@ -73,7 +89,7 @@ const RegisterPage = () => {
         phone: formData.phone.trim(),
         password: formData.password,
         role: formData.role,
-        languagePref: formData.languagePref.trim() || "en",
+        languagePref: formData.languagePref,
       });
 
       navigate(getDashboardPath(registeredUser.role), { replace: true });
@@ -111,57 +127,74 @@ const RegisterPage = () => {
 
             <div className="space-y-2">
               <Label htmlFor="name">{t("auth.name")}</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder={t("auth.namePlaceholder")}
-                value={formData.name}
-                onChange={handleChange}
-                required
-                disabled={submitting}
-                className="w-full"
-              />
+              <div className="relative">
+                <User
+                  className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder={t("auth.namePlaceholder")}
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  disabled={submitting}
+                  className="w-full ps-9"
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="email">{t("auth.email")}</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder={t("auth.emailPlaceholder")}
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  disabled={submitting}
-                  className="w-full"
-                  dir="ltr"
-                />
+                <div className="relative">
+                  <Mail
+                    className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t("auth.emailPlaceholder")}
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    disabled={submitting}
+                    className="w-full ps-9"
+                    dir="ltr"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">{t("auth.phone")}</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  placeholder={t("auth.phonePlaceholder")}
-                  value={formData.phone}
-                  onChange={handleChange}
-                  disabled={submitting}
-                  className="w-full"
-                  dir="ltr"
-                />
+                <div className="relative">
+                  <Phone
+                    className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    placeholder={t("auth.phonePlaceholder")}
+                    value={formData.phone}
+                    onChange={handleChange}
+                    disabled={submitting}
+                    className="w-full ps-9"
+                    dir="ltr"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">{t("auth.password")}</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 placeholder={t("auth.passwordRegisterPlaceholder")}
                 value={formData.password}
@@ -169,8 +202,6 @@ const RegisterPage = () => {
                 required
                 minLength={6}
                 disabled={submitting}
-                className="w-full"
-                dir="ltr"
               />
             </div>
 
@@ -186,6 +217,7 @@ const RegisterPage = () => {
                   disabled={submitting}
                 >
                   <SelectTrigger id="role" className="w-full whitespace-normal">
+                    <UserCircle className="size-4 shrink-0 text-muted-foreground" />
                     <SelectValue placeholder={t("auth.selectRole")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -199,16 +231,26 @@ const RegisterPage = () => {
                 <Label htmlFor="languagePref">
                   {t("auth.languagePreference")}
                 </Label>
-                <Input
-                  id="languagePref"
-                  name="languagePref"
-                  placeholder={t("auth.languagePlaceholder")}
+                <Select
                   value={formData.languagePref}
-                  onChange={handleChange}
+                  onValueChange={handleLanguageChange}
                   disabled={submitting}
-                  className="w-full"
-                  dir="ltr"
-                />
+                >
+                  <SelectTrigger
+                    id="languagePref"
+                    className="w-full whitespace-normal"
+                  >
+                    <Languages className="size-4 shrink-0 text-muted-foreground" />
+                    <SelectValue placeholder={t("auth.selectLanguage")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGE_OPTIONS.map((option) => (
+                      <SelectItem key={option.code} value={option.code}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>
@@ -226,7 +268,10 @@ const RegisterPage = () => {
                   {t("auth.creatingAccount")}
                 </>
               ) : (
-                t("auth.registerButton")
+                <>
+                  <UserPlus className="size-4" />
+                  {t("auth.registerButton")}
+                </>
               )}
             </Button>
 

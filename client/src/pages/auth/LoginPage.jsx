@@ -1,6 +1,6 @@
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import AuthLayout from "@/components/layout/AuthLayout";
@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import PasswordInput from "@/components/auth/PasswordInput";
 
 const getSafeRedirect = (from, role, getDashboardPath) => {
   if (!from || from === "/login" || from === "/register") {
@@ -125,35 +126,38 @@ const LoginPage = () => {
 
             <div className="space-y-2">
               <Label htmlFor="email">{t("auth.emailAddress")}</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder={t("auth.emailPlaceholder")}
-                value={formData.email}
-                onChange={handleChange}
-                required
-                disabled={submitting}
-                className="w-full"
-                dir="ltr"
-              />
+              <div className="relative">
+                <Mail
+                  className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder={t("auth.emailPlaceholder")}
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  disabled={submitting}
+                  className="w-full ps-9"
+                  dir="ltr"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">{t("auth.password")}</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 placeholder={t("auth.passwordPlaceholder")}
                 value={formData.password}
                 onChange={handleChange}
                 required
                 disabled={submitting}
-                className="w-full"
-                dir="ltr"
               />
             </div>
           </CardContent>

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import { formatPrice } from "@/lib/formatters";
 import { getMyProperties } from "@/services/propertyService";
 import { Button } from "@/components/ui/button";
@@ -126,20 +127,9 @@ const OwnerPropertiesPage = () => {
                   key={property._id}
                   className="glass-card flex flex-col overflow-hidden"
                 >
-                  <div className="relative aspect-video bg-muted/40">
-                    {coverUrl ? (
-                      <img
-                        src={coverUrl}
-                        alt={property.title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <Building2 className="size-10 opacity-40" />
-                      </div>
-                    )}
-                    <div className="absolute start-3 top-3 flex flex-col gap-1.5">
+                  <div className="relative">
+                    <PropertyCoverImage src={coverUrl} alt={property.title} />
+                    <div className="absolute start-3 top-3 z-20 flex flex-col gap-1.5">
                       <PropertyStatusBadge status={property.status} />
                       {coverImage?.verificationStatus && (
                         <ImageVerificationBadge

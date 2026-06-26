@@ -92,6 +92,9 @@
     "phonePlaceholder": "03001234567",
     "passwordPlaceholder": "أدخل كلمة المرور",
     "passwordRegisterPlaceholder": "6 أحرف على الأقل",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
+    "selectLanguage": "اختر اللغة",
     "languagePlaceholder": "ar"
   },
   "property": {
@@ -110,6 +113,7 @@
     "approved": "موافق عليه",
     "rejected": "مرفوض",
     "noPropertiesFound": "لم يتم العثور على عقارات",
+    "noImage": "لا توجد صورة",
     "propertyDetails": "تفاصيل العقار",
     "makeBooking": "إجراء حجز",
     "offlineBooking": "حجز غير متصل",
