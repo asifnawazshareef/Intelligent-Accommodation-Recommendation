@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import { formatDate, formatPrice } from "@/lib/formatters";
 import { getMyBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,11 +26,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
-
 const BookingCardSkeleton = () => (
   <Card className="glass-card">
     <CardHeader>
@@ -43,7 +39,7 @@ const BookingCardSkeleton = () => (
 );
 
 const GuestBookingsPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -159,12 +155,12 @@ const GuestBookingsPage = () => {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <CalendarRange className="size-4 shrink-0" />
                       <span dir="ltr">
-                        {formatDate(booking.startDate)} –{" "}
-                        {formatDate(booking.endDate)}
+                        {formatDate(booking.startDate, i18n.language)} –{" "}
+                        {formatDate(booking.endDate, i18n.language)}
                       </span>
                     </div>
                     <p className="font-semibold text-primary" dir="ltr">
-                      {property?.price?.toLocaleString()} PKR
+                      {formatPrice(property?.price, t("common.currency"))}
                     </p>
                   </CardContent>
 

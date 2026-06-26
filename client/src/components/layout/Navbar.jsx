@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Building2, LogOut, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Building2, Loader2, LogOut, Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,10 @@ const Navbar = ({ variant = "public" }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -50,10 +54,10 @@ const Navbar = ({ variant = "public" }) => {
       <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
+          className="flex shrink-0 items-center gap-2 font-semibold tracking-tight transition-opacity hover:opacity-90"
           onClick={() => setMobileOpen(false)}
         >
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <Building2 className="size-5" />
           </span>
           <span className="hidden sm:inline">{t("common.appName")}</span>
@@ -89,7 +93,11 @@ const Navbar = ({ variant = "public" }) => {
           <LanguageSwitcher compact className="hidden sm:flex" />
           <ThemeToggle className="shrink-0" />
 
-          {!loading && isAuthenticated ? (
+          {loading ? (
+            <div className="hidden items-center gap-2 sm:flex">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : isAuthenticated ? (
             <div className="hidden items-center gap-2 sm:flex">
               <span className="max-w-[7rem] truncate text-sm text-muted-foreground lg:max-w-[10rem]">
                 {user?.name}
@@ -105,20 +113,18 @@ const Navbar = ({ variant = "public" }) => {
               </Button>
             </div>
           ) : (
-            !loading && (
-              <div className="hidden items-center gap-2 sm:flex">
-                <Link to="/login">
-                  <Button variant="ghost" size="sm" className="shrink-0 whitespace-nowrap">
-                    {t("nav.login")}
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button size="sm" className="shrink-0 whitespace-nowrap">
-                    {t("common.getStarted")}
-                  </Button>
-                </Link>
-              </div>
-            )
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link to="/login">
+                <Button variant="ghost" size="sm" className="shrink-0 whitespace-nowrap">
+                  {t("nav.login")}
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button size="sm" className="shrink-0 whitespace-nowrap">
+                  {t("common.getStarted")}
+                </Button>
+              </Link>
+            </div>
           )}
 
           <Button
@@ -126,6 +132,7 @@ const Navbar = ({ variant = "public" }) => {
             size="icon"
             className="shrink-0 md:hidden"
             onClick={() => setMobileOpen((open) => !open)}
+            aria-expanded={mobileOpen}
             aria-label={t("common.toggleMenu")}
           >
             {mobileOpen ? <X className="size-4" /> : <Menu className="size-4" />}
@@ -150,8 +157,10 @@ const Navbar = ({ variant = "public" }) => {
                   to={link.to}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "rounded-lg px-3 py-2.5 text-sm font-medium text-start",
-                    isActive(link.to) ? "bg-muted" : "text-muted-foreground",
+                    "rounded-lg px-3 py-2.5 text-sm font-medium text-start transition-colors",
+                    isActive(link.to)
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60",
                   )}
                 >
                   {link.label}
@@ -171,7 +180,7 @@ const Navbar = ({ variant = "public" }) => {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-lg px-3 py-2.5 text-start text-sm font-medium text-destructive"
+                  className="rounded-lg px-3 py-2.5 text-start text-sm font-medium text-destructive hover:bg-destructive/10"
                 >
                   {t("nav.logout")}
                 </button>

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import { formatPrice } from "@/lib/formatters";
 import { getMyProperties } from "@/services/propertyService";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,7 +163,7 @@ const OwnerPropertiesPage = () => {
 
                   <CardContent className="flex-1 pb-2">
                     <p className="text-lg font-semibold text-primary" dir="ltr">
-                      {property.price?.toLocaleString()} PKR
+                      {formatPrice(property.price, t("common.currency"))}
                     </p>
                     <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
                       {property.description}

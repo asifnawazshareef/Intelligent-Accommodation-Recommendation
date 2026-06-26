@@ -1,26 +1,37 @@
-import { Star } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import EmptyState from "@/components/ui/EmptyState";
+import { formatDate } from "@/lib/formatters";
 import SentimentBadge from "./SentimentBadge";
 
-const StarRating = ({ rating }) => (
-  <div className="flex items-center gap-0.5" aria-label={`${rating} stars`}>
-    {Array.from({ length: 5 }, (_, index) => (
-      <Star
-        key={index}
-        className={`size-4 ${
-          index < rating
-            ? "fill-amber-400 text-amber-400"
-            : "text-muted-foreground/30"
-        }`}
-      />
-    ))}
-  </div>
-);
+const StarRating = ({ rating }) => {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className="flex items-center gap-0.5"
+      aria-label={t("review.ratingStars", { count: rating })}
+      role="img"
+    >
+      {Array.from({ length: 5 }, (_, index) => (
+        <span
+          key={index}
+          className={
+            index < rating ? "text-amber-400" : "text-muted-foreground/30"
+          }
+          aria-hidden="true"
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+};
 
 const ReviewsList = ({ reviews = [] }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <Card className="glass-card border-border/60">
@@ -44,7 +55,7 @@ const ReviewsList = ({ reviews = [] }) => {
                       <p className="font-medium">{guestName}</p>
                       <StarRating rating={review.rating} />
                       <p className="text-xs text-muted-foreground">
-                        {new Date(review.createdAt).toLocaleDateString()}
+                        {formatDate(review.createdAt, i18n.language)}
                       </p>
                     </div>
                     <SentimentBadge sentiment={review.sentiment} />
@@ -61,11 +72,7 @@ const ReviewsList = ({ reviews = [] }) => {
                   {review.aspects?.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {review.aspects.map((aspect) => (
-                        <Badge
-                          key={aspect}
-                          variant="outline"
-                          className="capitalize"
-                        >
+                        <Badge key={aspect} variant="outline">
                           {aspect}
                         </Badge>
                       ))}
@@ -76,9 +83,12 @@ const ReviewsList = ({ reviews = [] }) => {
             })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("propertyDetail.noReviews")}
-          </p>
+          <EmptyState
+            icon={MessageSquare}
+            title={t("propertyDetail.noReviews")}
+            description={t("review.noReviewsHint")}
+            className="border-none bg-transparent shadow-none"
+          />
         )}
       </CardContent>
     </Card>

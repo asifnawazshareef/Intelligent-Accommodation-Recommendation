@@ -40,12 +40,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDate, formatPrice } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
 
 const ListingImagePreview = ({ url, alt }) => {
   const { t } = useTranslation();
@@ -122,7 +118,7 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
               {t("property.price")}
             </p>
             <p className="text-lg font-semibold text-primary" dir="ltr">
-              {listing.price?.toLocaleString()} PKR
+              {formatPrice(listing.price, t("common.currency"))}
             </p>
           </div>
         </div>
@@ -136,7 +132,8 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
             <div className="flex flex-wrap gap-2">
               {listing.availabilityCalendar.map((range, index) => (
                 <Badge key={`${range.startDate}-${index}`} variant="outline">
-                  {formatDate(range.startDate)} – {formatDate(range.endDate)}
+                  {formatDate(range.startDate, i18n.language)} –{" "}
+                  {formatDate(range.endDate, i18n.language)}
                 </Badge>
               ))}
             </div>
@@ -212,7 +209,7 @@ const TableSkeleton = () => (
 );
 
 const AdminListingsPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -362,6 +359,7 @@ const AdminListingsPage = () => {
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4">
               <div className="hidden md:block">
+                <Card className="glass-card overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -395,7 +393,7 @@ const AdminListingsPage = () => {
                           <TableCell>{listing.owner?.name || "—"}</TableCell>
                           <TableCell>{listing.location?.city || "—"}</TableCell>
                           <TableCell dir="ltr">
-                            {listing.price?.toLocaleString()} PKR
+                            {formatPrice(listing.price, t("common.currency"))}
                           </TableCell>
                           <TableCell>{listing.images?.length || 0}</TableCell>
                           <TableCell>
@@ -440,6 +438,7 @@ const AdminListingsPage = () => {
                     })}
                   </TableBody>
                 </Table>
+                </Card>
               </div>
 
               <div className="grid gap-3 md:hidden">
@@ -477,7 +476,7 @@ const AdminListingsPage = () => {
                             {listing.owner?.name}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-primary" dir="ltr">
-                            {listing.price?.toLocaleString()} PKR
+                            {formatPrice(listing.price, t("common.currency"))}
                           </p>
                         </div>
                       </div>

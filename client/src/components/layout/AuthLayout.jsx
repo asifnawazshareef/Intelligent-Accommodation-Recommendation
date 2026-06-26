@@ -9,9 +9,12 @@ const AuthLayout = ({ title, subtitle, children }) => {
     <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-primary p-10 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
         <div className="relative z-10">
-          <Link to="/" className="flex items-center gap-2 text-lg font-semibold">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-lg font-semibold transition-opacity hover:opacity-90"
+          >
             <Building2 className="size-6" />
-            {t("common.appName")} Platform
+            {t("common.appName")} {t("common.platform")}
           </Link>
         </div>
 

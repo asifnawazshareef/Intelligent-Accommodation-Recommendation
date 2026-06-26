@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarRange, Loader2, MapPin, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageLoader from "@/components/layout/PageLoader";
+import { formatPrice } from "@/lib/formatters";
 import { getPropertyById } from "@/services/propertyService";
 import { createBooking } from "@/services/bookingService";
 import { Button } from "@/components/ui/button";
@@ -142,7 +143,7 @@ const BookingNewPage = () => {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-primary" dir="ltr">
-              {property.price?.toLocaleString()} PKR
+              {formatPrice(property.price, t("common.currency"))}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {t("bookingPage.pricePerStay")}

@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageLoader from "@/components/layout/PageLoader";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import { formatDate, formatPrice } from "@/lib/formatters";
 import { confirmPayment, getBookingById } from "@/services/bookingService";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,13 +26,8 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
-
 const BookingPaymentPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { bookingId } = useParams();
   const navigate = useNavigate();
 
@@ -166,7 +162,7 @@ const BookingPaymentPage = () => {
                   {t("booking.startDate")}
                 </p>
                 <p className="font-medium" dir="ltr">
-                  {formatDate(booking.startDate)}
+                  {formatDate(booking.startDate, i18n.language)}
                 </p>
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
@@ -174,7 +170,7 @@ const BookingPaymentPage = () => {
                   {t("booking.endDate")}
                 </p>
                 <p className="font-medium" dir="ltr">
-                  {formatDate(booking.endDate)}
+                  {formatDate(booking.endDate, i18n.language)}
                 </p>
               </div>
             </div>
@@ -195,7 +191,7 @@ const BookingPaymentPage = () => {
                 {t("bookingPage.amountDue")}
               </p>
               <p className="text-2xl font-bold text-primary" dir="ltr">
-                {property?.price?.toLocaleString()} PKR
+                {formatPrice(property?.price, t("common.currency"))}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("bookingPage.mockPaymentNote")}

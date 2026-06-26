@@ -28,7 +28,10 @@
     "switchToDark": "Switch to dark mode",
     "notProvided": "Not provided",
     "checkingSession": "Checking your session...",
-    "verifyingSession": "Verifying your session..."
+    "verifyingSession": "Verifying your session...",
+    "currency": "PKR",
+    "platform": "Platform",
+    "imageLoadError": "Could not load image"
   },
   "nav": {
     "home": "Home",
@@ -265,7 +268,9 @@
     "rating4": "4 — Good",
     "rating3": "3 — Average",
     "rating2": "2 — Poor",
-    "rating1": "1 — Bad"
+    "rating1": "1 — Bad",
+    "ratingStars": "{{count}} out of 5 stars",
+    "noReviewsHint": "Be the first to share your experience after a confirmed stay."
   },
   "admin": {
     "adminDashboard": "Admin Dashboard",
@@ -433,7 +438,9 @@
     "ctaDescription": "Register as a guest to book stays, or as an owner to list properties. Admins manage approvals and platform oversight."
   },
   "footer": {
-    "tagline": "Final Year Project — MERN + Sentiment Analysis"
+    "tagline": "Final Year Project — MERN + Sentiment Analysis",
+    "quickLinks": "Quick links",
+    "copyright": "© {{year}} IARS. All rights reserved."
   },
   "dashboard": {
     "welcomeBack": "Welcome back",
@@ -444,31 +451,24 @@
     "fullName": "Full name",
     "quickInfo": "Quick Info",
     "platformStatus": "Platform status for your role",
-    "statBookings": "Bookings",
-    "statReviews": "Reviews",
-    "statSaved": "Saved",
-    "statListings": "Listings",
-    "statPending": "Pending",
-    "statApproved": "Approved",
-    "statUsers": "Users",
-    "statAudits": "Audits",
-    "hintBookings": "Coming in booking module",
-    "hintReviews": "Coming in review module",
-    "hintSaved": "Browse properties soon",
-    "hintListings": "Property module next",
-    "hintPendingReview": "Awaiting admin review",
-    "hintApproved": "Live on marketplace",
-    "hintUsers": "User management next",
-    "hintPendingListings": "Properties to review",
-    "hintAudits": "AI decision logs",
+    "quickActions": "Quick actions",
+    "quickSearchDesc": "Browse approved properties by city, price, and availability.",
+    "quickBookingsDesc": "View booking history, confirm payment, and leave reviews.",
+    "quickOfflineDesc": "Submit a form-based offline booking request.",
+    "quickListingsDesc": "Manage your property listings and track approval status.",
+    "quickAddListingDesc": "Create a new listing with images and availability.",
+    "quickOfflineOwnerDesc": "Respond to guest offline booking requests.",
+    "quickUsersDesc": "View users, verify accounts, and manage roles.",
+    "quickModerateDesc": "Review and approve pending property listings.",
+    "quickAuditDesc": "Inspect image verification scores and audit decisions.",
     "guestSubtitle": "Browse approved properties and manage your bookings.",
     "ownerSubtitle": "Create listings, upload images, and track approval status.",
     "adminSubtitle": "Approve properties, manage users, and audit AI decisions.",
-    "guestInfo1": "Search and booking modules will appear here as the main workflow is completed.",
-    "guestInfo2": "You will be able to browse approved properties, make bookings, and leave reviews with AI sentiment analysis.",
-    "ownerInfo1": "Property listing and image upload modules will be connected in the next development phase.",
-    "ownerInfo2": "Create listings, upload verification images, and track admin approval status from this panel.",
-    "adminInfo1": "User management, property approval, and AI audit tools will be added here as modules are built.",
+    "guestInfo1": "Use Search to find approved stays, then book and pay from your bookings page.",
+    "guestInfo2": "After a confirmed stay, leave a review on the property page — sentiment is analyzed automatically.",
+    "ownerInfo1": "Add properties with images, then wait for admin approval before they appear in search.",
+    "ownerInfo2": "Track offline booking requests and respond to guests from your dashboard.",
+    "adminInfo1": "Manage users, moderate pending listings, and audit image verification decisions.",
     "adminVerified": "Verified admin"
   }
 }

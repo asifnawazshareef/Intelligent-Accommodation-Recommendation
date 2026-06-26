@@ -28,14 +28,10 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["all", "pending", "responded", "closed"];
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
 
 const RequestCardSkeleton = () => (
   <Card className="glass-card">
@@ -50,7 +46,7 @@ const RequestCardSkeleton = () => (
 );
 
 const OwnerOfflineRequestsPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -256,7 +252,8 @@ const OwnerOfflineRequestsPage = () => {
                     <p className="flex items-center gap-1.5">
                       <CalendarRange className="size-4 text-muted-foreground" />
                       <span dir="ltr">
-                        {formatDate(request.startDate)} – {formatDate(request.endDate)}
+                        {formatDate(request.startDate, i18n.language)} –{" "}
+                        {formatDate(request.endDate, i18n.language)}
                       </span>
                     </p>
 

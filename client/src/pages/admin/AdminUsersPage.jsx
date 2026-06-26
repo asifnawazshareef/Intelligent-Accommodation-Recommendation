@@ -46,15 +46,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 const ROLE_FILTERS = ["all", "guest", "owner", "admin"];
 const ROLES = ["guest", "owner", "admin"];
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
 
 const TableSkeleton = () => (
   <div className="space-y-2">
@@ -150,7 +146,7 @@ const UserActions = ({
 };
 
 const AdminUsersPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [roleFilter, setRoleFilter] = useState("all");
@@ -368,7 +364,7 @@ const AdminUsersPage = () => {
                         <TableCell>
                           <VerificationBadge isVerified={user.isVerified} />
                         </TableCell>
-                        <TableCell>{formatDate(user.createdAt)}</TableCell>
+                        <TableCell>{formatDate(user.createdAt, i18n.language)}</TableCell>
                         <TableCell>
                           <UserActions
                             user={user}
@@ -420,7 +416,7 @@ const AdminUsersPage = () => {
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {t("userManagement.joined")}: {formatDate(user.createdAt)}
+                      {t("userManagement.joined")}: {formatDate(user.createdAt, i18n.language)}
                     </p>
                   </CardContent>
 

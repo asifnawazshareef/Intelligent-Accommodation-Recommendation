@@ -1,12 +1,19 @@
+import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Calendar,
+  ChevronRight,
+  ClipboardList,
+  ImageIcon,
   Mail,
   Phone,
+  Search,
   Shield,
   Sparkles,
+  Ticket,
   User,
+  Users,
 } from "lucide-react";
 import {
   Card,
@@ -16,6 +23,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+const QuickLinkCard = ({ to, icon: Icon, title, description }) => (
+  <Link to={to} className="group block h-full">
+    <Card className="glass-card h-full transition-shadow hover:shadow-md">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="size-4" />
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
+        </div>
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription className="line-clamp-2">{description}</CardDescription>
+      </CardHeader>
+    </Card>
+  </Link>
+);
 
 const DashboardShell = ({ role, user, children }) => {
   const { t } = useTranslation();
@@ -27,21 +52,24 @@ const DashboardShell = ({ role, user, children }) => {
         dashboardTitle: t("nav.guestDashboard"),
         icon: User,
         subtitle: t("dashboard.guestSubtitle"),
-        stats: [
+        quickLinks: [
           {
-            label: t("dashboard.statBookings"),
-            value: "—",
-            hint: t("dashboard.hintBookings"),
+            to: "/search",
+            icon: Search,
+            title: t("nav.search"),
+            description: t("dashboard.quickSearchDesc"),
           },
           {
-            label: t("dashboard.statReviews"),
-            value: "—",
-            hint: t("dashboard.hintReviews"),
+            to: "/guest/bookings",
+            icon: Ticket,
+            title: t("booking.myBookings"),
+            description: t("dashboard.quickBookingsDesc"),
           },
           {
-            label: t("dashboard.statSaved"),
-            value: "—",
-            hint: t("dashboard.hintSaved"),
+            to: "/offline-booking",
+            icon: Calendar,
+            title: t("offline.offlineBookingRequest"),
+            description: t("dashboard.quickOfflineDesc"),
           },
         ],
       },
@@ -50,21 +78,24 @@ const DashboardShell = ({ role, user, children }) => {
         dashboardTitle: t("nav.ownerDashboard"),
         icon: Sparkles,
         subtitle: t("dashboard.ownerSubtitle"),
-        stats: [
+        quickLinks: [
           {
-            label: t("dashboard.statListings"),
-            value: "—",
-            hint: t("dashboard.hintListings"),
+            to: "/owner/properties",
+            icon: Sparkles,
+            title: t("property.properties"),
+            description: t("dashboard.quickListingsDesc"),
           },
           {
-            label: t("dashboard.statPending"),
-            value: "—",
-            hint: t("dashboard.hintPendingReview"),
+            to: "/owner/properties/new",
+            icon: Calendar,
+            title: t("property.createProperty"),
+            description: t("dashboard.quickAddListingDesc"),
           },
           {
-            label: t("dashboard.statApproved"),
-            value: "—",
-            hint: t("dashboard.hintApproved"),
+            to: "/owner/offline-requests",
+            icon: Mail,
+            title: t("offlinePage.ownerTitle"),
+            description: t("dashboard.quickOfflineOwnerDesc"),
           },
         ],
       },
@@ -73,21 +104,24 @@ const DashboardShell = ({ role, user, children }) => {
         dashboardTitle: t("nav.adminDashboard"),
         icon: Shield,
         subtitle: t("dashboard.adminSubtitle"),
-        stats: [
+        quickLinks: [
           {
-            label: t("dashboard.statUsers"),
-            value: "—",
-            hint: t("dashboard.hintUsers"),
+            to: "/admin/users",
+            icon: Users,
+            title: t("admin.manageUsers"),
+            description: t("dashboard.quickUsersDesc"),
           },
           {
-            label: t("dashboard.statPending"),
-            value: "—",
-            hint: t("dashboard.hintPendingListings"),
+            to: "/admin/listings",
+            icon: ClipboardList,
+            title: t("admin.moderateListings"),
+            description: t("dashboard.quickModerateDesc"),
           },
           {
-            label: t("dashboard.statAudits"),
-            value: "—",
-            hint: t("dashboard.hintAudits"),
+            to: "/admin/image-audit",
+            icon: ImageIcon,
+            title: t("admin.imageAudit"),
+            description: t("dashboard.quickAuditDesc"),
           },
         ],
       },
@@ -115,18 +149,15 @@ const DashboardShell = ({ role, user, children }) => {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {meta.stats.map((stat) => (
-          <Card key={stat.label} className="glass-card">
-            <CardHeader className="pb-2">
-              <CardDescription>{stat.label}</CardDescription>
-              <CardTitle className="text-3xl">{stat.value}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">{stat.hint}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div>
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          {t("dashboard.quickActions")}
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {meta.quickLinks.map((link) => (
+            <QuickLinkCard key={link.to} {...link} />
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -182,7 +213,7 @@ const DashboardShell = ({ role, user, children }) => {
             <CardTitle>{t("dashboard.quickInfo")}</CardTitle>
             <CardDescription>{t("dashboard.platformStatus")}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <CardContent className={cn("space-y-3 text-sm text-muted-foreground")}>
             {children}
           </CardContent>
         </Card>

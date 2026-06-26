@@ -25,13 +25,10 @@ import {
   getEligibleBookings,
 } from "@/services/reviewService";
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
+import { formatDate } from "@/lib/formatters";
 
 const ReviewForm = ({ propertyId, onReviewCreated }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [eligibleBookings, setEligibleBookings] = useState([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [form, setForm] = useState({
@@ -163,8 +160,8 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
                   <SelectItem key={booking._id} value={booking._id}>
                     <span className="inline-flex items-center gap-2">
                       <CalendarRange className="size-3.5 shrink-0" />
-                      {formatDate(booking.startDate)} –{" "}
-                      {formatDate(booking.endDate)}
+                      {formatDate(booking.startDate, i18n.language)} –{" "}
+                      {formatDate(booking.endDate, i18n.language)}
                     </span>
                   </SelectItem>
                 ))}

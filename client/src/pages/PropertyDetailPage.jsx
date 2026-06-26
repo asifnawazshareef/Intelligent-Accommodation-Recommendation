@@ -16,6 +16,7 @@ import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBad
 import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
+import { formatDate, formatPrice } from "@/lib/formatters";
 import { getPropertyById } from "@/services/propertyService";
 import {
   getPropertyReviews,
@@ -31,11 +32,6 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString();
-};
 
 const PropertyImageGallery = ({ images = [], title }) => {
   const { t } = useTranslation();
@@ -115,7 +111,7 @@ const PropertyImageGallery = ({ images = [], title }) => {
 };
 
 const PropertyDetailPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useParams();
   const { isAuthenticated, user } = useAuth();
 
@@ -231,7 +227,7 @@ const PropertyDetailPage = () => {
               </span>
             </p>
             <p className="text-2xl font-bold text-primary" dir="ltr">
-              {property.price?.toLocaleString()} PKR
+              {formatPrice(property.price, t("common.currency"))}
             </p>
           </div>
 
@@ -266,7 +262,8 @@ const PropertyDetailPage = () => {
               <div className="flex flex-wrap gap-2">
                 {property.availabilityCalendar.map((range, index) => (
                   <Badge key={`${range.startDate}-${index}`} variant="outline">
-                    {formatDate(range.startDate)} – {formatDate(range.endDate)}
+                    {formatDate(range.startDate, i18n.language)} –{" "}
+                    {formatDate(range.endDate, i18n.language)}
                   </Badge>
                 ))}
               </div>
@@ -305,7 +302,7 @@ const PropertyDetailPage = () => {
             <CardContent className="space-y-4">
               <div className="hidden lg:block">
                 <p className="text-3xl font-bold text-primary" dir="ltr">
-                  {property.price?.toLocaleString()} PKR
+                  {formatPrice(property.price, t("common.currency"))}
                 </p>
                 {summary?.averageRating > 0 && (
                   <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
