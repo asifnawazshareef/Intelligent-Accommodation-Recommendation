@@ -1,68 +1,95 @@
 import mongoose from "mongoose";
 import Review from "../models/Review.js";
+import Booking from "../models/Booking.js";
 import Property from "../models/Property.js";
 import { analyzeSentiment } from "../services/sentimentService.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-const updatePropertyRating = async (propertyId) => {
-  const result = await Review.aggregate([
-    { $match: { property: new mongoose.Types.ObjectId(propertyId) } },
-    {
-      $group: {
-        _id: "$property",
-        averageRating: { $avg: "$rating" },
-        reviewCount: { $sum: 1 },
-      },
-    },
-  ]);
-
-  const stats = result[0];
-
-  await Property.findByIdAndUpdate(propertyId, {
-    averageRating: stats ? Number(stats.averageRating.toFixed(1)) : 0,
-    reviewCount: stats ? stats.reviewCount : 0,
-  });
-};
-
 export const createReview = async (req, res) => {
   try {
-    const { propertyId, guestName, rating, comment } = req.body;
+    const { property, booking, rating, text } = req.body;
 
-    if (!propertyId || !isValidObjectId(propertyId)) {
-      return res.status(400).json({ success: false, message: "Valid propertyId is required." });
+    if (!property || !isValidObjectId(property)) {
+      return res.status(400).json({ success: false, message: "Valid property is required." });
     }
 
-    if (!guestName || !rating || !comment) {
-      return res.status(400).json({ success: false, message: "guestName, rating and comment are required." });
+    if (!booking || !isValidObjectId(booking)) {
+      return res.status(400).json({ success: false, message: "Valid booking is required." });
     }
 
-    const property = await Property.findById(propertyId);
-    if (!property) {
+    if (!rating || Number(rating) < 1 || Number(rating) > 5) {
+      return res.status(400).json({ success: false, message: "Rating must be between 1 and 5." });
+    }
+
+    if (!text?.trim()) {
+      return res.status(400).json({ success: false, message: "Review text is required." });
+    }
+
+    const trimmedText = text.trim();
+
+    if (trimmedText.length > 1000) {
+      return res.status(400).json({ success: false, message: "Review text cannot exceed 1000 characters." });
+    }
+
+    const propertyDoc = await Property.findById(property);
+    if (!propertyDoc) {
       return res.status(404).json({ success: false, message: "Property not found." });
     }
 
-    const sentimentResult = await analyzeSentiment(comment);
+    const bookingDoc = await Booking.findById(booking);
+    if (!bookingDoc) {
+      return res.status(404).json({ success: false, message: "Booking not found." });
+    }
+
+    if (bookingDoc.guest.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "You can only review your own bookings." });
+    }
+
+    if (bookingDoc.property.toString() !== property) {
+      return res.status(400).json({ success: false, message: "Booking does not belong to this property." });
+    }
+
+    if (bookingDoc.status !== "confirmed") {
+      return res.status(400).json({
+        success: false,
+        message: "Reviews are only allowed after booking is confirmed.",
+      });
+    }
+
+    const existingReview = await Review.findOne({ booking });
+    if (existingReview) {
+      return res.status(400).json({ success: false, message: "A review already exists for this booking." });
+    }
+
+    const sentimentResult = await analyzeSentiment(trimmedText);
 
     const review = await Review.create({
-      property: propertyId,
-      guestName,
+      guest: req.user._id,
+      property,
+      booking,
       rating: Number(rating),
-      comment,
+      text: trimmedText,
       sentiment: sentimentResult.sentiment,
       sentimentScore: sentimentResult.confidence,
       aspects: sentimentResult.aspects,
       summary: sentimentResult.summary,
     });
 
-    await updatePropertyRating(propertyId);
+    const populatedReview = await Review.findById(review._id)
+      .populate("guest", "name")
+      .populate("booking", "startDate endDate");
 
     return res.status(201).json({
       success: true,
       message: "Review submitted and analyzed successfully.",
-      data: review,
+      data: populatedReview,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: "A review already exists for this booking." });
+    }
+
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -75,9 +102,46 @@ export const getPropertyReviews = async (req, res) => {
       return res.status(400).json({ success: false, message: "Valid propertyId is required." });
     }
 
-    const reviews = await Review.find({ property: propertyId }).sort({ createdAt: -1 });
+    const reviews = await Review.find({ property: propertyId })
+      .populate("guest", "name")
+      .sort({ createdAt: -1 });
 
     return res.json({ success: true, count: reviews.length, data: reviews });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getEligibleBookings = async (req, res) => {
+  try {
+    const { propertyId } = req.params;
+
+    if (!isValidObjectId(propertyId)) {
+      return res.status(400).json({ success: false, message: "Valid propertyId is required." });
+    }
+
+    const confirmedBookings = await Booking.find({
+      guest: req.user._id,
+      property: propertyId,
+      status: "confirmed",
+    }).sort({ createdAt: -1 });
+
+    const reviewedBookingIds = await Review.find({
+      guest: req.user._id,
+      property: propertyId,
+    }).distinct("booking");
+
+    const reviewedSet = new Set(reviewedBookingIds.map((id) => id.toString()));
+
+    const eligible = confirmedBookings.filter(
+      (booking) => !reviewedSet.has(booking._id.toString()),
+    );
+
+    return res.json({
+      success: true,
+      count: eligible.length,
+      data: eligible,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

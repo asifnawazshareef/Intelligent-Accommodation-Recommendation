@@ -4,17 +4,17 @@ const DEFAULT_SENTIMENT_RESULT = {
   sentiment: "neutral",
   confidence: 0,
   aspects: [],
-  summary: "Sentiment service unavailable, saved as neutral.",
+  summary: "Sentiment service unavailable",
 };
 
-export const analyzeSentiment = async (comment) => {
+export const analyzeSentiment = async (text) => {
   try {
     const apiUrl = process.env.SENTIMENT_API_URL || "http://localhost:8000";
 
     const response = await axios.post(
       `${apiUrl}/predict`,
-      { review: comment },
-      { timeout: 15000 }
+      { review: text },
+      { timeout: 15000 },
     );
 
     return {

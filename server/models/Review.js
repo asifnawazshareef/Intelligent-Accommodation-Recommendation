@@ -2,16 +2,21 @@ import mongoose from "mongoose";
 
 const reviewSchema = new mongoose.Schema(
   {
+    guest: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     property: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Property",
       required: true,
     },
-    guestName: {
-      type: String,
+    booking: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Booking",
       required: true,
-      trim: true,
-      maxlength: 80,
+      unique: true,
     },
     rating: {
       type: Number,
@@ -19,7 +24,7 @@ const reviewSchema = new mongoose.Schema(
       min: 1,
       max: 5,
     },
-    comment: {
+    text: {
       type: String,
       required: true,
       trim: true,
@@ -43,8 +48,10 @@ const reviewSchema = new mongoose.Schema(
       default: "",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+reviewSchema.index({ property: 1, createdAt: -1 });
 
 const Review = mongoose.model("Review", reviewSchema);
 export default Review;

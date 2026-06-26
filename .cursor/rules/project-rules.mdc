@@ -1,0 +1,60 @@
+---
+description: Project rules for Intelligent Accommodation Recommendation System
+alwaysApply: true
+---
+
+# Important Project Rule
+
+Do not add any outside feature until the full main workflow is completed and tested.
+
+## Main workflow
+
+1. Owner registers/logs in.
+2. Owner creates property listing.
+3. Owner uploads property images.
+4. Image verification data is stored.
+5. Admin reviews and approves the property.
+6. Guest searches approved properties.
+7. Guest views property details.
+8. Guest makes booking.
+9. Payment confirmation updates booking status.
+10. Guest leaves review.
+11. Sentiment model analyzes review.
+12. Sentiment result is saved and displayed.
+13. Admin can manage users and audit decisions.
+
+## Do not add these extra features
+
+Do not add chat, wishlist, coupons, real payment gateway, email notifications, SMS gateway, PDF receipts, blog, advanced analytics, subscription plans, dark mode, mobile app, or any feature outside the approved FYP scope.
+
+## Allowed improvements
+
+Only improve existing required features, UI, validation, loading states, empty states, error handling, mobile responsiveness, and clean code structure.
+
+## Technology rules
+
+- Use React.js with JSX, not TypeScript.
+- Use Tailwind CSS and shadcn/ui.
+- Use Node.js, Express.js, MongoDB, and Mongoose.
+- Sentiment model already exists in sentiment-service.
+- Do not recreate or retrain the sentiment model unless specifically asked.
+- Offline booking should use a form-based alternative, not real SMS.
+
+## Multilingual Layout Rule
+
+Default language must be English.
+
+Supported languages are:
+- English: LTR
+- Urdu: RTL
+- Arabic: RTL
+
+Use i18next and react-i18next for frontend translations.
+
+Do not hardcode static UI text in components. Use translation keys.
+
+Do not translate user-generated content such as property titles, property descriptions, reviews, names, emails, phone numbers, or image URLs.
+
+For layout, avoid hardcoded left/right alignment. Use direction-safe layout classes like text-start, text-end, start, end, flex-wrap, w-full, and responsive grids.
+
+The UI must not break in Urdu or Arabic. Forms, cards, tables, dashboards, navbar, footer, and mobile layout must work correctly in all three languages.

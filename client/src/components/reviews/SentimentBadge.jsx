@@ -1,16 +1,27 @@
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const sentimentClasses = {
-  positive: "bg-green-100 text-green-800 hover:bg-green-100",
-  negative: "bg-red-100 text-red-800 hover:bg-red-100",
-  neutral: "bg-gray-100 text-gray-800 hover:bg-gray-100",
-  mixed: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
+  positive:
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15",
+  negative: "bg-destructive/15 text-destructive hover:bg-destructive/15",
+  neutral: "bg-muted text-muted-foreground hover:bg-muted",
+  mixed: "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15",
 };
 
 const SentimentBadge = ({ sentiment = "neutral" }) => {
+  const { t } = useTranslation();
+  const labelKey = `review.${sentiment}`;
+
   return (
-    <Badge className={sentimentClasses[sentiment] || sentimentClasses.neutral}>
-      {sentiment.charAt(0).toUpperCase() + sentiment.slice(1)}
+    <Badge
+      className={cn(
+        "whitespace-normal capitalize",
+        sentimentClasses[sentiment] || sentimentClasses.neutral,
+      )}
+    >
+      {t(labelKey, sentiment)}
     </Badge>
   );
 };

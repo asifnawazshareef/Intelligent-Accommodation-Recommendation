@@ -146,3 +146,13 @@ http://localhost:5173/review-sentiment-test
 ## 8. Important
 
 This module is test-friendly and simple. Later you can replace `guestName` with logged-in user id and use your real Property model.
+
+## Project Scope Rule
+
+No outside feature should be added until the full main workflow is completed and tested.
+
+The main workflow is:
+
+Owner creates property → Admin approves property → Guest searches property → Guest views details → Guest books property → Payment is confirmed → Guest leaves review → Sentiment model analyzes review → Sentiment result is saved and displayed → Admin manages users and audits AI decisions.
+
+Extra features such as chat, wishlist, coupons, real payment gateway, email notifications, SMS gateway, PDF receipts, blog, advanced analytics, subscription plans, and dark mode are not included in the current FYP scope.

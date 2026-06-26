@@ -4,6 +4,8 @@ import SentimentBadge from "./SentimentBadge";
 const SentimentResultCard = ({ review }) => {
   if (!review) return null;
 
+  const reviewText = review.text || review.comment;
+
   return (
     <Card className="border-green-200">
       <CardHeader>
@@ -15,12 +17,14 @@ const SentimentResultCard = ({ review }) => {
       <CardContent className="space-y-3">
         <div>
           <p className="text-sm font-medium">Review</p>
-          <p className="text-sm text-muted-foreground">{review.comment}</p>
+          <p className="text-sm text-muted-foreground">{reviewText}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Confidence</p>
-            <p className="text-lg font-semibold">{Math.round((review.sentimentScore || 0) * 100)}%</p>
+            <p className="text-lg font-semibold">
+              {Math.round((review.sentimentScore || 0) * 100)}%
+            </p>
           </div>
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Rating</p>
@@ -32,12 +36,17 @@ const SentimentResultCard = ({ review }) => {
           <div className="mt-2 flex flex-wrap gap-2">
             {(review.aspects || []).length ? (
               review.aspects.map((aspect) => (
-                <span key={aspect} className="rounded-full bg-muted px-3 py-1 text-xs">
+                <span
+                  key={aspect}
+                  className="rounded-full bg-muted px-3 py-1 text-xs capitalize"
+                >
                   {aspect}
                 </span>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No aspects detected.</p>
+              <p className="text-sm text-muted-foreground">
+                No aspects detected.
+              </p>
             )}
           </div>
         </div>

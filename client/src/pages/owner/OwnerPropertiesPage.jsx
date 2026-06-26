@@ -1,0 +1,190 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Building2, MapPin, Pencil, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
+import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import { getMyProperties } from "@/services/propertyService";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const PropertyCardSkeleton = () => (
+  <Card className="glass-card overflow-hidden">
+    <Skeleton className="aspect-video w-full rounded-none" />
+    <CardHeader className="space-y-2">
+      <Skeleton className="h-5 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+    </CardHeader>
+    <CardContent>
+      <Skeleton className="h-4 w-full" />
+    </CardContent>
+  </Card>
+);
+
+const OwnerPropertiesPage = () => {
+  const { t } = useTranslation();
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchProperties = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await getMyProperties();
+        setProperties(response.data.data || []);
+      } catch (err) {
+        setError(err.response?.data?.message || t("property.loadError"));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProperties();
+  }, [t]);
+
+  return (
+    <DashboardLayout>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {t("property.myPropertiesTitle")}
+            </h1>
+            <p className="mt-1 text-muted-foreground">
+              {t("property.myPropertiesHint")}
+            </p>
+          </div>
+          <Link to="/owner/properties/new">
+            <Button className="w-full min-w-fit whitespace-normal sm:w-auto">
+              <Plus className="size-4" />
+              {t("property.createProperty")}
+            </Button>
+          </Link>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>{t("property.loadError")}</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {loading && (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <PropertyCardSkeleton key={item} />
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && properties.length === 0 && (
+          <Card className="glass-card border-dashed">
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+              <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Building2 className="size-7" />
+              </div>
+              <div className="max-w-md space-y-2">
+                <h2 className="text-lg font-semibold">
+                  {t("property.noPropertiesFound")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t("property.emptyStateHint")}
+                </p>
+              </div>
+              <Link to="/owner/properties/new">
+                <Button>
+                  <Plus className="size-4" />
+                  {t("property.createProperty")}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && properties.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {properties.map((property) => {
+              const coverImage = property.images?.[0];
+              const coverUrl = coverImage?.url;
+
+              return (
+                <Card
+                  key={property._id}
+                  className="glass-card flex flex-col overflow-hidden"
+                >
+                  <div className="relative aspect-video bg-muted/40">
+                    {coverUrl ? (
+                      <img
+                        src={coverUrl}
+                        alt={property.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-muted-foreground">
+                        <Building2 className="size-10 opacity-40" />
+                      </div>
+                    )}
+                    <div className="absolute start-3 top-3 flex flex-col gap-1.5">
+                      <PropertyStatusBadge status={property.status} />
+                      {coverImage?.verificationStatus && (
+                        <ImageVerificationBadge
+                          status={coverImage.verificationStatus}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <CardHeader className="pb-2">
+                    <CardTitle className="line-clamp-2 text-base">
+                      {property.title}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-1">
+                      <MapPin className="size-3.5 shrink-0" />
+                      <span className="truncate">
+                        {property.location?.city}, {property.location?.country}
+                      </span>
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="flex-1 pb-2">
+                    <p className="text-lg font-semibold text-primary" dir="ltr">
+                      {property.price?.toLocaleString()} PKR
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {property.description}
+                    </p>
+                  </CardContent>
+
+                  <CardFooter className="border-t border-border/60 pt-4">
+                    <Link to={`/owner/properties/${property._id}/edit`} className="w-full">
+                      <Button variant="outline" className="w-full whitespace-normal">
+                        <Pencil className="size-4" />
+                        {t("property.editProperty")}
+                      </Button>
+                    </Link>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default OwnerPropertiesPage;

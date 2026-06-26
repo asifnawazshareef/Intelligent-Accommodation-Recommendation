@@ -1,10 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <title>IARS — Intelligent Accommodation Review System</title>
+    <script>
+      (function () {
+        var theme = localStorage.getItem("theme");
+        if (
+          theme === "dark" ||
+          (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        ) {
+          document.documentElement.classList.add("dark");
+        }
+
+        var lang = localStorage.getItem("iars_language") || "en";
+        var dir = lang === "ur" || lang === "ar" ? "rtl" : "ltr";
+        document.documentElement.lang = lang;
+        document.documentElement.dir = dir;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

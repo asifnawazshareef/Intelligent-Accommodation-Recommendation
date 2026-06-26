@@ -1,13 +1,21 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import mongoose from "mongoose";
 
+import connectDB from "./config/db.js";
+import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
+import authRoutes from "./routes/authRoutes.js";
+import propertyRoutes from "./routes/propertyRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import searchRoutes from "./routes/searchRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import sentimentRoutes from "./routes/sentimentRoutes.js";
-import propertyRoutes from "./routes/propertyRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
+import offlineRequestRoutes from "./routes/offlineRequestRoutes.js";
 
 dotenv.config();
+
+connectDB();
 
 const app = express();
 
@@ -19,14 +27,6 @@ app.use(
 );
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "Sentiment MERN backend is running",
-  });
-});
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -36,22 +36,21 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Feature routes
+app.use("/api/auth", authRoutes);
+app.use("/api/properties", propertyRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api", searchRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/sentiment", sentimentRoutes);
-app.use("/api/properties", propertyRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/offline-requests", offlineRequestRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected successfully");
-
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection failed:", error.message);
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

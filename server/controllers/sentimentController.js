@@ -13,6 +13,12 @@ const countAspects = (reviews) => {
   return counts;
 };
 
+const getTopAspects = (aspectCounts, limit = 6) =>
+  Object.entries(aspectCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, limit)
+    .map(([aspect, count]) => ({ aspect, count }));
+
 export const getPropertySentimentSummary = async (req, res) => {
   try {
     const { propertyId } = req.params;
@@ -32,6 +38,8 @@ export const getPropertySentimentSummary = async (req, res) => {
       ? Number((reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews).toFixed(1))
       : 0;
 
+    const aspectCounts = countAspects(reviews);
+
     return res.json({
       success: true,
       data: {
@@ -41,7 +49,8 @@ export const getPropertySentimentSummary = async (req, res) => {
         neutralCount,
         mixedCount,
         averageRating,
-        aspectCounts: countAspects(reviews),
+        aspectCounts,
+        topAspects: getTopAspects(aspectCounts),
         recentReviews: reviews.slice(0, 5),
       },
     });
