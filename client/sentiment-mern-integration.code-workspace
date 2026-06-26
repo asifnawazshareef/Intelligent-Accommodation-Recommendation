@@ -1,0 +1,13 @@
+{
+  "folders": [
+	{
+		"name": "sentiment-mern-integration",
+		"path": ".."
+	},
+	{
+		"name": "sentiment-service",
+		"path": "../../../sentiment-service/sentiment-service"
+	}
+],
+  "settings": {}
+}

@@ -1,0 +1,67 @@
+{
+  "dataset_rows_after_cleaning": 23088,
+  "train_rows": 18470,
+  "test_rows": 4618,
+  "labels": [
+    "positive",
+    "negative",
+    "neutral"
+  ],
+  "accuracy": 0.8410567345171069,
+  "classification_report": {
+    "negative": {
+      "precision": 0.8673218673218673,
+      "recall": 0.8408766079085279,
+      "f1-score": 0.8538945331398161,
+      "support": 2099.0
+    },
+    "neutral": {
+      "precision": 0.13680781758957655,
+      "recall": 0.26582278481012656,
+      "f1-score": 0.18064516129032257,
+      "support": 158.0
+    },
+    "positive": {
+      "precision": 0.9125659050966608,
+      "recall": 0.879711986446421,
+      "f1-score": 0.8958378261807203,
+      "support": 2361.0
+    },
+    "accuracy": 0.8410567345171069,
+    "macro avg": {
+      "precision": 0.6388985300027016,
+      "recall": 0.6621371263883584,
+      "f1-score": 0.6434591735369529,
+      "support": 4618.0
+    },
+    "weighted avg": {
+      "precision": 0.8654595791730118,
+      "recall": 0.8410567345171069,
+      "f1-score": 0.8523039558590353,
+      "support": 4618.0
+    }
+  },
+  "confusion_matrix_labels": [
+    "positive",
+    "negative",
+    "neutral"
+  ],
+  "confusion_matrix": [
+    [
+      2077,
+      189,
+      95
+    ],
+    [
+      164,
+      1765,
+      170
+    ],
+    [
+      35,
+      81,
+      42
+    ]
+  ],
+  "model_type": "TF-IDF + Logistic Regression"
+}
