@@ -4,11 +4,13 @@ import { useTranslation } from "react-i18next";
 import {
   CalendarRange,
   ChevronRight,
+  ExternalLink,
   Loader2,
   MessageSquare,
+  Ticket,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/button";
+import { buttonVariants, Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -22,6 +24,7 @@ import DashboardShell from "@/components/dashboard/DashboardShell";
 import OfflineRequestStatusBadge from "@/components/offline/OfflineRequestStatusBadge";
 import { getGuestOfflineRequests } from "@/services/offlineRequestService";
 import { formatDate } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 
 const GuestDashboard = () => {
   const { t, i18n } = useTranslation();
@@ -137,17 +140,20 @@ const GuestDashboard = () => {
                 {recentRequests.map((request) => (
                   <div
                     key={String(request._id)}
-                    className="rounded-lg border border-border/60 bg-muted/20 p-4"
+                    className="rounded-lg border border-border/60 bg-muted/20 p-4 sm:p-5"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="font-medium">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="line-clamp-2 min-w-0 flex-1 font-medium leading-snug">
                         {request.property?.title || t("offlinePage.generalRequest")}
                       </p>
-                      <OfflineRequestStatusBadge status={request.status} />
+                      <OfflineRequestStatusBadge
+                        status={request.status}
+                        className="shrink-0"
+                      />
                     </div>
 
-                    <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <CalendarRange className="size-3.5 shrink-0" />
+                    <p className="mt-2.5 flex items-start gap-2 text-sm text-muted-foreground">
+                      <CalendarRange className="mt-0.5 size-3.5 shrink-0" />
                       <span dir="ltr">
                         {formatDate(request.startDate, i18n.language)} –{" "}
                         {formatDate(request.endDate, i18n.language)}
@@ -157,11 +163,40 @@ const GuestDashboard = () => {
                     {request.responseMessage &&
                       (request.status === "responded" ||
                         request.status === "closed") && (
-                        <p className="mt-2 line-clamp-2 text-sm text-emerald-700 dark:text-emerald-400">
-                          {t("offlinePage.ownerResponseTitle")}:{" "}
-                          {request.responseMessage}
-                        </p>
+                        <div className="mt-3 rounded-md border border-emerald-500/25 bg-emerald-500/5 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                            {t("offlinePage.ownerResponseTitle")}
+                          </p>
+                          <p className="mt-1 line-clamp-3 text-sm leading-relaxed">
+                            {request.responseMessage}
+                          </p>
+                        </div>
                       )}
+
+                    {request.status === "responded" && request.property?._id && (
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <Link
+                          to={`/bookings/new/${request.property._id}`}
+                          className={cn(
+                            buttonVariants({ size: "sm" }),
+                            "inline-flex w-full flex-row items-center justify-center gap-2 no-underline sm:flex-1",
+                          )}
+                        >
+                          <Ticket className="size-4 shrink-0" />
+                          <span>{t("offlinePage.proceedToBooking")}</span>
+                        </Link>
+                        <Link
+                          to={`/properties/${request.property._id}`}
+                          className={cn(
+                            buttonVariants({ variant: "outline", size: "sm" }),
+                            "inline-flex w-full flex-row items-center justify-center gap-2 no-underline sm:w-auto",
+                          )}
+                        >
+                          <ExternalLink className="size-4 shrink-0" />
+                          <span>{t("offlinePage.viewProperty")}</span>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 ))}
 

@@ -116,7 +116,7 @@ export const createOfflineRequest = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: "Offline booking request submitted successfully",
-      data: populatedRequest,
+      data: serializeOfflineRequest(populatedRequest),
     });
   } catch (error) {
     next(error);

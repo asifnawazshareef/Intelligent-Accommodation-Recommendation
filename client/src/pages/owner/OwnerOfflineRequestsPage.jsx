@@ -1,52 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CalendarRange,
-  Loader2,
-  MapPin,
-  MessageSquare,
-  Phone,
-  RefreshCw,
-  User,
-} from "lucide-react";
+import { Loader2, MessageSquare, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import OfflineRequestStatusBadge from "@/components/offline/OfflineRequestStatusBadge";
+import OfflineRequestCard from "@/components/offline/OfflineRequestCard";
 import {
   getOwnerOfflineRequests,
   respondToOfflineRequest,
 } from "@/services/offlineRequestService";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["all", "pending", "responded", "closed"];
 
 const RequestCardSkeleton = () => (
   <Card className="glass-card">
-    <CardHeader>
+    <div className="space-y-3 p-6">
       <Skeleton className="h-5 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
-    </CardHeader>
-    <CardContent>
       <Skeleton className="h-20 w-full" />
-    </CardContent>
+    </div>
   </Card>
 );
 
 const OwnerOfflineRequestsPage = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,7 +82,7 @@ const OwnerOfflineRequestsPage = () => {
 
   const handleRespond = async (requestId, status = "responded") => {
     const requestKey = String(requestId);
-    const draft = drafts[requestKey] || drafts[requestId];
+    const draft = drafts[requestKey];
     if (!draft?.responseMessage?.trim()) {
       setError(t("offlinePage.responseRequired"));
       return;
@@ -121,6 +104,10 @@ const OwnerOfflineRequestsPage = () => {
           String(item._id) === requestKey ? updated : item,
         ),
       );
+      setDrafts((prev) => ({
+        ...prev,
+        [requestKey]: { responseMessage: updated.responseMessage || "" },
+      }));
       setSuccessId(requestKey);
     } catch (err) {
       setError(err.response?.data?.message || t("offlinePage.respondError"));
@@ -146,15 +133,22 @@ const OwnerOfflineRequestsPage = () => {
               {t("offlinePage.ownerHint")}
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={fetchRequests}
-            disabled={loading}
-            className="w-full min-w-fit whitespace-normal sm:w-auto"
-          >
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-            {t("offlinePage.refresh")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {counts.pending > 0 && (
+              <Badge className="whitespace-normal bg-amber-500/15 text-amber-800 dark:text-amber-300">
+                {t("offlinePage.pendingCount", { count: counts.pending })}
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              onClick={fetchRequests}
+              disabled={loading}
+              className="w-full min-w-fit whitespace-normal sm:w-auto"
+            >
+              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+              {t("offlinePage.refresh")}
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -167,7 +161,7 @@ const OwnerOfflineRequestsPage = () => {
               className="whitespace-normal"
             >
               {filterLabel(value)}
-              {!loading && value !== "all" && counts[value] > 0 && (
+              {!loading && (
                 <span className="ms-1 rounded-full bg-background/20 px-1.5 text-xs">
                   {counts[value]}
                 </span>
@@ -184,7 +178,7 @@ const OwnerOfflineRequestsPage = () => {
         )}
 
         {loading && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
             {[1, 2].map((item) => (
               <RequestCardSkeleton key={item} />
             ))}
@@ -212,123 +206,70 @@ const OwnerOfflineRequestsPage = () => {
         )}
 
         {!loading && filteredRequests.length > 0 && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 sm:gap-5 md:grid-cols-2">
             {filteredRequests.map((request) => {
               const requestId = String(request._id);
               const isSaving = savingId === requestId;
               const draft = drafts[requestId] || { responseMessage: "" };
 
               return (
-                <Card key={requestId} className="glass-card flex flex-col">
-                  <CardHeader className="space-y-2">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <CardTitle className="text-base">
-                        {request.property?.title || t("offlinePage.generalRequest")}
-                      </CardTitle>
-                      <OfflineRequestStatusBadge status={request.status} />
-                    </div>
-                    {request.property?.location && (
-                      <CardDescription className="flex items-center gap-1">
-                        <MapPin className="size-3.5 shrink-0" />
-                        {request.property.location.city},{" "}
-                        {request.property.location.country}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-
-                  <CardContent className="flex-1 space-y-3 text-sm">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <p className="flex items-center gap-1.5">
-                        <User className="size-4 text-muted-foreground" />
-                        {request.guestName}
-                      </p>
-                      <p className="flex items-center gap-1.5" dir="ltr">
-                        <Phone className="size-4 text-muted-foreground" />
-                        {request.phone}
-                      </p>
-                    </div>
-
-                    <p className="flex items-start gap-1.5 text-muted-foreground">
-                      <MapPin className="mt-0.5 size-4 shrink-0" />
-                      {request.location}
-                    </p>
-
-                    <p className="flex items-center gap-1.5">
-                      <CalendarRange className="size-4 text-muted-foreground" />
-                      <span dir="ltr">
-                        {formatDate(request.startDate, i18n.language)} –{" "}
-                        {formatDate(request.endDate, i18n.language)}
-                      </span>
-                    </p>
-
-                    <p>
-                      <span className="font-medium">{t("offline.roomType")}:</span>{" "}
-                      {request.roomType}
-                    </p>
-
-                    {request.responseMessage && request.status !== "pending" && (
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("offline.responseMessage")}
-                        </p>
-                        <p className="mt-1">{request.responseMessage}</p>
+                <OfflineRequestCard
+                  key={requestId}
+                  request={request}
+                  variant="owner"
+                  successMessage={
+                    successId === requestId
+                      ? t("offlinePage.respondSuccess")
+                      : null
+                  }
+                  footer={
+                    request.status === "pending" ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor={`response-${requestId}`}>
+                            {t("offline.responseMessage")}
+                          </Label>
+                          <Textarea
+                            id={`response-${requestId}`}
+                            value={draft.responseMessage}
+                            onChange={(e) =>
+                              setDrafts((prev) => ({
+                                ...prev,
+                                [requestId]: { responseMessage: e.target.value },
+                              }))
+                            }
+                            placeholder={t("offlinePage.responsePlaceholder")}
+                            disabled={isSaving}
+                            rows={3}
+                            className="w-full resize-y"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            className="w-full whitespace-normal sm:flex-1"
+                            disabled={isSaving}
+                            onClick={() => handleRespond(requestId, "responded")}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <MessageSquare className="size-4" />
+                            )}
+                            {t("offlinePage.sendResponse")}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full whitespace-normal sm:flex-1"
+                            disabled={isSaving}
+                            onClick={() => handleRespond(requestId, "closed")}
+                          >
+                            {t("offlinePage.closeRequest")}
+                          </Button>
+                        </div>
                       </div>
-                    )}
-
-                    {successId === requestId && (
-                      <Alert>
-                        <AlertDescription>{t("offlinePage.respondSuccess")}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    {request.status === "pending" && (
-                      <div className="space-y-2 pt-2">
-                        <Label htmlFor={`response-${requestId}`}>
-                          {t("offline.responseMessage")}
-                        </Label>
-                        <Textarea
-                          id={`response-${requestId}`}
-                          value={draft.responseMessage}
-                          onChange={(e) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [requestId]: { responseMessage: e.target.value },
-                            }))
-                          }
-                          placeholder={t("offlinePage.responsePlaceholder")}
-                          disabled={isSaving}
-                          rows={3}
-                          className="w-full resize-y"
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-
-                  {request.status === "pending" && (
-                    <CardFooter className="flex flex-col gap-2 border-t border-border/60 sm:flex-row">
-                      <Button
-                        className="w-full whitespace-normal sm:flex-1"
-                        disabled={isSaving}
-                        onClick={() => handleRespond(requestId, "responded")}
-                      >
-                        {isSaving ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <MessageSquare className="size-4" />
-                        )}
-                        {t("offlinePage.sendResponse")}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full whitespace-normal sm:flex-1"
-                        disabled={isSaving}
-                        onClick={() => handleRespond(requestId, "closed")}
-                      >
-                        {t("offlinePage.closeRequest")}
-                      </Button>
-                    </CardFooter>
-                  )}
-                </Card>
+                    ) : null
+                  }
+                />
               );
             })}
           </div>

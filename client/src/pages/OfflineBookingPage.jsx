@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarRange,
+  CheckCircle2,
   Loader2,
+  LogIn,
   MapPin,
   Phone,
   Send,
@@ -34,11 +36,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const FLOW_STEPS = ["submit", "ownerReview", "viewResponse"];
+
 const OfflineBookingPage = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const preselectedPropertyId = searchParams.get("propertyId") || "";
+
+  const isGuest = isAuthenticated && user?.role === "guest";
+  const loginPath = `/login?from=${encodeURIComponent(
+    `${location.pathname}${location.search}`,
+  )}`;
 
   const [properties, setProperties] = useState([]);
   const [loadingProperties, setLoadingProperties] = useState(true);
@@ -122,6 +132,17 @@ const OfflineBookingPage = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (!isGuest) {
+      setError(t("offlinePage.loginRequired"));
+      return;
+    }
+
+    if (!formData.property) {
+      setError(t("offlinePage.propertyRequired"));
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -134,7 +155,7 @@ const OfflineBookingPage = () => {
         startDate: formData.startDate,
         endDate: formData.endDate,
         roomType: formData.roomType.trim(),
-        property: formData.property || undefined,
+        property: formData.property,
       });
 
       setSuccess(t("offlinePage.submitSuccess"));
@@ -145,7 +166,7 @@ const OfflineBookingPage = () => {
         startDate: "",
         endDate: "",
         roomType: "",
-        property: preselectedPropertyId || "",
+        property: preselectedPropertyId || formData.property,
       });
     } catch (err) {
       setError(err.response?.data?.message || t("offlinePage.submitError"));
@@ -156,7 +177,13 @@ const OfflineBookingPage = () => {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-      <Link to={preselectedPropertyId ? `/properties/${preselectedPropertyId}` : "/search"}>
+      <Link
+        to={
+          preselectedPropertyId
+            ? `/properties/${preselectedPropertyId}`
+            : "/search"
+        }
+      >
         <Button variant="ghost" size="sm" className="whitespace-normal">
           <ArrowLeft className="size-4" />
           {preselectedPropertyId
@@ -167,10 +194,44 @@ const OfflineBookingPage = () => {
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          {t("offline.offlineBookingRequest")}
+          {t("offline.contactOwner")}
         </h1>
         <p className="mt-1 text-muted-foreground">{t("offlinePage.formHint")}</p>
       </div>
+
+      <Card className="glass-card border-border/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t("offlinePage.flowTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ol className="grid gap-3 sm:grid-cols-3">
+            {FLOW_STEPS.map((step, index) => (
+              <li
+                key={step}
+                className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm"
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  {index + 1}
+                </span>
+                <span>{t(`offlinePage.flow.${step}`)}</span>
+              </li>
+            ))}
+          </ol>
+        </CardContent>
+      </Card>
+
+      {!isGuest && (
+        <Alert>
+          <LogIn className="size-4" />
+          <AlertTitle>{t("offlinePage.loginRequiredTitle")}</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>{t("offlinePage.loginRequiredHint")}</p>
+            <Button size="sm" asChild>
+              <Link to={loginPath}>{t("common.signIn")}</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -181,16 +242,25 @@ const OfflineBookingPage = () => {
 
       {success && (
         <Alert>
+          <CheckCircle2 className="size-4" />
           <AlertTitle>{t("offlinePage.successTitle")}</AlertTitle>
           <AlertDescription className="space-y-2">
             <p>{success}</p>
-            {user?.role === "guest" && (
-              <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                <Link to="/guest/offline-requests">
-                  {t("offlinePage.trackRequests")}
-                </Link>
-              </Button>
-            )}
+            <Button variant="link" size="sm" className="h-auto p-0" asChild>
+              <Link to="/guest/offline-requests">
+                {t("offlinePage.trackRequests")}
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {selectedProperty && (
+        <Alert>
+          <AlertDescription>
+            {t("offlinePage.selectedPropertyHint", {
+              property: formatPropertyOption(selectedProperty),
+            })}
           </AlertDescription>
         </Alert>
       )}
@@ -215,7 +285,7 @@ const OfflineBookingPage = () => {
                   value={formData.guestName}
                   onChange={handleChange}
                   required
-                  disabled={submitting}
+                  disabled={submitting || !isGuest}
                   className="w-full"
                 />
               </div>
@@ -231,7 +301,7 @@ const OfflineBookingPage = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   required
-                  disabled={submitting}
+                  disabled={submitting || !isGuest}
                   className="w-full"
                   dir="ltr"
                 />
@@ -250,7 +320,7 @@ const OfflineBookingPage = () => {
                 onChange={handleChange}
                 placeholder={t("offlinePage.locationPlaceholder")}
                 required
-                disabled={submitting}
+                disabled={submitting || !isGuest}
                 className="w-full"
               />
             </div>
@@ -265,7 +335,7 @@ const OfflineBookingPage = () => {
                   value={formData.startDate}
                   onChange={handleChange}
                   required
-                  disabled={submitting}
+                  disabled={submitting || !isGuest}
                   className="w-full"
                   dir="ltr"
                 />
@@ -279,7 +349,7 @@ const OfflineBookingPage = () => {
                   value={formData.endDate}
                   onChange={handleChange}
                   required
-                  disabled={submitting}
+                  disabled={submitting || !isGuest}
                   className="w-full"
                   dir="ltr"
                 />
@@ -295,7 +365,7 @@ const OfflineBookingPage = () => {
                 onChange={handleChange}
                 placeholder={t("offlinePage.roomTypePlaceholder")}
                 required
-                disabled={submitting}
+                disabled={submitting || !isGuest}
                 className="w-full"
               />
             </div>
@@ -305,7 +375,7 @@ const OfflineBookingPage = () => {
               <Select
                 value={propertySelectValue}
                 onValueChange={handlePropertyChange}
-                disabled={submitting || loadingProperties}
+                disabled={submitting || loadingProperties || !isGuest}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("offlinePage.propertyOptional")}>
@@ -351,7 +421,7 @@ const OfflineBookingPage = () => {
             <Button
               type="submit"
               size="lg"
-              disabled={submitting || loadingProperties}
+              disabled={submitting || loadingProperties || !isGuest}
               className="w-full whitespace-normal sm:w-auto"
             >
               {submitting ? (

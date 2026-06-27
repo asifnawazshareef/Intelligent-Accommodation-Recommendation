@@ -105,7 +105,11 @@ const PropertyDetailPage = () => {
       ? `/bookings/new/${id}`
       : `/login?from=${encodeURIComponent(`/bookings/new/${id}`)}`;
 
-  const offlineBookingPath = `/offline-booking?propertyId=${id}`;
+  const offlineBookingPath = !isAuthenticated
+    ? `/login?from=${encodeURIComponent(`/offline-booking?propertyId=${id}`)}`
+    : user?.role === "guest"
+      ? `/offline-booking?propertyId=${id}`
+      : `/login?from=${encodeURIComponent(`/offline-booking?propertyId=${id}`)}`;
 
   useEffect(() => {
     const fetchPropertyDetails = async () => {
@@ -303,9 +307,7 @@ const PropertyDetailPage = () => {
                   className="w-full whitespace-normal"
                   asChild
                 >
-                  <Link to={offlineBookingPath}>
-                    {t("offline.offlineBookingRequest")}
-                  </Link>
+                  <Link to={offlineBookingPath}>{t("offline.contactOwner")}</Link>
                 </Button>
               </div>
             </CardContent>
@@ -316,7 +318,7 @@ const PropertyDetailPage = () => {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 p-3 backdrop-blur-md lg:hidden">
         <div className="mx-auto flex max-w-7xl gap-2">
           <Button variant="outline" className="flex-1 whitespace-normal" asChild>
-            <Link to={offlineBookingPath}>{t("offline.offlineBookingRequest")}</Link>
+            <Link to={offlineBookingPath}>{t("offline.contactOwner")}</Link>
           </Button>
           <Button className="flex-1 whitespace-normal" asChild>
             <Link to={makeBookingPath}>{t("property.makeBooking")}</Link>
