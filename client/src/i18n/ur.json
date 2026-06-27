@@ -176,10 +176,13 @@
     "reviewCount": "{{count}} جائزے",
     "homeSearchTitle": "منظور شدہ رہائش تلاش کریں",
     "homeSearchHint": "ایڈمن منظور شدہ قابل اعتماد لسٹنگز۔",
+    "homeSearchHintLive": "منظور شدہ قیام فوراً لوڈ ہوتے ہیں۔ فلٹرز بدلیں اور نتائج نیچے اپ ڈیٹ ہوں — الگ صفحے کی ضرورت نہیں۔",
+    "homeFilteredHint": "آپ کے فلٹرز سے میل کھانے والی پراپرٹیز۔",
     "viewAllResults": "مکمل تلاش",
     "featuredTitle": "نمایاں پراپرٹیز",
     "featuredHint": "حال ہی میں منظور شدہ اقامتیں۔",
-    "featuredEmpty": "ابھی کوئی منظور شدہ پراپرٹی نہیں۔"
+    "featuredEmpty": "ابھی کوئی منظور شدہ پراپرٹی نہیں۔",
+    "viewAndBook": "دیکھیں اور بک کریں"
   },
   "propertyDetail": {
     "loading": "پراپرٹی کی تفصیلات لوڈ ہو رہی ہیں...",
@@ -195,7 +198,8 @@
     "totalReviews": "کل جائزے",
     "averageRating": "اوسط درجہ",
     "topAspects": "سب سے زیادہ ذکر شدہ پہلو",
-    "noAspects": "ابھی کوئی پہلو دستیاب نہیں"
+    "noAspects": "ابھی کوئی پہلو دستیاب نہیں",
+    "bookingStepsHint": "تاریخیں منتخب کریں → ادائیگی کی تصدیق → جائزہ دیں"
   },
   "booking": {
     "booking": "بکنگ",
@@ -219,6 +223,16 @@
     "tripDetailsHint": "چیک اِن، چیک آؤٹ اور مہمانوں کی تعداد منتخب کریں۔",
     "stepDates": "تاریخیں اور مہمان",
     "stepPayment": "ادائیگی",
+    "stepDone": "مکمل",
+    "flowLabel": "بکنگ کی پیش رفت",
+    "paymentCompleteTitle": "بکنگ تصدیق شدہ",
+    "paymentCompleteHint": "آپ کی بکنگ تصدیق ہو گئی۔ قیام کے بعد جائزہ دے سکتے ہیں۔",
+    "reviewAndPayTitle": "جائزہ اور ادائیگی",
+    "reviewAndPayHint": "سفر کی تفصیلات چیک کریں، پھر mock ادائیگی کی تصدیق کریں۔",
+    "confirmedBookingTitle": "بکنگ کا خلاصہ",
+    "bookingConfirmedShort": "بکنگ تصدیق شدہ",
+    "reviewPrompt": "قیام کے بعد پراپرٹی صفحے پر اپنا تجربہ شیئر کریں۔",
+    "pendingPaymentCount": "{{count}} بکنگ(ز) ادائیگی کے منتظر",
     "staySummary": "قیام کا خلاصہ",
     "nightsCount": "{{count}} راتیں",
     "estimatedTotal": "تخمینی کل",
@@ -479,6 +493,10 @@
     "sentimentInsights": "جذبات کی بصیرت",
     "trustedReviews": "قابل اعتماد جائزے",
     "mainWorkflow": "مرکزی ورک فلو",
+    "workflowHint": "تلاش → بکنگ → ادائیگی → جائزہ۔ سب ایک ہدایت یافتہ فلو میں۔",
+    "availableStaysTitle": "دستیاب قیام",
+    "availableStaysHint": "ایڈمن منظور شدہ پراپرٹیز جو ابھی بک کی جا سکتی ہیں۔",
+    "viewAllProperties": "تمام {{count}} پراپرٹیز دیکھیں",
     "workflowStep1": "مالک رجسٹر کرتا ہے اور پراپرٹی لسٹنگ بناتا ہے",
     "workflowStep2": "ایڈمن پراپرٹی کا جائزہ لے کر منظور کرتا ہے",
     "workflowStep3": "مہمان تلاش کرتا ہے، تفصیل دیکھتا ہے اور بکنگ کرتا ہے",

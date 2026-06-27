@@ -176,10 +176,13 @@
     "reviewCount": "{{count}} مراجعات",
     "homeSearchTitle": "ابحث عن إقامات معتمدة",
     "homeSearchHint": "تصفح قوائم موثوقة معتمدة من المشرف.",
+    "homeSearchHintLive": "تُحمَّل الإقامات المعتمدة فوراً. عدّل الفلاتر وستُحدَّث النتائج أدناه — دون الحاجة لصفحة أخرى.",
+    "homeFilteredHint": "عرض العقارات المطابقة لفلاترك.",
     "viewAllResults": "بحث متقدم",
     "featuredTitle": "عقارات مميزة",
     "featuredHint": "إقامات معتمدة مؤخراً ومتاحة الآن.",
-    "featuredEmpty": "لا توجد عقارات معتمدة بعد."
+    "featuredEmpty": "لا توجد عقارات معتمدة بعد.",
+    "viewAndBook": "عرض وحجز"
   },
   "propertyDetail": {
     "loading": "جاري تحميل تفاصيل العقار...",
@@ -195,7 +198,8 @@
     "totalReviews": "إجمالي المراجعات",
     "averageRating": "متوسط التقييم",
     "topAspects": "أبرز الجوانب المذكورة",
-    "noAspects": "لا توجد جوانب متاحة بعد"
+    "noAspects": "لا توجد جوانب متاحة بعد",
+    "bookingStepsHint": "اختر التواريخ ← أكد الدفع ← اترك مراجعة"
   },
   "booking": {
     "booking": "الحجز",
@@ -219,6 +223,16 @@
     "tripDetailsHint": "اختر تاريخ الوصول والمغادرة وعدد الضيوف.",
     "stepDates": "التواريخ والضيوف",
     "stepPayment": "الدفع",
+    "stepDone": "تم",
+    "flowLabel": "تقدم الحجز",
+    "paymentCompleteTitle": "تم تأكيد الحجز",
+    "paymentCompleteHint": "تم تأكيد حجزك. يمكنك ترك مراجعة بعد الإقامة.",
+    "reviewAndPayTitle": "مراجعة ودفع",
+    "reviewAndPayHint": "تحقق من تفاصيل الرحلة، ثم أكد الدفع التجريبي.",
+    "confirmedBookingTitle": "ملخص الحجز",
+    "bookingConfirmedShort": "تم تأكيد الحجز",
+    "reviewPrompt": "شارك تجربتك على صفحة العقار بعد الإقامة.",
+    "pendingPaymentCount": "{{count}} حجز(حجوزات) بانتظار الدفع",
     "staySummary": "ملخص الإقامة",
     "nightsCount": "{{count}} ليالٍ",
     "estimatedTotal": "الإجمالي التقديري",
@@ -479,6 +493,10 @@
     "sentimentInsights": "رؤى المشاعر",
     "trustedReviews": "مراجعات موثوقة",
     "mainWorkflow": "سير العمل الرئيسي",
+    "workflowHint": "بحث → حجز → دفع → مراجعة. كل شيء في مسار واحد موجّه.",
+    "availableStaysTitle": "إقامات متاحة",
+    "availableStaysHint": "عقارات معتمدة من المشرف يمكن حجزها الآن.",
+    "viewAllProperties": "عرض جميع العقارات ({{count}})",
     "workflowStep1": "يسجل المالك وينشئ قائمة عقار",
     "workflowStep2": "يراجع المشرف العقار ويوافق عليه",
     "workflowStep3": "يبحث الضيف ويعرض التفاصيل ويحجز",

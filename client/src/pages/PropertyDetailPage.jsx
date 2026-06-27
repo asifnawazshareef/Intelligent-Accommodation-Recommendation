@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
   CalendarRange,
   MapPin,
@@ -10,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import PageLoader from "@/components/layout/PageLoader";
+import ActionLink from "@/components/ui/action-link";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import ReviewForm from "@/components/reviews/ReviewForm";
@@ -21,7 +23,6 @@ import {
   getPropertyReviews,
   getPropertySentimentSummary,
 } from "@/services/reviewService";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -157,12 +158,10 @@ const PropertyDetailPage = () => {
           <AlertTitle>{t("propertyDetail.errorTitle")}</AlertTitle>
           <AlertDescription>{error || t("propertyDetail.notFound")}</AlertDescription>
         </Alert>
-        <Link to="/search" className="mt-6 inline-block">
-          <Button variant="outline">
-            <ArrowLeft className="size-4" />
-            {t("propertyDetail.backToSearch")}
-          </Button>
-        </Link>
+        <ActionLink to="/search" variant="outline" className="mt-6">
+          <ArrowLeft className="size-4 shrink-0" />
+          {t("propertyDetail.backToSearch")}
+        </ActionLink>
       </div>
     );
   }
@@ -185,11 +184,12 @@ const PropertyDetailPage = () => {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <Link to="/search" className="mb-6 inline-flex">
-        <Button variant="ghost" size="sm" className="whitespace-normal">
-          <ArrowLeft className="size-4" />
-          {t("propertyDetail.backToSearch")}
-        </Button>
+      <Link
+        to="/search"
+        className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4 shrink-0" />
+        {t("propertyDetail.backToSearch")}
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
@@ -210,6 +210,9 @@ const PropertyDetailPage = () => {
             </p>
             <p className="text-2xl font-bold text-primary" dir="ltr">
               {formatPrice(property.price, t("common.currency"))}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("bookingPage.pricePerStay")}
             </p>
           </div>
 
@@ -286,6 +289,9 @@ const PropertyDetailPage = () => {
                 <p className="text-3xl font-bold text-primary" dir="ltr">
                   {formatPrice(property.price, t("common.currency"))}
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("bookingPage.pricePerStay")}
+                </p>
                 {summary?.averageRating > 0 && (
                   <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                     <Star className="size-4 fill-amber-400 text-amber-400" />
@@ -298,18 +304,22 @@ const PropertyDetailPage = () => {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Button size="lg" className="w-full whitespace-normal" asChild>
-                  <Link to={makeBookingPath}>{t("property.makeBooking")}</Link>
-                </Button>
-                <Button
-                  size="lg"
+                <ActionLink to={makeBookingPath} size="lg" className="h-11 w-full">
+                  {t("property.makeBooking")}
+                  <ArrowRight className="size-4 shrink-0" />
+                </ActionLink>
+                <ActionLink
+                  to={offlineBookingPath}
                   variant="outline"
-                  className="w-full whitespace-normal"
-                  asChild
+                  size="lg"
+                  className="h-11 w-full"
                 >
-                  <Link to={offlineBookingPath}>{t("offline.contactOwner")}</Link>
-                </Button>
+                  {t("offline.contactOwner")}
+                </ActionLink>
               </div>
+              <p className="text-center text-xs text-muted-foreground">
+                {t("propertyDetail.bookingStepsHint")}
+              </p>
             </CardContent>
           </Card>
         </aside>
@@ -317,12 +327,16 @@ const PropertyDetailPage = () => {
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 p-3 backdrop-blur-md lg:hidden">
         <div className="mx-auto flex max-w-7xl gap-2">
-          <Button variant="outline" className="flex-1 whitespace-normal" asChild>
-            <Link to={offlineBookingPath}>{t("offline.contactOwner")}</Link>
-          </Button>
-          <Button className="flex-1 whitespace-normal" asChild>
-            <Link to={makeBookingPath}>{t("property.makeBooking")}</Link>
-          </Button>
+          <ActionLink
+            to={offlineBookingPath}
+            variant="outline"
+            className="h-11 flex-1"
+          >
+            {t("offline.contactOwner")}
+          </ActionLink>
+          <ActionLink to={makeBookingPath} className="h-11 flex-1">
+            {t("property.makeBooking")}
+          </ActionLink>
         </div>
       </div>
 

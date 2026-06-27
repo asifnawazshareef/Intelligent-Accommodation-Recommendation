@@ -176,10 +176,13 @@
     "reviewCount": "{{count}} reviews",
     "homeSearchTitle": "Search approved stays",
     "homeSearchHint": "Browse trusted listings approved by admins.",
+    "homeSearchHintLive": "Approved stays load instantly. Refine filters and results update below — no extra page needed.",
+    "homeFilteredHint": "Showing properties that match your filters.",
     "viewAllResults": "Advanced search",
     "featuredTitle": "Featured properties",
     "featuredHint": "Recently approved accommodations available now.",
-    "featuredEmpty": "No approved properties yet. Check back after admin approval."
+    "featuredEmpty": "No approved properties yet. Check back after admin approval.",
+    "viewAndBook": "View & book"
   },
   "propertyDetail": {
     "loading": "Loading property details...",
@@ -195,7 +198,8 @@
     "totalReviews": "Total Reviews",
     "averageRating": "Average Rating",
     "topAspects": "Top Mentioned Aspects",
-    "noAspects": "No aspects available yet"
+    "noAspects": "No aspects available yet",
+    "bookingStepsHint": "Select dates → confirm payment → leave a review"
   },
   "booking": {
     "booking": "Booking",
@@ -219,6 +223,16 @@
     "tripDetailsHint": "Choose check-in, check-out, and how many guests will stay.",
     "stepDates": "Dates & guests",
     "stepPayment": "Payment",
+    "stepDone": "Done",
+    "flowLabel": "Booking progress",
+    "paymentCompleteTitle": "Booking confirmed",
+    "paymentCompleteHint": "Your reservation is confirmed. You can leave a review after your stay.",
+    "reviewAndPayTitle": "Review & pay",
+    "reviewAndPayHint": "Check your trip details, then confirm mock payment to finish.",
+    "confirmedBookingTitle": "Reservation summary",
+    "bookingConfirmedShort": "Booking confirmed",
+    "reviewPrompt": "Share your experience on the property page after your stay.",
+    "pendingPaymentCount": "{{count}} booking(s) awaiting payment",
     "staySummary": "Stay summary",
     "nightsCount": "{{count}} nights",
     "estimatedTotal": "Estimated total",
@@ -479,6 +493,10 @@
     "sentimentInsights": "Sentiment insights",
     "trustedReviews": "Trusted reviews",
     "mainWorkflow": "Main Workflow",
+    "workflowHint": "Search → book → pay → review. Everything in one guided flow.",
+    "availableStaysTitle": "Available stays",
+    "availableStaysHint": "Admin-approved properties you can book right now.",
+    "viewAllProperties": "View all {{count}} properties",
     "workflowStep1": "Owner registers and creates a property listing",
     "workflowStep2": "Admin reviews and approves the property",
     "workflowStep3": "Guest searches, views details, and makes a booking",

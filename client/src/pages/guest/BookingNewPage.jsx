@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageLoader from "@/components/layout/PageLoader";
+import BookingStepIndicator from "@/components/bookings/BookingStepIndicator";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import { formatDate, formatPrice } from "@/lib/formatters";
 import { getPropertyById } from "@/services/propertyService";
@@ -37,53 +38,6 @@ const countNights = (startDate, endDate) => {
   const end = new Date(`${endDate}T00:00:00`);
   const nights = Math.round((end - start) / (1000 * 60 * 60 * 24));
   return nights > 0 ? nights : 0;
-};
-
-const BookingStepIndicator = ({ currentStep, t }) => {
-  const steps = [
-    { id: 1, label: t("bookingPage.stepDates") },
-    { id: 2, label: t("bookingPage.stepPayment") },
-  ];
-
-  return (
-    <ol className="flex flex-wrap items-center gap-2 sm:gap-3">
-      {steps.map((step, index) => {
-        const isActive = step.id === currentStep;
-        const isComplete = step.id < currentStep;
-
-        return (
-          <li key={step.id} className="flex items-center gap-2 sm:gap-3">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium sm:text-sm",
-                isActive && "bg-primary/15 text-primary",
-                isComplete && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-                !isActive && !isComplete && "bg-muted text-muted-foreground",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold",
-                  isActive && "bg-primary text-primary-foreground",
-                  isComplete && "bg-emerald-600 text-white",
-                  !isActive && !isComplete && "bg-muted-foreground/20 text-muted-foreground",
-                )}
-              >
-                {step.id}
-              </span>
-              {step.label}
-            </span>
-            {index < steps.length - 1 && (
-              <span
-                className="hidden h-px w-6 bg-border sm:block"
-                aria-hidden="true"
-              />
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
 };
 
 const BookingNewPage = () => {
@@ -390,7 +344,7 @@ const BookingNewPage = () => {
                     {formatPrice(property.price, t("common.currency"))}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {t("bookingPage.pricePerStay")}
+                    {t("bookingPage.selectDatesHint")}
                   </p>
                 </div>
 

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -46,18 +47,24 @@ const PropertySearchCard = ({ property }) => {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="mt-auto space-y-2 pb-4">
-          <p className="text-lg font-semibold text-primary" dir="ltr">
-            {formatPrice(property.price, t("common.currency"))}
-          </p>
+        <CardContent className="mt-auto space-y-3 pb-4">
+          <div>
+            <p className="text-lg font-semibold text-primary" dir="ltr">
+              {formatPrice(property.price, t("common.currency"))}
+            </p>
+            {property.reviewCount > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t("search.reviewCount", { count: property.reviewCount })}
+              </p>
+            )}
+          </div>
           <p className="line-clamp-2 text-sm text-muted-foreground">
             {property.description}
           </p>
-          {property.reviewCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {t("search.reviewCount", { count: property.reviewCount })}
-            </p>
-          )}
+          <p className="inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:underline">
+            {t("search.viewAndBook")}
+            <ArrowRight className="size-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
+          </p>
         </CardContent>
       </Card>
     </Link>

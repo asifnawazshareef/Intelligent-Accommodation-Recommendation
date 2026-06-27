@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { emptySearchValues } from "@/lib/searchParams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const emptySearchValues = {
-  city: "",
-  title: "",
-  minPrice: "",
-  maxPrice: "",
-  availabilityDate: "",
-};
+export { emptySearchValues };
 
 const PropertySearchForm = ({
   values,
@@ -60,7 +55,7 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder={t("search.cityPlaceholder")}
                 disabled={loading}
-                className="w-full"
+                className="h-10 w-full bg-background/80"
               />
             </div>
             <div className="space-y-2">
@@ -72,7 +67,7 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder={t("search.titlePlaceholder")}
                 disabled={loading}
-                className="w-full"
+                className="h-10 w-full bg-background/80"
               />
             </div>
           </div>
@@ -89,7 +84,7 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder="5000"
                 disabled={loading}
-                className="w-full"
+                className="h-10 w-full bg-background/80"
                 dir="ltr"
               />
             </div>
@@ -104,7 +99,7 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder="25000"
                 disabled={loading}
-                className="w-full"
+                className="h-10 w-full bg-background/80"
                 dir="ltr"
               />
             </div>
@@ -117,20 +112,20 @@ const PropertySearchForm = ({
                 value={values.availabilityDate}
                 onChange={handleChange}
                 disabled={loading}
-                className="w-full"
+                className="h-10 w-full bg-background/80"
                 dir="ltr"
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
             {onReset && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={onReset}
                 disabled={loading}
-                className="w-full whitespace-normal sm:w-auto"
+                className="h-10 w-full sm:w-auto"
               >
                 {t("search.clearFilters")}
               </Button>
@@ -138,9 +133,9 @@ const PropertySearchForm = ({
             <Button
               type="submit"
               disabled={loading}
-              className="w-full whitespace-normal sm:w-auto"
+              className="h-10 w-full gap-2 sm:w-auto"
             >
-              <Search className="size-4" />
+              <Search className="size-4 shrink-0" />
               {t("common.search")}
             </Button>
           </div>
