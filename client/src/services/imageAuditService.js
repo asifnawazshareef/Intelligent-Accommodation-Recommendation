@@ -5,5 +5,8 @@ export const getImageAuditList = (status) =>
     params: status && status !== "all" ? { status } : undefined,
   });
 
-export const updateImageAudit = (id, data) =>
-  api.put(`/admin/image-audit/${id}`, data);
+export const updateImageAudit = ({ propertyId, imageId }, data) =>
+  api.put(
+    `/admin/image-audit/${encodeURIComponent(propertyId)}/${encodeURIComponent(imageId)}`,
+    data,
+  );

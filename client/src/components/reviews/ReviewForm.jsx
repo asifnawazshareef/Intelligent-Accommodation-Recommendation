@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarRange, Loader2, MessageSquarePlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -24,8 +24,9 @@ import {
   createReview,
   getEligibleBookings,
 } from "@/services/reviewService";
+import { formatBookingLabel } from "@/lib/formatters";
 
-import { formatDate } from "@/lib/formatters";
+const RATING_OPTIONS = ["5", "4", "3", "2", "1"];
 
 const ReviewForm = ({ propertyId, onReviewCreated }) => {
   const { t, i18n } = useTranslation();
@@ -40,6 +41,9 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const getBookingLabel = (booking) =>
+    formatBookingLabel(booking, i18n.language, t);
+
   useEffect(() => {
     const fetchEligible = async () => {
       setLoadingBookings(true);
@@ -51,7 +55,7 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
         setEligibleBookings(bookings);
         setForm((prev) => ({
           ...prev,
-          booking: bookings[0]?._id || "",
+          booking: bookings[0]?._id ? String(bookings[0]._id) : "",
         }));
       } catch (err) {
         setEligibleBookings([]);
@@ -64,31 +68,53 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
     fetchEligible();
   }, [propertyId, t]);
 
+  const selectedBooking = useMemo(
+    () =>
+      eligibleBookings.find(
+        (booking) => String(booking._id) === String(form.booking),
+      ) || null,
+    [eligibleBookings, form.booking],
+  );
+
+  const selectedRatingLabel = t(`review.rating${form.rating}`);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     setSuccess("");
+
+    if (!form.booking) {
+      setError(t("review.selectBookingRequired"));
+      return;
+    }
+
+    if (!form.text.trim()) {
+      setError(t("review.textRequired"));
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await createReview({
+      await createReview({
         property: propertyId,
         booking: form.booking,
         rating: Number(form.rating),
-        text: form.text,
+        text: form.text.trim(),
       });
 
-      onReviewCreated?.(response.data.data);
       setSuccess(t("review.submitSuccess"));
+      await onReviewCreated?.();
 
       setEligibleBookings((prev) => {
         const remaining = prev.filter(
-          (booking) => booking._id !== form.booking,
+          (booking) => String(booking._id) !== String(form.booking),
         );
         setForm((current) => ({
           ...current,
           text: "",
-          booking: remaining[0]?._id || "",
+          rating: "5",
+          booking: remaining[0]?._id ? String(remaining[0]._id) : "",
         }));
         return remaining;
       });
@@ -153,20 +179,37 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
               }
             >
               <SelectTrigger id="booking" className="w-full">
-                <SelectValue placeholder={t("review.selectBooking")} />
+                <SelectValue placeholder={t("review.selectBooking")}>
+                  {selectedBooking ? getBookingLabel(selectedBooking) : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {eligibleBookings.map((booking) => (
-                  <SelectItem key={booking._id} value={booking._id}>
-                    <span className="inline-flex items-center gap-2">
-                      <CalendarRange className="size-3.5 shrink-0" />
-                      {formatDate(booking.startDate, i18n.language)} –{" "}
-                      {formatDate(booking.endDate, i18n.language)}
-                    </span>
-                  </SelectItem>
-                ))}
+                {eligibleBookings.map((booking) => {
+                  const bookingId = String(booking._id);
+                  const label = getBookingLabel(booking);
+
+                  return (
+                    <SelectItem
+                      key={bookingId}
+                      value={bookingId}
+                      label={label}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <CalendarRange className="size-3.5 shrink-0" />
+                        <span>{label}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
+            {selectedBooking ? (
+              <p className="text-xs text-muted-foreground">
+                {t("review.bookingHint", {
+                  count: selectedBooking.guests ?? 1,
+                })}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -178,14 +221,18 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
               }
             >
               <SelectTrigger id="rating" className="w-full">
-                <SelectValue />
+                <SelectValue>{selectedRatingLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">{t("review.rating5")}</SelectItem>
-                <SelectItem value="4">{t("review.rating4")}</SelectItem>
-                <SelectItem value="3">{t("review.rating3")}</SelectItem>
-                <SelectItem value="2">{t("review.rating2")}</SelectItem>
-                <SelectItem value="1">{t("review.rating1")}</SelectItem>
+                {RATING_OPTIONS.map((value) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    label={t(`review.rating${value}`)}
+                  >
+                    {t(`review.rating${value}`)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

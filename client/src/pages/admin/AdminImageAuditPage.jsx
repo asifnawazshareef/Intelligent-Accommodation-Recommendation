@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CheckCircle2,
-  ImageOff,
+  ExternalLink,
   Loader2,
   RefreshCw,
   ShieldAlert,
@@ -12,6 +13,7 @@ import {
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
 import {
   getImageAuditList,
@@ -20,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -40,41 +43,56 @@ import {
 import { cn } from "@/lib/utils";
 
 const FILTERS = ["all", "pending", "verified", "suspicious", "rejected"];
+const STATUS_OPTIONS = FILTERS.filter((status) => status !== "all");
 
-const AuditImagePreview = ({ url, alt }) => {
-  const { t } = useTranslation();
-  const [status, setStatus] = useState("loading");
+const QUICK_ACTIONS = [
+  { key: "verify", labelKey: "verify", icon: CheckCircle2, iconClass: "text-emerald-600" },
+  { key: "suspicious", labelKey: "markSuspicious", icon: ShieldAlert, iconClass: "text-orange-600" },
+  { key: "reject", labelKey: "reject", icon: ShieldX, iconClass: "text-destructive" },
+  { key: "pending", labelKey: "resetPending", icon: RefreshCw, iconClass: "" },
+];
 
-  return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/60 bg-muted/30 sm:aspect-[4/3] sm:max-w-[220px]">
-      {status === "loading" && (
-        <div className="flex h-full min-h-32 items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {status === "error" && (
-        <div className="flex h-full min-h-32 flex-col items-center justify-center gap-1 p-3 text-center text-xs text-muted-foreground">
-          <ImageOff className="size-5" />
-          {t("imageAudit.previewError")}
-        </div>
-      )}
-      <img
-        src={url}
-        alt={alt}
-        className={cn(
-          "h-full w-full object-cover",
-          status === "loaded" ? "block" : "hidden",
-        )}
-        onLoad={() => setStatus("loaded")}
-        onError={() => setStatus("error")}
-      />
-    </div>
-  );
+const PRESETS = {
+  verify: { verificationStatus: "verified", aiScore: "0.95" },
+  suspicious: { verificationStatus: "suspicious", aiScore: "0.45" },
+  reject: { verificationStatus: "rejected", aiScore: "0" },
+  pending: { verificationStatus: "pending", aiScore: "0.85" },
+};
+
+const buildDraft = (item) => ({
+  verificationStatus: item.verificationStatus,
+  aiScore: item.aiScore?.toString() ?? "0",
+});
+
+const parseAiScore = (value) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+
+  const score = Number(value);
+  if (Number.isNaN(score)) {
+    return null;
+  }
+
+  return score;
+};
+
+const isDraftDirty = (item, draft) => {
+  if (!draft) return false;
+
+  const statusChanged = draft.verificationStatus !== item.verificationStatus;
+  const parsedScore = parseAiScore(draft.aiScore);
+  const savedScore = item.aiScore ?? 0;
+  const scoreChanged =
+    parsedScore !== undefined &&
+    Math.abs(parsedScore - savedScore) > 0.0001;
+
+  return statusChanged || scoreChanged;
 };
 
 const AuditCardSkeleton = () => (
   <Card className="glass-card overflow-hidden">
-    <Skeleton className="aspect-video w-full rounded-none sm:max-w-[220px]" />
+    <Skeleton className="aspect-video w-full rounded-none" />
     <CardHeader className="space-y-2">
       <Skeleton className="h-5 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
@@ -91,13 +109,16 @@ const AdminImageAuditPage = () => {
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [filter, setFilter] = useState("all");
   const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState("");
+  const [savedIds, setSavedIds] = useState({});
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       const response = await getImageAuditList();
@@ -106,12 +127,10 @@ const AdminImageAuditPage = () => {
 
       const nextDrafts = {};
       data.forEach((item) => {
-        nextDrafts[item.id] = {
-          verificationStatus: item.verificationStatus,
-          aiScore: item.aiScore?.toString() ?? "0",
-        };
+        nextDrafts[item.id] = buildDraft(item);
       });
       setDrafts(nextDrafts);
+      setSavedIds({});
     } catch (err) {
       setError(err.response?.data?.message || t("imageAudit.loadError"));
     } finally {
@@ -147,6 +166,12 @@ const AdminImageAuditPage = () => {
   }, [allItems]);
 
   const updateDraft = (id, field, value) => {
+    setSuccess("");
+    setSavedIds((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     setDrafts((prev) => ({
       ...prev,
       [id]: {
@@ -156,15 +181,85 @@ const AdminImageAuditPage = () => {
     }));
   };
 
-  const applyQuickAction = async (item, action) => {
-    const presets = {
-      verify: { verificationStatus: "verified", aiScore: "0.95" },
-      suspicious: { verificationStatus: "suspicious", aiScore: "0.45" },
-      reject: { verificationStatus: "rejected", aiScore: "0" },
-      pending: { verificationStatus: "pending", aiScore: "0.85" },
+  const persistItem = async (item, draftValues) => {
+    const draft = draftValues || drafts[item.id];
+    if (!draft) return false;
+
+    const parsedScore = parseAiScore(draft.aiScore);
+    if (parsedScore === null) {
+      setError(t("imageAudit.invalidScore"));
+      return false;
+    }
+
+    if (
+      parsedScore !== undefined &&
+      (parsedScore < 0 || parsedScore > 1)
+    ) {
+      setError(t("imageAudit.invalidScore"));
+      return false;
+    }
+
+    const payload = {
+      verificationStatus: draft.verificationStatus,
     };
 
-    const preset = presets[action];
+    if (parsedScore !== undefined) {
+      payload.aiScore = parsedScore;
+    }
+
+    setSavingId(item.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await updateImageAudit(
+        {
+          propertyId: item.propertyId,
+          imageId: item.imageId,
+        },
+        payload,
+      );
+
+      const updated = response.data.data;
+
+      setAllItems((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                verificationStatus: updated.verificationStatus,
+                aiScore: updated.aiScore,
+              }
+            : entry,
+        ),
+      );
+
+      setDrafts((prev) => ({
+        ...prev,
+        [item.id]: {
+          verificationStatus: updated.verificationStatus,
+          aiScore: updated.aiScore?.toString() ?? "0",
+        },
+      }));
+
+      setSavedIds((prev) => ({ ...prev, [item.id]: true }));
+      setSuccess(
+        t("imageAudit.saveSuccess", {
+          property: item.propertyTitle,
+        }),
+      );
+
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.message || t("imageAudit.saveError"));
+      return false;
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const applyQuickAction = async (item, action) => {
+    const preset = PRESETS[action];
     if (!preset) return;
 
     setDrafts((prev) => ({
@@ -172,47 +267,11 @@ const AdminImageAuditPage = () => {
       [item.id]: { ...prev[item.id], ...preset },
     }));
 
-    await saveItem(item.id, preset);
+    await persistItem(item, preset);
   };
 
-  const saveItem = async (id, override) => {
-    const draft = override || drafts[id];
-    if (!draft) return;
-
-    setSavingId(id);
-    setError("");
-
-    try {
-      const response = await updateImageAudit(id, {
-        verificationStatus: draft.verificationStatus,
-        aiScore: Number(draft.aiScore),
-      });
-
-      const updated = response.data.data;
-      setAllItems((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                verificationStatus: updated.verificationStatus,
-                aiScore: updated.aiScore,
-              }
-            : item,
-        ),
-      );
-
-      setDrafts((prev) => ({
-        ...prev,
-        [id]: {
-          verificationStatus: updated.verificationStatus,
-          aiScore: updated.aiScore?.toString() ?? "0",
-        },
-      }));
-    } catch (err) {
-      setError(err.response?.data?.message || t("imageAudit.saveError"));
-    } finally {
-      setSavingId("");
-    }
+  const saveItem = async (item) => {
+    await persistItem(item);
   };
 
   const filterLabel = (value) => {
@@ -232,15 +291,25 @@ const AdminImageAuditPage = () => {
               {t("imageAudit.pageHint")}
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={fetchItems}
-            disabled={loading}
-            className="w-full min-w-fit whitespace-normal sm:w-auto"
-          >
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-            {t("imageAudit.refresh")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="whitespace-normal">
+              {t("imageAudit.totalImages", { count: counts.all })}
+            </Badge>
+            {counts.pending > 0 && (
+              <Badge className="whitespace-normal bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-300">
+                {t("imageAudit.pendingCount", { count: counts.pending })}
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              onClick={fetchItems}
+              disabled={loading}
+              className="w-full min-w-fit whitespace-normal sm:w-auto"
+            >
+              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+              {t("imageAudit.refresh")}
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -253,7 +322,7 @@ const AdminImageAuditPage = () => {
               className="whitespace-normal"
             >
               {filterLabel(value)}
-              {!loading && value !== "all" && counts[value] > 0 && (
+              {!loading && (
                 <span className="ms-1 rounded-full bg-background/20 px-1.5 text-xs">
                   {counts[value]}
                 </span>
@@ -266,6 +335,13 @@ const AdminImageAuditPage = () => {
           <Alert variant="destructive">
             <AlertTitle>{t("imageAudit.errorTitle")}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert>
+            <AlertTitle>{t("imageAudit.successTitle")}</AlertTitle>
+            <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
 
@@ -311,35 +387,72 @@ const AdminImageAuditPage = () => {
         {!loading && items.length > 0 && (
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => {
-              const draft = drafts[item.id] || {};
+              const draft = drafts[item.id] || buildDraft(item);
               const isSaving = savingId === item.id;
+              const isDirty = isDraftDirty(item, draft);
+              const isSaved = savedIds[item.id] && !isDirty;
 
               return (
-                <Card key={item.id} className="glass-card flex flex-col overflow-hidden">
+                <Card
+                  key={item.id}
+                  className={cn(
+                    "glass-card flex flex-col overflow-hidden transition-shadow",
+                    isDirty && "ring-1 ring-primary/30",
+                    isSaved && "ring-1 ring-emerald-500/30",
+                  )}
+                >
+                  <PropertyCoverImage
+                    src={item.url}
+                    alt={item.propertyTitle}
+                    className="rounded-none border-b border-border/60"
+                  />
+
                   <CardHeader className="space-y-3 pb-3">
-                    <div className="flex flex-col gap-4 sm:flex-row">
-                      <AuditImagePreview
-                        url={item.url}
-                        alt={item.propertyTitle}
-                      />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <CardTitle className="line-clamp-2 text-base">
-                          {item.propertyTitle}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-1.5">
+                    <div className="space-y-2">
+                      <CardTitle className="line-clamp-2 text-base">
+                        {item.propertyTitle}
+                      </CardTitle>
+                      <CardDescription className="space-y-1">
+                        <span className="flex items-center gap-1.5">
                           <User className="size-3.5 shrink-0" />
                           <span className="truncate">{item.ownerName}</span>
-                        </CardDescription>
-                        <div className="flex flex-wrap gap-2">
-                          <ImageVerificationBadge
-                            status={item.verificationStatus}
-                          />
-                          <PropertyStatusBadge status={item.propertyStatus} />
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground" dir="ltr">
-                          {item.url}
-                        </p>
+                        </span>
+                        {item.ownerEmail && (
+                          <span className="block truncate text-xs" dir="ltr">
+                            {item.ownerEmail}
+                          </span>
+                        )}
+                      </CardDescription>
+                      <div className="flex flex-wrap gap-2">
+                        <ImageVerificationBadge
+                          status={item.verificationStatus}
+                        />
+                        <PropertyStatusBadge status={item.propertyStatus} />
+                        {isSaved && (
+                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="size-3" />
+                            {t("imageAudit.saved")}
+                          </Badge>
+                        )}
                       </div>
+                      <p
+                        className="line-clamp-2 break-all text-xs text-muted-foreground"
+                        dir="ltr"
+                        title={item.url}
+                      >
+                        {item.url}
+                      </p>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        asChild
+                      >
+                        <Link to={`/properties/${item.propertyId}`}>
+                          {t("imageAudit.viewProperty")}
+                          <ExternalLink className="size-3" />
+                        </Link>
+                      </Button>
                     </div>
                   </CardHeader>
 
@@ -348,7 +461,7 @@ const AdminImageAuditPage = () => {
                       <div className="space-y-2">
                         <Label>{t("imageAudit.statusLabel")}</Label>
                         <Select
-                          value={draft.verificationStatus || item.verificationStatus}
+                          value={draft.verificationStatus}
                           onValueChange={(value) =>
                             updateDraft(item.id, "verificationStatus", value)
                           }
@@ -358,7 +471,7 @@ const AdminImageAuditPage = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {FILTERS.filter((s) => s !== "all").map((status) => (
+                            {STATUS_OPTIONS.map((status) => (
                               <SelectItem key={status} value={status}>
                                 {t(`imageAudit.status.${status}`, status)}
                               </SelectItem>
@@ -377,7 +490,7 @@ const AdminImageAuditPage = () => {
                           min="0"
                           max="1"
                           step="0.01"
-                          value={draft.aiScore ?? ""}
+                          value={draft.aiScore}
                           onChange={(e) =>
                             updateDraft(item.id, "aiScore", e.target.value)
                           }
@@ -385,70 +498,45 @@ const AdminImageAuditPage = () => {
                           dir="ltr"
                           className="w-full"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          {t("imageAudit.scoreHint")}
+                        </p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isSaving}
-                        onClick={() => applyQuickAction(item, "verify")}
-                        className="whitespace-normal"
-                      >
-                        <CheckCircle2 className="size-4 text-emerald-600" />
-                        {t("imageAudit.verify")}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isSaving}
-                        onClick={() => applyQuickAction(item, "suspicious")}
-                        className="whitespace-normal"
-                      >
-                        <ShieldAlert className="size-4 text-orange-600" />
-                        {t("imageAudit.markSuspicious")}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isSaving}
-                        onClick={() => applyQuickAction(item, "reject")}
-                        className="whitespace-normal"
-                      >
-                        <ShieldX className="size-4 text-destructive" />
-                        {t("imageAudit.reject")}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={isSaving}
-                        onClick={() => applyQuickAction(item, "pending")}
-                        className="whitespace-normal"
-                      >
-                        <RefreshCw className="size-4" />
-                        {t("imageAudit.resetPending")}
-                      </Button>
+                      {QUICK_ACTIONS.map(({ key, labelKey, icon: Icon, iconClass }) => (
+                        <Button
+                          key={key}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={isSaving}
+                          onClick={() => applyQuickAction(item, key)}
+                          className="whitespace-normal"
+                        >
+                          <Icon className={cn("size-4", iconClass)} />
+                          {t(`imageAudit.${labelKey}`)}
+                        </Button>
+                      ))}
                     </div>
                   </CardContent>
 
-                  <CardFooter className="border-t border-border/60 pt-4">
+                  <CardFooter className="mt-auto border-t border-border/60 pt-4">
                     <Button
                       className="w-full whitespace-normal"
-                      disabled={isSaving}
-                      onClick={() => saveItem(item.id)}
+                      disabled={isSaving || !isDirty}
+                      onClick={() => saveItem(item)}
                     >
                       {isSaving ? (
                         <>
                           <Loader2 className="size-4 animate-spin" />
                           {t("common.loading")}
                         </>
-                      ) : (
+                      ) : isDirty ? (
                         t("imageAudit.saveDecision")
+                      ) : (
+                        t("imageAudit.noChanges")
                       )}
                     </Button>
                   </CardFooter>

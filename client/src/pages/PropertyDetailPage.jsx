@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   Building2,
   CalendarRange,
-  ImageOff,
-  Loader2,
   MapPin,
   Star,
 } from "lucide-react";
@@ -13,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import PageLoader from "@/components/layout/PageLoader";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
@@ -34,15 +33,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
 const PropertyImageGallery = ({ images = [], title }) => {
-  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [status, setStatus] = useState("loading");
-
   const activeImage = images[activeIndex];
-
-  useEffect(() => {
-    setStatus("loading");
-  }, [activeIndex, activeImage?.url]);
 
   if (!images.length) {
     return (
@@ -54,30 +46,15 @@ const PropertyImageGallery = ({ images = [], title }) => {
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-[16/10] overflow-hidden rounded-xl border border-border/60 bg-muted/30">
-        {status === "loading" && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
-        {status === "error" && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-            <ImageOff className="size-8" />
-            <span className="text-sm">{t("propertyDetail.imageError")}</span>
-          </div>
-        )}
-        <img
-          src={activeImage.url}
+      <div className="relative">
+        <PropertyCoverImage
+          key={activeImage?.url || activeIndex}
+          src={activeImage?.url}
           alt={title}
-          className={cn(
-            "h-full w-full object-cover",
-            status === "loaded" ? "block" : "hidden",
-          )}
-          onLoad={() => setStatus("loaded")}
-          onError={() => setStatus("error")}
+          className="aspect-[16/10] rounded-xl border border-border/60"
         />
         {activeImage?.verificationStatus && (
-          <div className="absolute start-3 top-3">
+          <div className="absolute start-3 top-3 z-10">
             <ImageVerificationBadge status={activeImage.verificationStatus} />
           </div>
         )}
@@ -101,6 +78,7 @@ const PropertyImageGallery = ({ images = [], title }) => {
                 src={image.url}
                 alt={`${title} ${index + 1}`}
                 className="h-full w-full object-cover"
+                loading="lazy"
               />
             </button>
           ))}

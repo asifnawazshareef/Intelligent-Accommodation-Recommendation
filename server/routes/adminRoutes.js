@@ -25,7 +25,7 @@ router.put("/users/:id/verify", updateUserVerification);
 router.put("/users/:id/role", updateUserRole);
 
 router.get("/image-audit", getImageAuditList);
-router.put("/image-audit/:id", updateImageAudit);
+router.put("/image-audit/:propertyId/:imageId", updateImageAudit);
 
 router.get("/listings/pending", getPendingListings);
 router.put("/listings/:id/approve", approveListing);

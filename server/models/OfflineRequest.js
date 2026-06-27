@@ -37,6 +37,11 @@ const offlineRequestSchema = new mongoose.Schema(
       ref: "Property",
       default: null,
     },
+    guest: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     responseMessage: {
       type: String,
       trim: true,

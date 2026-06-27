@@ -4,6 +4,18 @@ import Property from "../models/Property.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const serializeOfflineRequest = (request) => ({
+  ...request,
+  _id: request._id.toString(),
+  property: request.property
+    ? {
+        ...request.property,
+        _id: request.property._id?.toString(),
+      }
+    : null,
+  guest: request.guest?.toString?.() || request.guest || null,
+});
+
 const isValidDateString = (value) => {
   if (!value || typeof value !== "string") {
     return false;
@@ -88,7 +100,11 @@ export const createOfflineRequest = async (req, res, next) => {
       startDate: startDate.trim(),
       endDate: endDate.trim(),
       roomType: roomType.trim(),
-      property: property || null,
+      property: property ? new mongoose.Types.ObjectId(property) : null,
+      guest:
+        req.user?.role === "guest"
+          ? req.user._id
+          : null,
       responseMessage: "",
       status: "pending",
     });
@@ -122,7 +138,55 @@ export const getOwnerOfflineRequests = async (req, res, next) => {
     res.json({
       success: true,
       count: requests.length,
-      data: requests,
+      data: requests.map(serializeOfflineRequest),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getGuestOfflineRequests = async (req, res, next) => {
+  try {
+    const matchConditions = [{ guest: req.user._id }];
+
+    if (req.user.phone?.trim()) {
+      matchConditions.push({
+        guest: null,
+        phone: req.user.phone.trim(),
+      });
+    }
+
+    const requests = await OfflineRequest.find({
+      $or: matchConditions,
+    })
+      .populate("property", "title location status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const uniqueRequests = [];
+    const seenIds = new Set();
+
+    requests.forEach((request) => {
+      const id = request._id.toString();
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+      uniqueRequests.push(request);
+    });
+
+    if (req.user.phone?.trim()) {
+      await OfflineRequest.updateMany(
+        {
+          guest: null,
+          phone: req.user.phone.trim(),
+        },
+        { guest: req.user._id },
+      );
+    }
+
+    res.json({
+      success: true,
+      count: uniqueRequests.length,
+      data: uniqueRequests.map(serializeOfflineRequest),
     });
   } catch (error) {
     next(error);
@@ -172,7 +236,7 @@ export const respondToOfflineRequest = async (req, res, next) => {
     res.json({
       success: true,
       message: "Response saved successfully",
-      data: updatedRequest,
+      data: serializeOfflineRequest(updatedRequest),
     });
   } catch (error) {
     next(error);

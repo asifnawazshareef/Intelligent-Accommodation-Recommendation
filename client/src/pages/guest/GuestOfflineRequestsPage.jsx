@@ -1,28 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CalendarRange,
   Loader2,
   MapPin,
   MessageSquare,
-  Phone,
   RefreshCw,
-  User,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import OfflineRequestStatusBadge from "@/components/offline/OfflineRequestStatusBadge";
-import {
-  getOwnerOfflineRequests,
-  respondToOfflineRequest,
-} from "@/services/offlineRequestService";
+import { getGuestOfflineRequests } from "@/services/offlineRequestService";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -45,34 +38,22 @@ const RequestCardSkeleton = () => (
   </Card>
 );
 
-const OwnerOfflineRequestsPage = () => {
+const GuestOfflineRequestsPage = () => {
   const { t, i18n } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
-  const [drafts, setDrafts] = useState({});
-  const [savingId, setSavingId] = useState("");
-  const [successId, setSuccessId] = useState("");
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await getOwnerOfflineRequests();
-      const data = response.data.data || [];
-      setRequests(data);
-
-      const nextDrafts = {};
-      data.forEach((request) => {
-        nextDrafts[String(request._id)] = {
-          responseMessage: request.responseMessage || "",
-        };
-      });
-      setDrafts(nextDrafts);
+      const response = await getGuestOfflineRequests();
+      setRequests(response.data.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || t("offlinePage.ownerLoadError"));
+      setError(err.response?.data?.message || t("offlinePage.guestLoadError"));
     } finally {
       setLoading(false);
     }
@@ -97,38 +78,6 @@ const OwnerOfflineRequestsPage = () => {
     return tally;
   }, [requests]);
 
-  const handleRespond = async (requestId, status = "responded") => {
-    const requestKey = String(requestId);
-    const draft = drafts[requestKey] || drafts[requestId];
-    if (!draft?.responseMessage?.trim()) {
-      setError(t("offlinePage.responseRequired"));
-      return;
-    }
-
-    setSavingId(requestKey);
-    setError("");
-    setSuccessId("");
-
-    try {
-      const response = await respondToOfflineRequest(requestKey, {
-        responseMessage: draft.responseMessage.trim(),
-        status,
-      });
-
-      const updated = response.data.data;
-      setRequests((prev) =>
-        prev.map((item) =>
-          String(item._id) === requestKey ? updated : item,
-        ),
-      );
-      setSuccessId(requestKey);
-    } catch (err) {
-      setError(err.response?.data?.message || t("offlinePage.respondError"));
-    } finally {
-      setSavingId("");
-    }
-  };
-
   const filterLabel = (value) => {
     if (value === "all") return t("offlinePage.filterAll");
     return t(`offline.${value}`, value);
@@ -136,14 +85,14 @@ const OwnerOfflineRequestsPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("offlinePage.ownerTitle")}
+              {t("offlinePage.guestTitle")}
             </h1>
             <p className="mt-1 max-w-2xl text-muted-foreground">
-              {t("offlinePage.ownerHint")}
+              {t("offlinePage.guestHint")}
             </p>
           </div>
           <Button
@@ -167,7 +116,7 @@ const OwnerOfflineRequestsPage = () => {
               className="whitespace-normal"
             >
               {filterLabel(value)}
-              {!loading && value !== "all" && counts[value] > 0 && (
+              {!loading && (
                 <span className="ms-1 rounded-full bg-background/20 px-1.5 text-xs">
                   {counts[value]}
                 </span>
@@ -193,12 +142,19 @@ const OwnerOfflineRequestsPage = () => {
 
         {!loading && requests.length === 0 && (
           <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <MessageSquare className="size-10 text-muted-foreground/50" />
-              <h2 className="text-lg font-semibold">{t("offlinePage.emptyTitle")}</h2>
-              <p className="max-w-md text-sm text-muted-foreground">
-                {t("offlinePage.emptyHint")}
-              </p>
+              <div className="max-w-md space-y-1">
+                <h2 className="text-lg font-semibold">
+                  {t("offlinePage.guestEmptyTitle")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t("offlinePage.guestEmptyHint")}
+                </p>
+              </div>
+              <Button asChild>
+                <Link to="/offline-booking">{t("offline.offlineBookingRequest")}</Link>
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -215,8 +171,9 @@ const OwnerOfflineRequestsPage = () => {
           <div className="grid gap-4 lg:grid-cols-2">
             {filteredRequests.map((request) => {
               const requestId = String(request._id);
-              const isSaving = savingId === requestId;
-              const draft = drafts[requestId] || { responseMessage: "" };
+              const hasResponse =
+                request.responseMessage &&
+                (request.status === "responded" || request.status === "closed");
 
               return (
                 <Card key={requestId} className="glass-card flex flex-col">
@@ -237,22 +194,6 @@ const OwnerOfflineRequestsPage = () => {
                   </CardHeader>
 
                   <CardContent className="flex-1 space-y-3 text-sm">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <p className="flex items-center gap-1.5">
-                        <User className="size-4 text-muted-foreground" />
-                        {request.guestName}
-                      </p>
-                      <p className="flex items-center gap-1.5" dir="ltr">
-                        <Phone className="size-4 text-muted-foreground" />
-                        {request.phone}
-                      </p>
-                    </div>
-
-                    <p className="flex items-start gap-1.5 text-muted-foreground">
-                      <MapPin className="mt-0.5 size-4 shrink-0" />
-                      {request.location}
-                    </p>
-
                     <p className="flex items-center gap-1.5">
                       <CalendarRange className="size-4 text-muted-foreground" />
                       <span dir="ltr">
@@ -266,68 +207,45 @@ const OwnerOfflineRequestsPage = () => {
                       {request.roomType}
                     </p>
 
-                    {request.responseMessage && request.status !== "pending" && (
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("offline.responseMessage")}
-                        </p>
-                        <p className="mt-1">{request.responseMessage}</p>
-                      </div>
-                    )}
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {t("offlinePage.preferredLocation")}:
+                      </span>{" "}
+                      {request.location}
+                    </p>
 
-                    {successId === requestId && (
+                    {request.status === "pending" && (
                       <Alert>
-                        <AlertDescription>{t("offlinePage.respondSuccess")}</AlertDescription>
+                        <AlertDescription>
+                          {t("offlinePage.guestPendingHint")}
+                        </AlertDescription>
                       </Alert>
                     )}
 
-                    {request.status === "pending" && (
-                      <div className="space-y-2 pt-2">
-                        <Label htmlFor={`response-${requestId}`}>
-                          {t("offline.responseMessage")}
-                        </Label>
-                        <Textarea
-                          id={`response-${requestId}`}
-                          value={draft.responseMessage}
-                          onChange={(e) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [requestId]: { responseMessage: e.target.value },
-                            }))
-                          }
-                          placeholder={t("offlinePage.responsePlaceholder")}
-                          disabled={isSaving}
-                          rows={3}
-                          className="w-full resize-y"
-                        />
+                    {hasResponse && (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+                        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                          <MessageSquare className="size-3.5" />
+                          {t("offlinePage.ownerResponseTitle")}
+                        </p>
+                        <p className="mt-2 leading-relaxed">{request.responseMessage}</p>
                       </div>
                     )}
-                  </CardContent>
 
-                  {request.status === "pending" && (
-                    <CardFooter className="flex flex-col gap-2 border-t border-border/60 sm:flex-row">
-                      <Button
-                        className="w-full whitespace-normal sm:flex-1"
-                        disabled={isSaving}
-                        onClick={() => handleRespond(requestId, "responded")}
-                      >
-                        {isSaving ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <MessageSquare className="size-4" />
-                        )}
-                        {t("offlinePage.sendResponse")}
+                    {request.status === "closed" && !request.responseMessage && (
+                      <p className="text-sm text-muted-foreground">
+                        {t("offlinePage.guestClosedHint")}
+                      </p>
+                    )}
+
+                    {request.property?._id && (
+                      <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                        <Link to={`/properties/${request.property._id}`}>
+                          {t("offlinePage.viewProperty")}
+                        </Link>
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full whitespace-normal sm:flex-1"
-                        disabled={isSaving}
-                        onClick={() => handleRespond(requestId, "closed")}
-                      >
-                        {t("offlinePage.closeRequest")}
-                      </Button>
-                    </CardFooter>
-                  )}
+                    )}
+                  </CardContent>
                 </Card>
               );
             })}
@@ -338,4 +256,4 @@ const OwnerOfflineRequestsPage = () => {
   );
 };
 
-export default OwnerOfflineRequestsPage;
+export default GuestOfflineRequestsPage;

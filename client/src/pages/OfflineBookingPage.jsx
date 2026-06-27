@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { createOfflineRequest } from "@/services/offlineRequestService";
 import { getApprovedProperties } from "@/services/propertyService";
+import { formatPropertyOption } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +52,7 @@ const OfflineBookingPage = () => {
     startDate: "",
     endDate: "",
     roomType: "",
-    property: preselectedPropertyId,
+    property: "",
   });
 
   useEffect(() => {
@@ -60,7 +61,18 @@ const OfflineBookingPage = () => {
 
       try {
         const response = await getApprovedProperties();
-        setProperties(response.data.data || []);
+        const data = response.data.data || [];
+        setProperties(data);
+
+        if (preselectedPropertyId) {
+          const match = data.find(
+            (property) => String(property._id) === preselectedPropertyId,
+          );
+          setFormData((prev) => ({
+            ...prev,
+            property: match ? preselectedPropertyId : "",
+          }));
+        }
       } catch {
         setProperties([]);
       } finally {
@@ -69,7 +81,7 @@ const OfflineBookingPage = () => {
     };
 
     fetchProperties();
-  }, []);
+  }, [preselectedPropertyId]);
 
   useEffect(() => {
     if (user?.name) {
@@ -80,11 +92,17 @@ const OfflineBookingPage = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (preselectedPropertyId) {
-      setFormData((prev) => ({ ...prev, property: preselectedPropertyId }));
-    }
-  }, [preselectedPropertyId]);
+  const selectedProperty = useMemo(
+    () =>
+      properties.find(
+        (property) => String(property._id) === String(formData.property),
+      ) || null,
+    [properties, formData.property],
+  );
+
+  const propertySelectValue = formData.property
+    ? String(formData.property)
+    : "none";
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -127,7 +145,7 @@ const OfflineBookingPage = () => {
         startDate: "",
         endDate: "",
         roomType: "",
-        property: preselectedPropertyId,
+        property: preselectedPropertyId || "",
       });
     } catch (err) {
       setError(err.response?.data?.message || t("offlinePage.submitError"));
@@ -164,7 +182,16 @@ const OfflineBookingPage = () => {
       {success && (
         <Alert>
           <AlertTitle>{t("offlinePage.successTitle")}</AlertTitle>
-          <AlertDescription>{success}</AlertDescription>
+          <AlertDescription className="space-y-2">
+            <p>{success}</p>
+            {user?.role === "guest" && (
+              <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                <Link to="/guest/offline-requests">
+                  {t("offlinePage.trackRequests")}
+                </Link>
+              </Button>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -276,20 +303,42 @@ const OfflineBookingPage = () => {
             <div className="space-y-2">
               <Label>{t("offlinePage.selectProperty")}</Label>
               <Select
-                value={formData.property || "none"}
+                value={propertySelectValue}
                 onValueChange={handlePropertyChange}
                 disabled={submitting || loadingProperties}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("offlinePage.propertyOptional")} />
+                  <SelectValue placeholder={t("offlinePage.propertyOptional")}>
+                    {loadingProperties ? (
+                      t("common.loading")
+                    ) : propertySelectValue === "none" ? (
+                      t("offlinePage.noProperty")
+                    ) : selectedProperty ? (
+                      formatPropertyOption(selectedProperty)
+                    ) : null}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{t("offlinePage.noProperty")}</SelectItem>
-                  {properties.map((property) => (
-                    <SelectItem key={property._id} value={property._id}>
-                      {property.title} — {property.location?.city}
-                    </SelectItem>
-                  ))}
+                  <SelectItem
+                    value="none"
+                    label={t("offlinePage.noProperty")}
+                  >
+                    {t("offlinePage.noProperty")}
+                  </SelectItem>
+                  {properties.map((property) => {
+                    const propertyId = String(property._id);
+                    const label = formatPropertyOption(property);
+
+                    return (
+                      <SelectItem
+                        key={propertyId}
+                        value={propertyId}
+                        label={label}
+                      >
+                        {label}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
@@ -302,7 +351,7 @@ const OfflineBookingPage = () => {
             <Button
               type="submit"
               size="lg"
-              disabled={submitting}
+              disabled={submitting || loadingProperties}
               className="w-full whitespace-normal sm:w-auto"
             >
               {submitting ? (

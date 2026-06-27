@@ -48,6 +48,11 @@ const DashboardLayout = ({ children }) => {
             icon: Ticket,
             matchPrefix: true,
           },
+          {
+            to: "/guest/offline-requests",
+            label: t("offlinePage.guestTitle"),
+            icon: MessageSquare,
+          },
         ],
       },
       owner: {

@@ -4,7 +4,6 @@ import {
   CalendarRange,
   CheckCircle2,
   Eye,
-  ImageOff,
   Loader2,
   MapPin,
   RefreshCw,
@@ -14,6 +13,7 @@ import {
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
 import {
   approveListing,
@@ -43,40 +43,10 @@ import {
 import { formatDate, formatPrice } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
-const ListingImagePreview = ({ url, alt }) => {
-  const { t } = useTranslation();
-  const [status, setStatus] = useState("loading");
-
-  return (
-    <div className="relative aspect-video overflow-hidden rounded-lg border border-border/60 bg-muted/30">
-      {status === "loading" && (
-        <div className="flex h-full min-h-24 items-center justify-center">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {status === "error" && (
-        <div className="flex h-full min-h-24 flex-col items-center justify-center gap-1 p-2 text-center text-xs text-muted-foreground">
-          <ImageOff className="size-4" />
-          {t("listingModeration.previewError")}
-        </div>
-      )}
-      <img
-        src={url}
-        alt={alt}
-        className={cn(
-          "h-full w-full object-cover",
-          status === "loaded" ? "block" : "hidden",
-        )}
-        onLoad={() => setStatus("loaded")}
-        onError={() => setStatus("error")}
-      />
-    </div>
-  );
-};
-
 const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
-  const { t } = useTranslation();
-  const isBusy = actionId === listing._id;
+  const { t, i18n } = useTranslation();
+  const listingId = String(listing._id);
+  const isBusy = actionId === listingId;
 
   return (
     <Card className="glass-card h-fit lg:sticky lg:top-24">
@@ -148,9 +118,10 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
             <div className="grid gap-3 sm:grid-cols-2">
               {listing.images.map((image, index) => (
                 <div key={image._id || index} className="space-y-2">
-                  <ListingImagePreview
-                    url={image.url}
+                  <PropertyCoverImage
+                    src={image.url}
                     alt={`${listing.title} ${index + 1}`}
+                    className="rounded-lg border border-border/60"
                   />
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <ImageVerificationBadge status={image.verificationStatus} />
@@ -173,7 +144,7 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
         <Button
           className="w-full whitespace-normal sm:flex-1"
           disabled={isBusy}
-          onClick={() => onApprove(listing._id)}
+          onClick={() => onApprove(listingId)}
         >
           {isBusy ? (
             <Loader2 className="size-4 animate-spin" />
@@ -186,7 +157,7 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
           variant="destructive"
           className="w-full whitespace-normal sm:flex-1"
           disabled={isBusy}
-          onClick={() => onReject(listing._id)}
+          onClick={() => onReject(listingId)}
         >
           {isBusy ? (
             <Loader2 className="size-4 animate-spin" />
@@ -209,7 +180,7 @@ const TableSkeleton = () => (
 );
 
 const AdminListingsPage = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -227,8 +198,11 @@ const AdminListingsPage = () => {
       const data = response.data.data || [];
       setListings(data);
       setSelectedId((prev) => {
-        if (prev && data.some((item) => item._id === prev)) return prev;
-        return data[0]?._id || "";
+        const prevId = prev ? String(prev) : "";
+        if (prevId && data.some((item) => String(item._id) === prevId)) {
+          return prevId;
+        }
+        return data[0]?._id ? String(data[0]._id) : "";
       });
     } catch (err) {
       setError(err.response?.data?.message || t("listingModeration.loadError"));
@@ -242,21 +216,23 @@ const AdminListingsPage = () => {
   }, [fetchListings]);
 
   const selectedListing = useMemo(
-    () => listings.find((item) => item._id === selectedId) || null,
+    () =>
+      listings.find((item) => String(item._id) === String(selectedId)) || null,
     [listings, selectedId],
   );
 
   const handleApprove = async (id) => {
-    setActionId(id);
+    const listingId = String(id);
+    setActionId(listingId);
     setError("");
     setSuccess("");
 
     try {
-      await approveListing(id);
+      await approveListing(listingId);
       setListings((prev) => {
-        const next = prev.filter((item) => item._id !== id);
+        const next = prev.filter((item) => String(item._id) !== listingId);
         setSelectedId((current) =>
-          current === id ? next[0]?._id || "" : current,
+          String(current) === listingId ? next[0]?._id ? String(next[0]._id) : "" : current,
         );
         return next;
       });
@@ -269,16 +245,17 @@ const AdminListingsPage = () => {
   };
 
   const handleReject = async (id) => {
-    setActionId(id);
+    const listingId = String(id);
+    setActionId(listingId);
     setError("");
     setSuccess("");
 
     try {
-      await rejectListing(id);
+      await rejectListing(listingId);
       setListings((prev) => {
-        const next = prev.filter((item) => item._id !== id);
+        const next = prev.filter((item) => String(item._id) !== listingId);
         setSelectedId((current) =>
-          current === id ? next[0]?._id || "" : current,
+          String(current) === listingId ? next[0]?._id ? String(next[0]._id) : "" : current,
         );
         return next;
       });
@@ -375,15 +352,16 @@ const AdminListingsPage = () => {
                   </TableHeader>
                   <TableBody>
                     {listings.map((listing) => {
-                      const isSelected = selectedId === listing._id;
-                      const isBusy = actionId === listing._id;
+                      const listingId = String(listing._id);
+                      const isSelected = String(selectedId) === listingId;
+                      const isBusy = actionId === listingId;
 
                       return (
                         <TableRow
-                          key={listing._id}
+                          key={listingId}
                           data-state={isSelected ? "selected" : undefined}
                           className="cursor-pointer"
-                          onClick={() => setSelectedId(listing._id)}
+                          onClick={() => setSelectedId(listingId)}
                         >
                           <TableCell className="max-w-[180px] font-medium">
                             <span className="line-clamp-2 whitespace-normal">
@@ -404,7 +382,7 @@ const AdminListingsPage = () => {
                               <Button
                                 size="icon-sm"
                                 variant={isSelected ? "default" : "outline"}
-                                onClick={() => setSelectedId(listing._id)}
+                                onClick={() => setSelectedId(listingId)}
                                 aria-label={t("listingModeration.viewDetails")}
                               >
                                 <Eye className="size-4" />
@@ -413,7 +391,7 @@ const AdminListingsPage = () => {
                                 size="icon-sm"
                                 variant="outline"
                                 disabled={isBusy}
-                                onClick={() => handleApprove(listing._id)}
+                                onClick={() => handleApprove(listingId)}
                                 aria-label={t("admin.approveListing")}
                               >
                                 {isBusy ? (
@@ -426,7 +404,7 @@ const AdminListingsPage = () => {
                                 size="icon-sm"
                                 variant="outline"
                                 disabled={isBusy}
-                                onClick={() => handleReject(listing._id)}
+                                onClick={() => handleReject(listingId)}
                                 aria-label={t("admin.rejectListing")}
                               >
                                 <XCircle className="size-4 text-destructive" />
@@ -443,33 +421,27 @@ const AdminListingsPage = () => {
 
               <div className="grid gap-3 md:hidden">
                 {listings.map((listing) => {
-                  const isSelected = selectedId === listing._id;
-                  const isBusy = actionId === listing._id;
+                  const listingId = String(listing._id);
+                  const isSelected = String(selectedId) === listingId;
+                  const isBusy = actionId === listingId;
                   const coverUrl = listing.images?.[0]?.url;
 
                   return (
                     <Card
-                      key={listing._id}
+                      key={listingId}
                       className={cn(
                         "glass-card cursor-pointer overflow-hidden transition-shadow",
                         isSelected && "ring-2 ring-primary/40",
                       )}
-                      onClick={() => setSelectedId(listing._id)}
+                      onClick={() => setSelectedId(listingId)}
                     >
                       <div className="flex gap-3 p-3">
-                        <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-muted/40">
-                          {coverUrl ? (
-                            <img
-                              src={coverUrl}
-                              alt={listing.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center">
-                              <Building2 className="size-6 text-muted-foreground/40" />
-                            </div>
-                          )}
-                        </div>
+                        <PropertyCoverImage
+                          src={coverUrl}
+                          alt={listing.title}
+                          className="size-20 shrink-0 rounded-lg"
+                          showLoader={false}
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-2 font-medium">{listing.title}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -488,7 +460,7 @@ const AdminListingsPage = () => {
                           size="sm"
                           className="flex-1 whitespace-normal"
                           disabled={isBusy}
-                          onClick={() => handleApprove(listing._id)}
+                          onClick={() => handleApprove(listingId)}
                         >
                           <CheckCircle2 className="size-4" />
                           {t("admin.approveListing")}
@@ -498,7 +470,7 @@ const AdminListingsPage = () => {
                           variant="destructive"
                           className="flex-1 whitespace-normal"
                           disabled={isBusy}
-                          onClick={() => handleReject(listing._id)}
+                          onClick={() => handleReject(listingId)}
                         >
                           <XCircle className="size-4" />
                           {t("admin.rejectListing")}

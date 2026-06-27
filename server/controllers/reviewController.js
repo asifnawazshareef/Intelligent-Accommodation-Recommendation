@@ -140,7 +140,15 @@ export const getEligibleBookings = async (req, res) => {
     return res.json({
       success: true,
       count: eligible.length,
-      data: eligible,
+      data: eligible.map((booking) => ({
+        _id: booking._id.toString(),
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        guests: booking.guests,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        createdAt: booking.createdAt,
+      })),
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

@@ -2,11 +2,13 @@ import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Building2,
   Calendar,
   ChevronRight,
   ClipboardList,
   ImageIcon,
   Mail,
+  MessageSquare,
   Phone,
   Search,
   Shield,
@@ -64,6 +66,12 @@ const DashboardShell = ({ role, user, children }) => {
             icon: Ticket,
             title: t("booking.myBookings"),
             description: t("dashboard.quickBookingsDesc"),
+          },
+          {
+            to: "/guest/offline-requests",
+            icon: MessageSquare,
+            title: t("offlinePage.guestTitle"),
+            description: t("dashboard.quickOfflineGuestDesc"),
           },
           {
             to: "/offline-booking",

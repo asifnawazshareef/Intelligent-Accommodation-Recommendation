@@ -19,8 +19,8 @@ export const getImageAuditList = async (req, res, next) => {
 
         auditItems.push({
           id: `${property._id}:${image._id}`,
-          propertyId: property._id,
-          imageId: image._id,
+          propertyId: property._id.toString(),
+          imageId: image._id.toString(),
           propertyTitle: property.title,
           ownerName: property.owner?.name || "Unknown",
           ownerEmail: property.owner?.email || "",
@@ -45,10 +45,9 @@ export const getImageAuditList = async (req, res, next) => {
 
 export const updateImageAudit = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { propertyId, imageId } = req.params;
     const { verificationStatus, aiScore } = req.body;
 
-    const [propertyId, imageId] = id.split(":");
     if (!propertyId || !imageId) {
       res.status(400);
       throw new Error("Invalid audit item id");
@@ -97,6 +96,7 @@ export const updateImageAudit = async (req, res, next) => {
       image.aiScore = Number(aiScore);
     }
 
+    property.markModified("images");
     await property.save();
 
     res.json({
@@ -104,8 +104,8 @@ export const updateImageAudit = async (req, res, next) => {
       message: "Image audit updated successfully",
       data: {
         id: `${property._id}:${image._id}`,
-        propertyId: property._id,
-        imageId: image._id,
+        propertyId: property._id.toString(),
+        imageId: image._id.toString(),
         propertyTitle: property.title,
         url: image.url,
         verificationStatus: image.verificationStatus,
