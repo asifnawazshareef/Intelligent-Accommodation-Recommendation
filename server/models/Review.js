@@ -43,6 +43,20 @@ const reviewSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    aspectInsights: {
+      type: [
+        {
+          aspect: { type: String, trim: true },
+          sentiment: {
+            type: String,
+            enum: ["positive", "negative", "neutral", "mixed"],
+          },
+          confidence: { type: Number, default: 0, min: 0, max: 1 },
+          mentions: { type: Number, default: 1, min: 1 },
+        },
+      ],
+      default: [],
+    },
     summary: {
       type: String,
       default: "",

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { CalendarRange, Loader2, MessageSquarePlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import ActionLink from "@/components/ui/action-link";
+import SentimentResultCard from "@/components/reviews/SentimentResultCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,6 +41,7 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [latestAnalysis, setLatestAnalysis] = useState(null);
 
   const getBookingLabel = (booking) =>
     formatBookingLabel(booking, i18n.language, t);
@@ -82,6 +84,7 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
     event.preventDefault();
     setError("");
     setSuccess("");
+    setLatestAnalysis(null);
 
     if (!form.booking) {
       setError(t("review.selectBookingRequired"));
@@ -96,13 +99,14 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
     setLoading(true);
 
     try {
-      await createReview({
+      const response = await createReview({
         property: propertyId,
         booking: form.booking,
         rating: Number(form.rating),
         text: form.text.trim(),
       });
 
+      setLatestAnalysis(response.data.data || null);
       setSuccess(t("review.submitSuccess"));
       await onReviewCreated?.();
 
@@ -149,11 +153,9 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
           <CardDescription>{t("review.noEligibleBookings")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" asChild>
-            <Link to={`/bookings/new/${propertyId}`}>
-              {t("property.makeBooking")}
-            </Link>
-          </Button>
+          <ActionLink to={`/bookings/new/${propertyId}`} variant="outline">
+            {t("property.makeBooking")}
+          </ActionLink>
         </CardContent>
       </Card>
     );
@@ -266,6 +268,10 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
             <Alert>
               <AlertDescription>{success}</AlertDescription>
             </Alert>
+          ) : null}
+
+          {latestAnalysis ? (
+            <SentimentResultCard review={latestAnalysis} />
           ) : null}
 
           <Button

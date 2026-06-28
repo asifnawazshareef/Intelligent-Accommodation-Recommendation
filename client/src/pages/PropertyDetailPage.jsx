@@ -18,6 +18,7 @@ import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
 import { formatDate, formatPrice } from "@/lib/formatters";
+import { buildPropertyInsightText } from "@/lib/sentimentInsights";
 import { getPropertyById } from "@/services/propertyService";
 import {
   getPropertyReviews,
@@ -167,6 +168,7 @@ const PropertyDetailPage = () => {
   }
 
   const showSentiment = summary && summary.totalReviews > 0;
+  const insightText = buildPropertyInsightText(summary, t);
   const canLeaveReview = isAuthenticated && user?.role === "guest";
 
   const refreshReviewData = async () => {
@@ -301,6 +303,11 @@ const PropertyDetailPage = () => {
                     </span>
                   </p>
                 )}
+                {insightText ? (
+                  <p className="mt-3 rounded-md border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
+                    {insightText}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-2">

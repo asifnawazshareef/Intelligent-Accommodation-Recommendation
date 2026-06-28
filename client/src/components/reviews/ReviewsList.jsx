@@ -1,33 +1,31 @@
-import { MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import EmptyState from "@/components/ui/EmptyState";
+import SentimentBadge from "@/components/reviews/SentimentBadge";
 import { formatDate } from "@/lib/formatters";
-import SentimentBadge from "./SentimentBadge";
+import {
+  getAspectLabel,
+  sentimentToneClass,
+} from "@/lib/sentimentInsights";
 
-const StarRating = ({ rating }) => {
-  const { t } = useTranslation();
+const StarRating = ({ rating }) => (
+  <p className="flex items-center gap-0.5 text-amber-400" dir="ltr" aria-hidden="true">
+    {"★".repeat(Math.min(5, Math.max(0, rating)))}
+    {"☆".repeat(Math.max(0, 5 - rating))}
+  </p>
+);
 
-  return (
-    <div
-      className="flex items-center gap-0.5"
-      aria-label={t("review.ratingStars", { count: rating })}
-      role="img"
-    >
-      {Array.from({ length: 5 }, (_, index) => (
-        <span
-          key={index}
-          className={
-            index < rating ? "text-amber-400" : "text-muted-foreground/30"
-          }
-          aria-hidden="true"
-        >
-          ★
-        </span>
-      ))}
-    </div>
-  );
+const normalizeAspectInsights = (review) => {
+  if (Array.isArray(review.aspectInsights) && review.aspectInsights.length) {
+    return review.aspectInsights;
+  }
+
+  return (review.aspects || []).map((aspect) => ({
+    aspect,
+    sentiment: review.sentiment || "neutral",
+  }));
 };
 
 const ReviewsList = ({ reviews = [] }) => {
@@ -44,6 +42,7 @@ const ReviewsList = ({ reviews = [] }) => {
             {reviews.map((review) => {
               const guestName =
                 review.guest?.name || t("review.anonymousGuest");
+              const aspectInsights = normalizeAspectInsights(review);
 
               return (
                 <article
@@ -58,22 +57,35 @@ const ReviewsList = ({ reviews = [] }) => {
                         {formatDate(review.createdAt, i18n.language)}
                       </p>
                     </div>
-                    <SentimentBadge sentiment={review.sentiment} />
+                    <div className="flex flex-col items-end gap-1">
+                      <SentimentBadge sentiment={review.sentiment} />
+                      {review.sentimentScore > 0 ? (
+                        <p className="text-xs text-muted-foreground" dir="ltr">
+                          {t("review.confidence", {
+                            value: Math.round(review.sentimentScore * 100),
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
 
                   <p className="mt-3 text-sm leading-relaxed">{review.text}</p>
 
                   {review.summary ? (
-                    <p className="mt-2 text-sm italic text-muted-foreground">
+                    <p className="mt-2 rounded-md border border-border/50 bg-background/60 p-2 text-sm italic text-muted-foreground">
                       {review.summary}
                     </p>
                   ) : null}
 
-                  {review.aspects?.length > 0 ? (
+                  {aspectInsights.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {review.aspects.map((aspect) => (
-                        <Badge key={aspect} variant="outline">
-                          {aspect}
+                      {aspectInsights.map((item) => (
+                        <Badge
+                          key={`${review._id}-${item.aspect}`}
+                          variant="outline"
+                          className={`capitalize ${sentimentToneClass(item.sentiment)}`}
+                        >
+                          {getAspectLabel(item.aspect, t)}
                         </Badge>
                       ))}
                     </div>
@@ -85,9 +97,8 @@ const ReviewsList = ({ reviews = [] }) => {
         ) : (
           <EmptyState
             icon={MessageSquare}
-            title={t("propertyDetail.noReviews")}
+            title={t("review.reviews")}
             description={t("review.noReviewsHint")}
-            className="border-none bg-transparent shadow-none"
           />
         )}
       </CardContent>

@@ -64,6 +64,16 @@ export const createReview = async (req, res) => {
 
     const sentimentResult = await analyzeSentiment(trimmedText);
 
+    const aspectInsights =
+      sentimentResult.aspectInsights?.length > 0
+        ? sentimentResult.aspectInsights
+        : (sentimentResult.aspects || []).map((aspect) => ({
+            aspect,
+            sentiment: sentimentResult.sentiment,
+            confidence: sentimentResult.confidence,
+            mentions: 1,
+          }));
+
     const review = await Review.create({
       guest: req.user._id,
       property,
@@ -73,6 +83,7 @@ export const createReview = async (req, res) => {
       sentiment: sentimentResult.sentiment,
       sentimentScore: sentimentResult.confidence,
       aspects: sentimentResult.aspects,
+      aspectInsights,
       summary: sentimentResult.summary,
     });
 

@@ -16,6 +16,8 @@ import joblib
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from text_preprocessing import detect_rule_based_sentiment, normalize_text
+
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "models" / "sentiment_pipeline.joblib"
 
@@ -56,6 +58,7 @@ class PredictResponse(BaseModel):
     sentiment: str
     confidence: float
     aspects: List[str]
+    aspectInsights: List[dict]
     summary: str
     sentenceResults: List[dict]
 
@@ -74,25 +77,68 @@ def detect_aspects(text: str) -> List[str]:
     return found
 
 
-def make_summary(sentiment: str, aspects: List[str]) -> str:
-    if aspects:
-        aspect_text = ", ".join(aspects[:4])
-        if sentiment == "positive":
-            return f"Guest gave positive feedback about {aspect_text}."
-        if sentiment == "negative":
-            return f"Guest gave negative feedback about {aspect_text}."
-        if sentiment == "mixed":
-            return f"Guest shared mixed feedback about {aspect_text}."
-        return f"Guest mentioned {aspect_text} in a neutral way."
-    return f"Review sentiment is {sentiment}."
+def make_summary(sentiment: str, aspect_insights: List[dict]) -> str:
+    if not aspect_insights:
+        return f"Review sentiment is {sentiment}."
+
+    praise = [item["aspect"] for item in aspect_insights if item["sentiment"] == "positive"]
+    concerns = [item["aspect"] for item in aspect_insights if item["sentiment"] == "negative"]
+
+    if praise and concerns:
+        return (
+            f"Guest praised {', '.join(praise[:3])} "
+            f"but raised concerns about {', '.join(concerns[:3])}."
+        )
+    if praise:
+        return f"Guest gave positive feedback about {', '.join(praise[:4])}."
+    if concerns:
+        return f"Guest raised concerns about {', '.join(concerns[:4])}."
+    if sentiment == "mixed":
+        mentioned = ", ".join(item["aspect"] for item in aspect_insights[:4])
+        return f"Guest shared mixed feedback about {mentioned}."
+    mentioned = ", ".join(item["aspect"] for item in aspect_insights[:4])
+    return f"Guest mentioned {mentioned} in a neutral way."
+
+
+def build_aspect_insights(sentence_results: List[dict]) -> List[dict]:
+    aspect_scores: Dict[str, Counter] = {}
+
+    for item in sentence_results:
+        for aspect in item["aspects"]:
+            aspect_scores.setdefault(aspect, Counter())
+            aspect_scores[aspect][item["sentiment"]] += 1
+
+    insights = []
+    for aspect, counter in aspect_scores.items():
+        sentiment = counter.most_common(1)[0][0]
+        mentions = sum(counter.values())
+        confidence = counter[sentiment] / mentions if mentions else 0.0
+        insights.append(
+            {
+                "aspect": aspect,
+                "sentiment": sentiment,
+                "confidence": round(float(confidence), 4),
+                "mentions": int(mentions),
+            }
+        )
+
+    return sorted(insights, key=lambda entry: entry["mentions"], reverse=True)
 
 
 def predict_single(sentence: str) -> dict:
-    probabilities = model.predict_proba([sentence])[0]
+    normalized = normalize_text(sentence)
+    rule_sentiment = detect_rule_based_sentiment(normalized)
+
+    probabilities = model.predict_proba([normalized])[0]
     classes = list(model.classes_)
     best_index = int(probabilities.argmax())
     sentiment = classes[best_index]
     confidence = float(probabilities[best_index])
+
+    if rule_sentiment and rule_sentiment != sentiment:
+        sentiment = rule_sentiment
+        confidence = max(confidence, 0.88)
+
     return {
         "text": sentence,
         "sentiment": sentiment,
@@ -106,7 +152,7 @@ def health():
     return {
         "status": "running",
         "service": "sentiment-analysis",
-        "model": "TF-IDF + Logistic Regression",
+        "model": "TF-IDF (1-3 gram, negation-safe) + Logistic Regression",
     }
 
 
@@ -133,11 +179,13 @@ def predict(payload: PredictRequest):
     for item in sentence_results:
         aspect_counter.update(item["aspects"])
     aspects = [aspect for aspect, _ in aspect_counter.most_common()]
+    aspect_insights = build_aspect_insights(sentence_results)
 
     return {
         "sentiment": overall_sentiment,
         "confidence": round(float(avg_confidence), 4),
         "aspects": aspects,
-        "summary": make_summary(overall_sentiment, aspects),
+        "aspectInsights": aspect_insights,
+        "summary": make_summary(overall_sentiment, aspect_insights),
         "sentenceResults": sentence_results,
     }

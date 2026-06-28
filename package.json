@@ -11,6 +11,8 @@
     "sentiment": "cd sentiment-service && venv\\Scripts\\python.exe -m uvicorn app:app --reload --host 0.0.0.0 --port 8000",
     "recommendation": "cd recommendation-service && ..\\sentiment-service\\venv\\Scripts\\python.exe -m uvicorn app:app --reload --host 0.0.0.0 --port 8001",
     "train:recommendation": "cd recommendation-service && ..\\sentiment-service\\venv\\Scripts\\python.exe generate_training_data.py && ..\\sentiment-service\\venv\\Scripts\\python.exe train_model.py",
+    "train:sentiment": "cd sentiment-service && venv\\Scripts\\python.exe generate_augmented_data.py && venv\\Scripts\\python.exe train_model.py",
+    "reanalyze:reviews": "npm run reanalyze:reviews --prefix server",
     "dev": "concurrently -n CLIENT,SERVER,SENTIMENT,RECOMMEND -c blue,green,magenta,cyan \"npm run client\" \"npm run server\" \"npm run sentiment\" \"npm run recommendation\"",
     "seed": "npm run seed --prefix server",
     "test": "echo \"No tests configured\" && exit 0"

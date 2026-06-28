@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 import Review from "../models/Review.js";
+import {
+  aggregateAspectSentiments,
+  buildAspectBreakdown,
+  buildPropertyInsight,
+} from "../utils/sentimentAggregation.js";
 
 const countAspects = (reviews) => {
   const counts = {};
@@ -39,6 +44,9 @@ export const getPropertySentimentSummary = async (req, res) => {
       : 0;
 
     const aspectCounts = countAspects(reviews);
+    const aspectMap = aggregateAspectSentiments(reviews);
+    const aspectBreakdown = buildAspectBreakdown(aspectMap);
+    const insight = buildPropertyInsight(reviews, aspectMap);
 
     return res.json({
       success: true,
@@ -51,6 +59,11 @@ export const getPropertySentimentSummary = async (req, res) => {
         averageRating,
         aspectCounts,
         topAspects: getTopAspects(aspectCounts),
+        aspectBreakdown,
+        praisedAspects: insight.praisedAspects,
+        concernAspects: insight.concernAspects,
+        neutralAspects: insight.neutralAspects,
+        insightType: insight.insightType,
         recentReviews: reviews.slice(0, 5),
       },
     });

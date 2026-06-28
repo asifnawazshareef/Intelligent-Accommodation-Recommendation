@@ -4,6 +4,7 @@ const DEFAULT_SENTIMENT_RESULT = {
   sentiment: "neutral",
   confidence: 0,
   aspects: [],
+  aspectInsights: [],
   summary: "Sentiment service unavailable",
 };
 
@@ -21,6 +22,9 @@ export const analyzeSentiment = async (text) => {
       sentiment: response.data?.sentiment || "neutral",
       confidence: Number(response.data?.confidence || 0),
       aspects: Array.isArray(response.data?.aspects) ? response.data.aspects : [],
+      aspectInsights: Array.isArray(response.data?.aspectInsights)
+        ? response.data.aspectInsights
+        : [],
       summary: response.data?.summary || "",
     };
   } catch (error) {
