@@ -9,7 +9,9 @@
     "client": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",
     "sentiment": "cd sentiment-service && venv\\Scripts\\python.exe -m uvicorn app:app --reload --host 0.0.0.0 --port 8000",
-    "dev": "concurrently -n CLIENT,SERVER,SENTIMENT -c blue,green,magenta \"npm run client\" \"npm run server\" \"npm run sentiment\"",
+    "recommendation": "cd recommendation-service && ..\\sentiment-service\\venv\\Scripts\\python.exe -m uvicorn app:app --reload --host 0.0.0.0 --port 8001",
+    "train:recommendation": "cd recommendation-service && ..\\sentiment-service\\venv\\Scripts\\python.exe generate_training_data.py && ..\\sentiment-service\\venv\\Scripts\\python.exe train_model.py",
+    "dev": "concurrently -n CLIENT,SERVER,SENTIMENT,RECOMMEND -c blue,green,magenta,cyan \"npm run client\" \"npm run server\" \"npm run sentiment\" \"npm run recommendation\"",
     "seed": "npm run seed --prefix server",
     "test": "echo \"No tests configured\" && exit 0"
   },

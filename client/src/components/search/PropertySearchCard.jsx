@@ -15,6 +15,10 @@ import { formatPrice } from "@/lib/formatters";
 const PropertySearchCard = ({ property }) => {
   const { t } = useTranslation();
   const coverUrl = property.images?.[0]?.url;
+  const matchReasons = Array.isArray(property.matchReasons)
+    ? property.matchReasons
+    : [];
+  const primaryReason = matchReasons[0];
 
   return (
     <Link to={`/properties/${property._id}`} className="group block h-full">
@@ -32,6 +36,16 @@ const PropertySearchCard = ({ property }) => {
             >
               <span className="text-amber-400">★</span>
               <span dir="ltr">{property.avgRating}</span>
+            </Badge>
+          ) : null}
+          {primaryReason ? (
+            <Badge
+              variant="outline"
+              className="absolute start-3 top-3 z-20 max-w-[calc(100%-1.5rem)] truncate bg-background/90 backdrop-blur-sm"
+            >
+              {t(`search.matchReason.${primaryReason}`, {
+                defaultValue: t("search.matchReason.recommended_for_you"),
+              })}
             </Badge>
           ) : null}
         </div>
