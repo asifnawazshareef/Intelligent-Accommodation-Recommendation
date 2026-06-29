@@ -97,17 +97,26 @@ const LoginPage = () => {
       title={t("auth.loginHeroTitle")}
       subtitle={t("auth.loginHeroSubtitle")}
     >
-      <Card className="glass-card border-border/60 shadow-xl">
-        <CardHeader className="space-y-1">
-          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary lg:hidden">
-            <LogIn className="size-5" />
-          </div>
+      <div className="mb-4 space-y-2 text-center lg:hidden">
+        <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <LogIn className="size-5" />
+        </div>
+        <h2 className="text-xl font-semibold tracking-tight">
+          {t("auth.loginHeroTitle")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {t("auth.loginDescription")}
+        </p>
+      </div>
+
+      <Card className="glass-card border-border/60 shadow-lg">
+        <CardHeader className="hidden space-y-1 lg:block">
           <CardTitle className="text-2xl">{t("auth.loginTitle")}</CardTitle>
           <CardDescription>{t("auth.loginDescription")}</CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 lg:pt-0">
             {sessionExpired && !error && (
               <Alert>
                 <AlertTitle>{t("auth.sessionExpired")}</AlertTitle>

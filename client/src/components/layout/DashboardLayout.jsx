@@ -121,8 +121,8 @@ const DashboardLayout = ({ children }) => {
   };
 
   const SidebarContent = () => (
-    <>
-      <div className="flex items-center gap-2 border-b border-sidebar-border px-4 py-5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-4 py-5">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
           <Building2 className="size-5" />
         </span>
@@ -134,7 +134,7 @@ const DashboardLayout = ({ children }) => {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="shrink-0 space-y-1 p-3">
         {config.nav.map((item) => {
           const Icon = item.icon;
           const active = item.matchPrefix
@@ -170,7 +170,7 @@ const DashboardLayout = ({ children }) => {
         </Link>
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
+      <div className="mt-auto shrink-0 border-t border-sidebar-border p-3">
         <div className="mb-3 rounded-lg bg-muted/50 p-3">
           <div className="flex items-center gap-2">
             <RoleIcon className="size-4 shrink-0 text-primary" />
@@ -190,12 +190,12 @@ const DashboardLayout = ({ children }) => {
           {t("nav.logout")}
         </Button>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
+    <div className="min-h-screen bg-background">
+      <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 flex-col border-e border-border bg-sidebar lg:flex">
         <SidebarContent />
       </aside>
 
@@ -221,7 +221,7 @@ const DashboardLayout = ({ children }) => {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-col lg:ps-64">
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur-md sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Button

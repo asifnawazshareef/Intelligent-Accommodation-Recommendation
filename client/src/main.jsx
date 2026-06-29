@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import PublicLayout from "./components/layout/PublicLayout.jsx";
+import AuthShellLayout from "./components/layout/AuthShellLayout.jsx";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import SearchPage from "./pages/SearchPage.jsx";
@@ -38,13 +39,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <AuthProvider>
           <Toaster />
           <Routes>
+            <Route element={<AuthShellLayout />}>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+            </Route>
+
             <Route element={<PublicLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/properties/:id" element={<PropertyDetailPage />} />
               <Route path="/offline-booking" element={<OfflineBookingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
             </Route>
 
             <Route
