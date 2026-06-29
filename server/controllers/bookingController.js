@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Booking from "../models/Booking.js";
 import Property from "../models/Property.js";
+import { calculateBookingTotal } from "../utils/bookingAmount.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -74,7 +75,7 @@ const populateBookingQuery = (query) =>
     .populate("guest", "name email")
     .populate({
       path: "property",
-      select: "title price location status owner",
+      select: "title price location status owner images",
       populate: { path: "owner", select: "name email" },
     })
     .sort({ createdAt: -1 });
@@ -127,12 +128,24 @@ export const createBooking = async (req, res, next) => {
       throw new Error("Property is already booked for the selected dates");
     }
 
+    const totalAmount = calculateBookingTotal(
+      property.price,
+      normalizedStart,
+      normalizedEnd,
+    );
+
+    if (totalAmount <= 0) {
+      res.status(400);
+      throw new Error("Invalid booking dates for price calculation");
+    }
+
     const booking = await Booking.create({
       guest: req.user._id,
       property: propertyId,
       startDate: normalizedStart,
       endDate: normalizedEnd,
       guests: Number(guests),
+      totalAmount,
       status: "pending",
       paymentStatus: "pending",
     });
@@ -220,7 +233,7 @@ export const getBookingById = async (req, res, next) => {
   }
 };
 
-export const confirmPayment = async (req, res, next) => {
+export const confirmDemoPayment = async (req, res, next) => {
   try {
     const booking = await Booking.findById(req.params.id);
 
@@ -246,6 +259,8 @@ export const confirmPayment = async (req, res, next) => {
 
     booking.status = "confirmed";
     booking.paymentStatus = "confirmed";
+    booking.paymentMethod = "demo";
+    booking.paymentConfirmedAt = new Date();
     await booking.save();
 
     const populatedBooking = await populateBookingQuery(

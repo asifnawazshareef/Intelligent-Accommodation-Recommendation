@@ -4,7 +4,7 @@ import {
   getMyBookings,
   getOwnerBookings,
   getBookingById,
-  confirmPayment,
+  confirmDemoPayment,
   cancelBooking,
 } from "../controllers/bookingController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -17,7 +17,7 @@ router.use(protect);
 router.post("/", authorize("guest"), createBooking);
 router.get("/my-bookings", authorize("guest"), getMyBookings);
 router.get("/owner-bookings", authorize("owner"), getOwnerBookings);
-router.put("/:id/confirm-payment", authorize("guest"), confirmPayment);
+router.put("/:id/confirm-demo-payment", authorize("guest"), confirmDemoPayment);
 router.put("/:id/cancel", authorize("guest"), cancelBooking);
 router.get("/:id", getBookingById);
 

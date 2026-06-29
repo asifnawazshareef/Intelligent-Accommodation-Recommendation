@@ -14,6 +14,8 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import sentimentRoutes from "./routes/sentimentRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import offlineRequestRoutes from "./routes/offlineRequestRoutes.js";
+import stripePaymentRoutes from "./routes/stripePaymentRoutes.js";
+import { handleStripeWebhook } from "./controllers/stripePaymentController.js";
 
 dotenv.config();
 
@@ -29,6 +31,12 @@ app.use(
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
   }),
+);
+
+app.post(
+  "/api/payments/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook,
 );
 
 app.use(express.json());
@@ -50,6 +58,7 @@ app.use("/api", searchRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/sentiment", sentimentRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/payments/stripe", stripePaymentRoutes);
 app.use("/api/offline-requests", offlineRequestRoutes);
 
 app.use(notFound);

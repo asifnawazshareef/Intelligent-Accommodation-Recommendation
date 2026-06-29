@@ -27,6 +27,11 @@ const bookingSchema = new mongoose.Schema(
       required: [true, "Number of guests is required"],
       min: [1, "At least one guest is required"],
     },
+    totalAmount: {
+      type: Number,
+      required: [true, "Total amount is required"],
+      min: [0, "Total amount cannot be negative"],
+    },
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
@@ -36,6 +41,25 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "confirmed", "failed"],
       default: "pending",
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["demo", "stripe_test"],
+      default: null,
+    },
+    stripeSessionId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    stripePaymentIntentId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    paymentConfirmedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
