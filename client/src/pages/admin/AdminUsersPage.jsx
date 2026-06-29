@@ -239,7 +239,7 @@ const AdminUsersPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="dashboard-page">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -317,7 +317,7 @@ const AdminUsersPage = () => {
         {!loading && filteredUsers.length > 0 && (
           <>
             <div className="hidden lg:block">
-              <Card className="glass-card overflow-hidden">
+              <Card className="glass-card overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

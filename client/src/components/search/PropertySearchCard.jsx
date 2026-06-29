@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
+import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
 import { formatPrice } from "@/lib/formatters";
+import { getListingVerificationBadge } from "@/lib/imageVerification";
 
 const PropertySearchCard = ({ property }) => {
   const { t } = useTranslation();
@@ -19,6 +21,7 @@ const PropertySearchCard = ({ property }) => {
     ? property.matchReasons
     : [];
   const primaryReason = matchReasons[0];
+  const verificationStatus = getListingVerificationBadge(property.images);
 
   return (
     <Link to={`/properties/${property._id}`} className="group block h-full">
@@ -47,6 +50,21 @@ const PropertySearchCard = ({ property }) => {
                 defaultValue: t("search.matchReason.recommended_for_you"),
               })}
             </Badge>
+          ) : null}
+          {verificationStatus ? (
+            <div
+              className={
+                primaryReason
+                  ? "absolute start-3 top-12 z-20"
+                  : "absolute start-3 top-3 z-20"
+              }
+            >
+              <ImageVerificationBadge
+                status={verificationStatus}
+                variant="overlay"
+                compact
+              />
+            </div>
           ) : null}
         </div>
 

@@ -63,7 +63,7 @@ const GuestDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="dashboard-page">
         <DashboardShell role="guest" user={user}>
           <p>{t("dashboard.guestInfo1")}</p>
           <p className="pt-2">{t("dashboard.guestInfo2")}</p>

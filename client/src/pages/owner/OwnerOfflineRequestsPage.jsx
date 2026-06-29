@@ -123,7 +123,7 @@ const OwnerOfflineRequestsPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="dashboard-page">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">

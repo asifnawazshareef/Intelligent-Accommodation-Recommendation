@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarCheck,
   CalendarRange,
   Loader2,
   MapPin,
@@ -13,9 +14,12 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageLoader from "@/components/layout/PageLoader";
 import BookingStepIndicator from "@/components/bookings/BookingStepIndicator";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
+import ActionLink from "@/components/ui/action-link";
 import { formatDate, formatPrice } from "@/lib/formatters";
+import { findOverlappingBooking } from "@/lib/bookingDates";
+import notify from "@/lib/notify";
 import { getPropertyById } from "@/services/propertyService";
-import { createBooking } from "@/services/bookingService";
+import { createBooking, getMyBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +51,7 @@ const BookingNewPage = () => {
   const minDate = todayInputValue();
 
   const [property, setProperty] = useState(null);
+  const [propertyBookings, setPropertyBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -82,6 +87,28 @@ const BookingNewPage = () => {
     fetchProperty();
   }, [propertyId, t]);
 
+  useEffect(() => {
+    const fetchExistingBookings = async () => {
+      try {
+        const response = await getMyBookings();
+        const bookings = response.data.data || [];
+        setPropertyBookings(
+          bookings.filter(
+            (booking) =>
+              String(booking.property?._id || booking.property) ===
+                String(propertyId) && booking.status !== "cancelled",
+          ),
+        );
+      } catch {
+        setPropertyBookings([]);
+      }
+    };
+
+    if (propertyId) {
+      fetchExistingBookings();
+    }
+  }, [propertyId]);
+
   const nights = useMemo(
     () => countNights(formData.startDate, formData.endDate),
     [formData.startDate, formData.endDate],
@@ -95,7 +122,46 @@ const BookingNewPage = () => {
   const estimatedTotal =
     nights > 0 && property?.price != null ? property.price : null;
 
+  const overlappingBooking = useMemo(
+    () =>
+      findOverlappingBooking(
+        propertyBookings,
+        formData.startDate,
+        formData.endDate,
+      ),
+    [propertyBookings, formData.startDate, formData.endDate],
+  );
+
   const coverUrl = property?.images?.[0]?.url;
+
+  const showAlreadyBookedToast = (bookingId, needsPayment) => {
+    notify.withAction(
+      "info",
+      t("bookingPage.alreadyBookedToastTitle"),
+      {
+        description: t("bookingPage.alreadyBookedToastHint"),
+        action: {
+          label: needsPayment
+            ? t("bookingPage.completeExistingPayment")
+            : t("bookingPage.viewExistingBooking"),
+          onClick: () => {
+            navigate(
+              needsPayment
+                ? `/bookings/payment/${bookingId}`
+                : "/guest/bookings",
+            );
+          },
+        },
+      },
+    );
+  };
+
+  const showDatesUnavailableToast = () => {
+    notify.warning(t("bookingPage.datesUnavailableToastTitle"), {
+      description: t("bookingPage.datesUnavailableToastHint"),
+      duration: 6000,
+    });
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -116,6 +182,17 @@ const BookingNewPage = () => {
 
     if (hasInvalidDates) {
       setError(t("bookingPage.invalidDates"));
+      notify.warning(t("bookingPage.invalidDates"));
+      return;
+    }
+
+    if (overlappingBooking) {
+      const message = t("bookingPage.alreadyBookedTitle");
+      setError(message);
+      showAlreadyBookedToast(
+        overlappingBooking._id,
+        overlappingBooking.paymentStatus === "pending",
+      );
       return;
     }
 
@@ -131,9 +208,26 @@ const BookingNewPage = () => {
       });
 
       const bookingId = response.data.data._id;
+      notify.success(t("bookingPage.createSuccess"));
       navigate(`/bookings/payment/${bookingId}`, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || t("bookingPage.createError"));
+      const data = err.response?.data || {};
+      const message = data.message || t("bookingPage.createError");
+      setError(message);
+
+      if (data.code === "BOOKING_ALREADY_EXISTS") {
+        const existing = propertyBookings.find(
+          (booking) => String(booking._id) === String(data.existingBookingId),
+        );
+        showAlreadyBookedToast(
+          data.existingBookingId,
+          existing?.paymentStatus === "pending",
+        );
+      } else if (data.code === "DATES_UNAVAILABLE") {
+        showDatesUnavailableToast();
+      } else {
+        notify.error(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -150,7 +244,7 @@ const BookingNewPage = () => {
   if (!property) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-lg space-y-4 px-1 py-4 sm:px-0 sm:py-8">
+        <div className="dashboard-page">
           <Alert variant="destructive">
             <AlertTitle>{t("bookingPage.errorTitle")}</AlertTitle>
             <AlertDescription>{error || t("bookingPage.propertyNotFound")}</AlertDescription>
@@ -171,7 +265,7 @@ const BookingNewPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto w-full max-w-5xl space-y-5 px-1 sm:space-y-6 sm:px-0">
+      <div className="dashboard-page">
         <div className="space-y-4">
           <Link
             to={`/properties/${propertyId}`}
@@ -270,6 +364,40 @@ const BookingNewPage = () => {
                   </p>
                 )}
 
+                {overlappingBooking && (
+                  <Alert className="border-amber-500/40 bg-amber-500/5 text-amber-950 dark:text-amber-100">
+                    <CalendarCheck className="text-amber-600 dark:text-amber-400" />
+                    <AlertTitle>{t("bookingPage.alreadyBookedTitle")}</AlertTitle>
+                    <AlertDescription className="space-y-3 text-amber-900/80 dark:text-amber-100/80">
+                      <p>
+                        {t("bookingPage.alreadyBookedHint", {
+                          start: formatDate(
+                            overlappingBooking.startDate,
+                            i18n.language,
+                          ),
+                          end: formatDate(
+                            overlappingBooking.endDate,
+                            i18n.language,
+                          ),
+                        })}
+                      </p>
+                      <ActionLink
+                        to={
+                          overlappingBooking.paymentStatus === "pending"
+                            ? `/bookings/payment/${overlappingBooking._id}`
+                            : "/guest/bookings"
+                        }
+                        variant="outline"
+                        className="h-9 w-full border-amber-500/40 bg-background/80 sm:w-auto"
+                      >
+                        {overlappingBooking.paymentStatus === "pending"
+                          ? t("bookingPage.completeExistingPayment")
+                          : t("bookingPage.viewExistingBooking")}
+                      </ActionLink>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {formData.startDate && formData.endDate && nights > 0 && (
                   <div className="rounded-lg border border-border/50 bg-muted/20 p-4 lg:hidden">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -291,7 +419,7 @@ const BookingNewPage = () => {
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={submitting || hasInvalidDates}
+                  disabled={submitting || hasInvalidDates || Boolean(overlappingBooking)}
                   className="h-11 w-full gap-2"
                 >
                   {submitting ? (

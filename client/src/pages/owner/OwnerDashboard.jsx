@@ -55,7 +55,7 @@ const OwnerDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="dashboard-page">
         <DashboardShell role="owner" user={user}>
           <p>{t("dashboard.ownerInfo1")}</p>
           <p className="pt-2">{t("dashboard.ownerInfo2")}</p>

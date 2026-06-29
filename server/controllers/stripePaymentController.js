@@ -1,6 +1,7 @@
 import Booking from "../models/Booking.js";
 import { getStripe, isStripeConfigured } from "../config/stripe.js";
 import { toStripeUsdCents } from "../utils/bookingAmount.js";
+import { attachHasReviewToBookings } from "../utils/bookingReviewStatus.js";
 
 const populateBookingQuery = (query) =>
   query
@@ -153,11 +154,12 @@ export const verifyCheckoutSession = async (req, res, next) => {
 
     if (session.payment_status === "paid") {
       const populatedBooking = await markBookingStripePaid(booking, session);
+      const data = await attachHasReviewToBookings(populatedBooking);
 
       return res.json({
         success: true,
         message: "Payment verified and booking confirmed",
-        data: populatedBooking,
+        data,
       });
     }
 

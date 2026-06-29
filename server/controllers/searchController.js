@@ -7,6 +7,12 @@ import {
   getGlobalBookingCounts,
 } from "../utils/buildUserProfile.js";
 import { filterGuestImages } from "../utils/imageVerification.js";
+import {
+  attachSentimentSummaries,
+  buildProfileSignals,
+  enrichMatchReasons,
+  rankRecommendedProperties,
+} from "../utils/recommendationEnrichment.js";
 
 const parseNumber = (value) => {
   if (value === undefined || value === null || value === "") {
@@ -166,86 +172,12 @@ export const searchProperties = async (req, res, next) => {
   }
 };
 
-const scorePropertyFallback = (property, context, ratingMap) => {
-  let score = 0;
-  const stats = ratingMap.get(property._id.toString());
-
-  if (
-    context.city &&
-    property.location?.city?.toLowerCase() === context.city.toLowerCase()
-  ) {
-    score += 3;
-  }
-
-  if (context.price) {
-    const difference = Math.abs(property.price - context.price) / context.price;
-    if (difference <= 0.2) score += 2;
-    else if (difference <= 0.4) score += 1;
-  }
-
-  if (stats?.avgRating >= 4) {
-    score += 2;
-  } else if (stats?.avgRating >= 3) {
-    score += 1;
-  }
-
-  if (stats?.reviewCount > 0) {
-    score += 0.5;
-  }
-
-  return score;
-};
-
-const buildFallbackRecommendations = (properties, context, ratingMap, limit) => {
-  const scored = properties
-    .map((property) => {
-      const propertyStats = ratingMap.get(property._id.toString());
-      const recommendationScore = scorePropertyFallback(
-        property,
-        context,
-        ratingMap,
-      );
-
-      return {
-        ...property,
-        avgRating: propertyStats?.avgRating
-          ? Number(propertyStats.avgRating.toFixed(1))
-          : null,
-        reviewCount: propertyStats?.reviewCount || 0,
-        recommendationScore,
-        matchReasons: ["recommended_for_you"],
-      };
-    })
-    .filter((property) => property.recommendationScore > 0)
-    .sort((a, b) => {
-      if (b.recommendationScore !== a.recommendationScore) {
-        return b.recommendationScore - a.recommendationScore;
-      }
-
-      return (b.avgRating || 0) - (a.avgRating || 0);
-    });
-
-  if (scored.length > 0) {
-    return scored.slice(0, limit);
-  }
-
-  return properties
-    .map((property) => {
-      const propertyStats = ratingMap.get(property._id.toString());
-
-      return {
-        ...property,
-        avgRating: propertyStats?.avgRating
-          ? Number(propertyStats.avgRating.toFixed(1))
-          : null,
-        reviewCount: propertyStats?.reviewCount || 0,
-        recommendationScore: propertyStats?.avgRating || 0,
-        matchReasons: ["highly_rated"],
-      };
-    })
-    .sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))
-    .slice(0, limit);
-};
+const finalizeRecommendations = (recommendations) =>
+  recommendations.map((property) => ({
+    ...property,
+    images: filterGuestImages(property.images || []),
+    matchReasons: enrichMatchReasons(property, property.matchReasons || []),
+  }));
 
 export const getRecommendations = async (req, res, next) => {
   try {
@@ -263,8 +195,8 @@ export const getRecommendations = async (req, res, next) => {
     ]);
 
     const enrichedProperties = await attachReviewStats(properties);
-    const propertyMap = new Map(
-      enrichedProperties.map((property) => [property._id.toString(), property]),
+    const propertiesWithSentiment = await attachSentimentSummaries(
+      enrichedProperties,
     );
 
     const context = {
@@ -272,67 +204,37 @@ export const getRecommendations = async (req, res, next) => {
       price: queryPrice ?? userProfile.preferredPrice ?? null,
     };
 
+    const profileSignals = buildProfileSignals(userProfile, Boolean(req.user));
+    const rankingPool = propertiesWithSentiment.filter(
+      (property) =>
+        !userProfile.excludePropertyIds.includes(property._id.toString()),
+    );
+
     const mlResult = await getMlRecommendations({
       userProfile,
-      properties: enrichedProperties,
+      properties: propertiesWithSentiment,
       globalBookingCounts,
+      limit: rankingPool.length || propertiesWithSentiment.length,
+    });
+
+    const recommendations = rankRecommendedProperties({
+      properties: propertiesWithSentiment,
+      mlRecommendations: mlResult.recommendations,
+      userProfile,
+      context,
+      isPersonalized: profileSignals.personalized,
       limit,
     });
 
-    let engine = mlResult.engine;
-    let recommendations = [];
-
-    if (mlResult.recommendations.length > 0) {
-      recommendations = mlResult.recommendations
-        .map((item) => {
-          const property = propertyMap.get(item.propertyId);
-          if (!property) {
-            return null;
-          }
-
-          return {
-            ...property,
-            images: filterGuestImages(property.images || []),
-            recommendationScore: item.score,
-            matchReasons: item.matchReasons || [],
-          };
-        })
-        .filter(Boolean);
-    }
-
-    if (recommendations.length === 0) {
-      engine = "rule-based-fallback";
-      const ratingMap = new Map(
-        enrichedProperties.map((property) => [
-          property._id.toString(),
-          {
-            avgRating: property.avgRating,
-            reviewCount: property.reviewCount,
-          },
-        ]),
-      );
-
-      recommendations = buildFallbackRecommendations(
-        enrichedProperties.filter(
-          (property) =>
-            !userProfile.excludePropertyIds.includes(property._id.toString()),
-        ),
-        context,
-        ratingMap,
-        limit,
-      );
-    }
+    const data = finalizeRecommendations(recommendations);
 
     res.json({
       success: true,
-      count: recommendations.length,
-      engine,
-      personalized: Boolean(req.user),
+      count: data.length,
+      personalized: profileSignals.personalized,
+      profileSignals,
       context,
-      data: recommendations.map((property) => ({
-        ...property,
-        images: filterGuestImages(property.images || []),
-      })),
+      data,
     });
   } catch (error) {
     next(error);

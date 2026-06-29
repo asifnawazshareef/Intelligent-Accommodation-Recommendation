@@ -11,7 +11,8 @@ const AdminDashboard = () => {
 
   return (
     <DashboardLayout>
-      <DashboardShell role="admin" user={user}>
+      <div className="dashboard-page">
+        <DashboardShell role="admin" user={user}>
         <p>{t("dashboard.adminInfo1")}</p>
         <p className="pt-2">
           {t("dashboard.adminVerified")}:{" "}
@@ -34,7 +35,8 @@ const AdminDashboard = () => {
             </Button>
           </Link>
         </div>
-      </DashboardShell>
+        </DashboardShell>
+      </div>
     </DashboardLayout>
   );
 };

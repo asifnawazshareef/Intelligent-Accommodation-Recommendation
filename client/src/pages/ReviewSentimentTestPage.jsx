@@ -74,7 +74,7 @@ const ReviewSentimentTestPage = () => {
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="dashboard-page">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Review Sentiment Test

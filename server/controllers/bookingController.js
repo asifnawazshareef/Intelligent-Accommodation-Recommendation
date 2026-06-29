@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Booking from "../models/Booking.js";
 import Property from "../models/Property.js";
 import { calculateBookingTotal } from "../utils/bookingAmount.js";
+import { attachHasReviewToBookings } from "../utils/bookingReviewStatus.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -125,7 +126,24 @@ export const createBooking = async (req, res, next) => {
 
     if (conflictingBooking) {
       res.status(400);
-      throw new Error("Property is already booked for the selected dates");
+
+      const isOwnBooking =
+        conflictingBooking.guest.toString() === req.user._id.toString();
+
+      if (isOwnBooking) {
+        const error = new Error(
+          "You already have a booking for these dates on this property.",
+        );
+        error.code = "BOOKING_ALREADY_EXISTS";
+        error.existingBookingId = conflictingBooking._id.toString();
+        throw error;
+      }
+
+      const error = new Error(
+        "Property is already booked for the selected dates",
+      );
+      error.code = "DATES_UNAVAILABLE";
+      throw error;
     }
 
     const totalAmount = calculateBookingTotal(
@@ -169,11 +187,12 @@ export const getMyBookings = async (req, res, next) => {
     const bookings = await populateBookingQuery(
       Booking.find({ guest: req.user._id }),
     );
+    const data = await attachHasReviewToBookings(bookings);
 
     res.json({
       success: true,
-      count: bookings.length,
-      data: bookings,
+      count: data.length,
+      data,
     });
   } catch (error) {
     next(error);
@@ -224,9 +243,11 @@ export const getBookingById = async (req, res, next) => {
       throw new Error("Not authorized to view this booking");
     }
 
+    const data = await attachHasReviewToBookings(booking);
+
     res.json({
       success: true,
-      data: booking,
+      data,
     });
   } catch (error) {
     next(error);
@@ -266,11 +287,12 @@ export const confirmDemoPayment = async (req, res, next) => {
     const populatedBooking = await populateBookingQuery(
       Booking.findById(booking._id),
     );
+    const data = await attachHasReviewToBookings(populatedBooking);
 
     res.json({
       success: true,
       message: "Payment confirmed and booking updated successfully",
-      data: populatedBooking,
+      data,
     });
   } catch (error) {
     next(error);

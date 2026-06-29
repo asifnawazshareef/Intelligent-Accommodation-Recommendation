@@ -51,7 +51,7 @@ const Navbar = ({ variant = "public" }) => {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 sm:px-6 lg:px-8">
+      <div className="site-container grid h-16 grid-cols-[auto_1fr_auto] items-center gap-3">
         <Link
           to="/"
           className="flex shrink-0 items-center gap-2 font-semibold tracking-tight transition-opacity hover:opacity-90"

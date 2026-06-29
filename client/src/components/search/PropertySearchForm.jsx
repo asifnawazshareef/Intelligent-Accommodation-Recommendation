@@ -1,6 +1,6 @@
-import { Search } from "lucide-react";
+import { CalendarRange, Loader2, MapPin, Search, Tag } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { emptySearchValues } from "@/lib/searchParams";
+import { emptySearchValues, todayInputValue } from "@/lib/searchParams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export { emptySearchValues };
 
@@ -21,8 +22,10 @@ const PropertySearchForm = ({
   onReset,
   loading = false,
   compact = false,
+  showHeader = true,
 }) => {
   const { t } = useTranslation();
+  const minDate = todayInputValue();
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -35,19 +38,22 @@ const PropertySearchForm = ({
   };
 
   return (
-    <Card className="glass-card border-border/60">
-      {!compact && (
-        <CardHeader className="pb-4">
-          <CardTitle>{t("search.findStay")}</CardTitle>
+    <Card className="glass-card overflow-hidden border-border/60 shadow-sm">
+      {showHeader && !compact && (
+        <CardHeader className="border-b border-border/50 bg-muted/15 pb-4">
+          <CardTitle className="text-lg">{t("search.findStay")}</CardTitle>
           <CardDescription>{t("search.findStayHint")}</CardDescription>
         </CardHeader>
       )}
 
-      <CardContent className={compact ? "p-4 sm:p-5" : undefined}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+      <CardContent className={cn(compact ? "p-4 sm:p-5" : "pt-5")}>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="city">{t("property.city")}</Label>
+              <Label htmlFor="city" className="flex items-center gap-1.5">
+                <MapPin className="size-3.5 text-muted-foreground" />
+                {t("property.city")}
+              </Label>
               <Input
                 id="city"
                 name="city"
@@ -55,11 +61,14 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder={t("search.cityPlaceholder")}
                 disabled={loading}
-                className="h-10 w-full bg-background/80"
+                className="h-10 w-full bg-background"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="title">{t("property.title")}</Label>
+              <Label htmlFor="title" className="flex items-center gap-1.5">
+                <Tag className="size-3.5 text-muted-foreground" />
+                {t("property.title")}
+              </Label>
               <Input
                 id="title"
                 name="title"
@@ -67,7 +76,7 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder={t("search.titlePlaceholder")}
                 disabled={loading}
-                className="h-10 w-full bg-background/80"
+                className="h-10 w-full bg-background"
               />
             </div>
           </div>
@@ -84,7 +93,7 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder="5000"
                 disabled={loading}
-                className="h-10 w-full bg-background/80"
+                className="h-10 w-full bg-background"
                 dir="ltr"
               />
             </div>
@@ -99,26 +108,33 @@ const PropertySearchForm = ({
                 onChange={handleChange}
                 placeholder="25000"
                 disabled={loading}
-                className="h-10 w-full bg-background/80"
+                className="h-10 w-full bg-background"
                 dir="ltr"
               />
             </div>
             <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-              <Label htmlFor="availabilityDate">{t("search.availabilityDate")}</Label>
+              <Label
+                htmlFor="availabilityDate"
+                className="flex items-center gap-1.5"
+              >
+                <CalendarRange className="size-3.5 text-muted-foreground" />
+                {t("search.availabilityDate")}
+              </Label>
               <Input
                 id="availabilityDate"
                 name="availabilityDate"
                 type="date"
+                min={minDate}
                 value={values.availabilityDate}
                 onChange={handleChange}
                 disabled={loading}
-                className="h-10 w-full bg-background/80"
+                className="h-10 w-full bg-background"
                 dir="ltr"
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 border-t border-border/50 pt-4 sm:flex-row sm:justify-end">
             {onReset && (
               <Button
                 type="button"
@@ -133,10 +149,19 @@ const PropertySearchForm = ({
             <Button
               type="submit"
               disabled={loading}
-              className="h-10 w-full gap-2 sm:w-auto"
+              className="h-10 w-full gap-2 sm:min-w-[9rem] sm:w-auto"
             >
-              <Search className="size-4 shrink-0" />
-              {t("common.search")}
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                  {t("search.searching")}
+                </>
+              ) : (
+                <>
+                  <Search className="size-4 shrink-0" />
+                  {t("common.search")}
+                </>
+              )}
             </Button>
           </div>
         </form>

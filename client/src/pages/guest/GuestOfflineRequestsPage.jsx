@@ -156,7 +156,7 @@ const GuestOfflineRequestsPage = () => {
 
     <DashboardLayout>
 
-      <div className="mx-auto w-full max-w-6xl space-y-5 px-1 sm:space-y-6 sm:px-0">
+      <div className="dashboard-page">
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 

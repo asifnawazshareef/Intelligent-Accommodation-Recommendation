@@ -4,11 +4,10 @@ import {
   ArrowLeft,
   CalendarRange,
   CheckCircle2,
-  CreditCard,
   Loader2,
+  Lock,
   MapPin,
   MessageSquarePlus,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -17,9 +16,10 @@ import PageLoader from "@/components/layout/PageLoader";
 import BookingStepIndicator from "@/components/bookings/BookingStepIndicator";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
+import ReviewSubmittedBanner from "@/components/reviews/ReviewSubmittedBanner";
 import { formatDate, formatPrice } from "@/lib/formatters";
 import notify from "@/lib/notify";
-import { confirmDemoPayment, getBookingById } from "@/services/bookingService";
+import { getBookingById } from "@/services/bookingService";
 import { createStripeCheckoutSession } from "@/services/paymentService";
 import { Button } from "@/components/ui/button";
 import ActionLink from "@/components/ui/action-link";
@@ -33,16 +33,12 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-// Set to true when Stripe test checkout should appear on the payment page.
-const SHOW_STRIPE_PAYMENT = false;
-
 const BookingPaymentPage = () => {
   const { t, i18n } = useTranslation();
   const { bookingId } = useParams();
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [confirmingDemo, setConfirmingDemo] = useState(false);
   const [redirectingStripe, setRedirectingStripe] = useState(false);
   const [error, setError] = useState("");
 
@@ -67,24 +63,6 @@ const BookingPaymentPage = () => {
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
-
-  const handleDemoPayment = async () => {
-    setConfirmingDemo(true);
-    setError("");
-
-    try {
-      const response = await confirmDemoPayment(bookingId);
-      setBooking(response.data.data);
-      notify.success(t("bookingPage.paymentSuccess"));
-    } catch (err) {
-      const message =
-        err.response?.data?.message || t("bookingPage.paymentError");
-      setError(message);
-      notify.error(message);
-    } finally {
-      setConfirmingDemo(false);
-    }
-  };
 
   const handleStripePayment = async () => {
     setRedirectingStripe(true);
@@ -119,7 +97,7 @@ const BookingPaymentPage = () => {
   if (!booking) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-lg space-y-4 px-1 py-4 sm:px-0 sm:py-8">
+        <div className="dashboard-page">
           <Alert variant="destructive">
             <AlertTitle>{t("bookingPage.errorTitle")}</AlertTitle>
             <AlertDescription>{error || t("bookingPage.bookingNotFound")}</AlertDescription>
@@ -136,17 +114,14 @@ const BookingPaymentPage = () => {
   const property = booking.property;
   const isPaid = booking.paymentStatus === "confirmed";
   const isCancelled = booking.status === "cancelled";
-  const isBusy = confirmingDemo || (SHOW_STRIPE_PAYMENT && redirectingStripe);
+  const isBusy = redirectingStripe;
   const currentStep = isPaid ? 3 : 2;
   const coverUrl = property?.images?.[0]?.url;
   const displayAmount = booking.totalAmount ?? property?.price ?? 0;
-  const paymentNoteKey = SHOW_STRIPE_PAYMENT
-    ? "bookingPage.stripeTestModeNote"
-    : "bookingPage.mockPaymentNote";
 
   return (
     <DashboardLayout>
-      <div className="mx-auto w-full max-w-5xl space-y-5 px-1 sm:space-y-6 sm:px-0">
+      <div className="dashboard-page">
         <div className="space-y-4">
           <Link
             to="/guest/bookings"
@@ -237,7 +212,7 @@ const BookingPaymentPage = () => {
                   {formatPrice(displayAmount, t("common.currency"))}
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {t(paymentNoteKey)}
+                  {t("bookingPage.secureCheckoutHint")}
                 </p>
               </div>
             </CardContent>
@@ -245,54 +220,39 @@ const BookingPaymentPage = () => {
             <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-6 py-5">
               {!isPaid && !isCancelled && (
                 <>
-                  {SHOW_STRIPE_PAYMENT && (
-                    <Button
-                      size="lg"
-                      disabled={isBusy}
-                      onClick={handleStripePayment}
-                      className="h-11 w-full gap-2"
-                    >
-                      {redirectingStripe ? (
-                        <>
-                          <Loader2 className="size-4 shrink-0 animate-spin" />
-                          {t("bookingPage.redirectingStripe")}
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="size-4 shrink-0" />
-                          {t("bookingPage.payWithStripeTest")}
-                        </>
-                      )}
-                    </Button>
-                  )}
-
                   <Button
                     size="lg"
-                    variant={SHOW_STRIPE_PAYMENT ? "outline" : "default"}
                     disabled={isBusy}
-                    onClick={handleDemoPayment}
-                    className="h-11 w-full gap-2"
+                    onClick={handleStripePayment}
+                    className="h-12 w-full gap-2.5 rounded-lg bg-[#635BFF] text-base font-semibold text-white shadow-md transition-colors hover:bg-[#5851E3] disabled:opacity-70"
                   >
-                    {confirmingDemo ? (
+                    {redirectingStripe ? (
                       <>
-                        <Loader2 className="size-4 shrink-0 animate-spin" />
-                        {t("bookingPage.confirmingPayment")}
+                        <Loader2 className="size-5 shrink-0 animate-spin" />
+                        <span>{t("bookingPage.processingPayment")}</span>
                       </>
                     ) : (
                       <>
-                        <CreditCard className="size-4 shrink-0" />
-                        {t("bookingPage.confirmDemoPayment")}
+                        <Lock className="size-4 shrink-0 opacity-90" />
+                        <span>{t("bookingPage.payNow")}</span>
+                        <span
+                          className="rounded-md bg-white/15 px-2 py-0.5 text-sm font-bold"
+                          dir="ltr"
+                        >
+                          {formatPrice(displayAmount, t("common.currency"))}
+                        </span>
                       </>
                     )}
                   </Button>
 
-                  <p className="text-center text-xs leading-relaxed text-muted-foreground">
-                    {t(paymentNoteKey)}
+                  <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+                    <Lock className="size-3 shrink-0" />
+                    {t("bookingPage.securePaymentFooter")}
                   </p>
                 </>
               )}
 
-              {isPaid && (
+              {isPaid && !booking.hasReview && (
                 <div className="flex w-full flex-col gap-2 sm:flex-row">
                   <ActionLink
                     to={`/properties/${property?._id}#reviews`}
@@ -301,6 +261,19 @@ const BookingPaymentPage = () => {
                     <MessageSquarePlus className="size-4 shrink-0" />
                     {t("review.leaveReview")}
                   </ActionLink>
+                  <ActionLink
+                    to="/guest/bookings"
+                    variant="outline"
+                    className="h-11 w-full sm:w-auto"
+                  >
+                    {t("bookingPage.viewMyBookings")}
+                  </ActionLink>
+                </div>
+              )}
+
+              {isPaid && booking.hasReview && (
+                <div className="flex w-full flex-col gap-3">
+                  <ReviewSubmittedBanner propertyId={property?._id} />
                   <ActionLink
                     to="/guest/bookings"
                     variant="outline"
@@ -344,11 +317,11 @@ const BookingPaymentPage = () => {
                     {formatPrice(displayAmount, t("common.currency"))}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    {t(paymentNoteKey)}
+                    {t("bookingPage.secureCheckoutHint")}
                   </p>
                 </div>
 
-                {isPaid && (
+                {isPaid && !booking.hasReview && (
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
                     <p className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                       <CheckCircle2 className="size-4 shrink-0" />
@@ -358,6 +331,10 @@ const BookingPaymentPage = () => {
                       {t("bookingPage.reviewPrompt")}
                     </p>
                   </div>
+                )}
+
+                {isPaid && booking.hasReview && (
+                  <ReviewSubmittedBanner propertyId={property?._id} />
                 )}
               </CardContent>
             </Card>

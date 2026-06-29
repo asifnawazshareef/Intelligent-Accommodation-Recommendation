@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Optional, Sequence
 
+import pandas as pd
+
 FEATURE_NAMES: List[str] = [
     "city_match",
     "price_similarity",
@@ -161,6 +163,15 @@ def extract_features(
         collaborative_popularity,
         language_region_match,
     ]
+
+
+def features_to_frame(
+    features: Sequence[float],
+    feature_names: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    """Return a single-row DataFrame with the model's expected column names."""
+    columns = list(feature_names or FEATURE_NAMES)
+    return pd.DataFrame([list(features)], columns=columns)
 
 
 def explain_match(user_profile: dict, property_item: dict, features: List[float]) -> List[str]:

@@ -3,23 +3,25 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  Building2,
   CalendarRange,
   MapPin,
+  MessageSquare,
+  Sparkles,
   Star,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import PageLoader from "@/components/layout/PageLoader";
 import ActionLink from "@/components/ui/action-link";
-import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
-import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
+import PropertyBookingPanel from "@/components/properties/PropertyBookingPanel";
+import PropertyFypWorkflow from "@/components/properties/PropertyFypWorkflow";
+import PropertyImageGallery from "@/components/properties/PropertyImageGallery";
+import PropertySentimentSnapshot from "@/components/properties/PropertySentimentSnapshot";
+import PropertyTrustStrip from "@/components/properties/PropertyTrustStrip";
 import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
 import { formatDate, formatPrice } from "@/lib/formatters";
-import { resolveImageUrl } from "@/lib/imageUrl";
-import { buildPropertyInsightText } from "@/lib/sentimentInsights";
 import { getGuestDisplayImages } from "@/lib/imageVerification";
 import { getPropertyById } from "@/services/propertyService";
 import {
@@ -27,74 +29,34 @@ import {
   getPropertySentimentSummary,
 } from "@/services/reviewService";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
-const PropertyImageGallery = ({ images = [], title, emptyMessage }) => {
-  const { t } = useTranslation();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const activeImage = images[activeIndex];
+const SECTION_IDS = ["about", "location", "availability", "reviews"];
 
-  if (!images.length) {
-    return (
-      <div className="flex aspect-[16/10] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-muted/30 px-6 text-center">
-        <Building2 className="size-12 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">
-          {emptyMessage || t("property.imagesUnderReview")}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="relative">
-        <PropertyCoverImage
-          key={activeImage?.url || activeIndex}
-          src={activeImage?.url}
-          alt={title}
-          className="aspect-[16/10] rounded-xl border border-border/60"
-        />
-        {activeImage?.verificationStatus && (
-          <div className="absolute start-3 top-3 z-10">
-            <ImageVerificationBadge status={activeImage.verificationStatus} />
-          </div>
+const SectionNav = ({ sections, activeId, onSelect }) => (
+  <nav
+    className="sticky top-[4.5rem] z-20 -mx-1 flex gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-1 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:top-20 [&::-webkit-scrollbar]:hidden"
+    aria-label="Property sections"
+  >
+    {sections.map((section) => (
+      <button
+        key={section.id}
+        type="button"
+        onClick={() => onSelect(section.id)}
+        className={cn(
+          "shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+          activeId === section.id
+            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+            : "border-border/60 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
         )}
-      </div>
-
-      {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {images.map((image, index) => (
-            <button
-              key={image._id || index}
-              type="button"
-              onClick={() => setActiveIndex(index)}
-              className={cn(
-                "relative size-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors sm:size-20",
-                activeIndex === index
-                  ? "border-primary"
-                  : "border-transparent opacity-80 hover:opacity-100",
-              )}
-            >
-              <img
-                src={resolveImageUrl(image.url)}
-                alt={`${title} ${index + 1}`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+      >
+        {section.label}
+      </button>
+    ))}
+  </nav>
+);
 
 const PropertyDetailPage = () => {
   const { t, i18n } = useTranslation();
@@ -106,6 +68,7 @@ const PropertyDetailPage = () => {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeSection, setActiveSection] = useState("about");
 
   const makeBookingPath = !isAuthenticated
     ? `/login?from=${encodeURIComponent(`/bookings/new/${id}`)}`
@@ -154,13 +117,44 @@ const PropertyDetailPage = () => {
     fetchPropertyDetails();
   }, [id, t]);
 
+  useEffect(() => {
+    const observers = SECTION_IDS.map((sectionId) => {
+      const element = document.getElementById(sectionId);
+      if (!element) return null;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setActiveSection(sectionId);
+          }
+        },
+        { rootMargin: "-30% 0px -55% 0px", threshold: 0.1 },
+      );
+
+      observer.observe(element);
+      return observer;
+    });
+
+    return () => {
+      observers.forEach((observer) => observer?.disconnect());
+    };
+  }, [property]);
+
+  const scrollToSection = (sectionId) => {
+    setActiveSection(sectionId);
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   if (loading) {
     return <PageLoader message={t("propertyDetail.loading")} />;
   }
 
   if (error || !property) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+      <div className="site-container py-16">
         <Alert variant="destructive">
           <AlertTitle>{t("propertyDetail.errorTitle")}</AlertTitle>
           <AlertDescription>{error || t("propertyDetail.notFound")}</AlertDescription>
@@ -174,9 +168,15 @@ const PropertyDetailPage = () => {
   }
 
   const showSentiment = summary && summary.totalReviews > 0;
-  const insightText = buildPropertyInsightText(summary, t);
   const canLeaveReview = isAuthenticated && user?.role === "guest";
   const displayImages = getGuestDisplayImages(property.images);
+
+  const sections = [
+    { id: "about", label: t("property.description") },
+    { id: "location", label: t("property.locationSection") },
+    { id: "availability", label: t("property.availability") },
+    { id: "reviews", label: t("review.reviews") },
+  ];
 
   const refreshReviewData = async () => {
     try {
@@ -192,54 +192,78 @@ const PropertyDetailPage = () => {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <Link
-        to="/search"
-        className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 shrink-0" />
-        {t("propertyDetail.backToSearch")}
-      </Link>
+    <div className="site-container py-6 sm:py-8">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Link
+          to="/search"
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-4 shrink-0" />
+          {t("propertyDetail.backToSearch")}
+        </Link>
+        <PropertyTrustStrip
+          property={property}
+          reviewCount={summary?.totalReviews || 0}
+        />
+      </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
-        <div className="min-w-0 space-y-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-8">
+        <div className="min-w-0 space-y-5">
           <PropertyImageGallery images={displayImages} title={property.title} />
 
-          <div className="space-y-3 lg:hidden">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {property.title}
-            </h1>
-            <p className="flex items-start gap-2 text-muted-foreground">
-              <MapPin className="mt-0.5 size-4 shrink-0" />
-              <span>
-                {property.location?.address}
-                <br />
-                {property.location?.city}, {property.location?.country}
-              </span>
+          <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5 lg:hidden">
+            <h1 className="text-2xl font-bold tracking-tight">{property.title}</h1>
+            <p className="flex items-start gap-2 text-sm text-muted-foreground">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+              {property.location?.city}, {property.location?.country}
             </p>
-            <p className="text-2xl font-bold text-primary" dir="ltr">
-              {formatPrice(property.price, t("common.currency"))}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t("bookingPage.pricePerStay")}
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-2xl font-bold text-primary" dir="ltr">
+                {formatPrice(property.price, t("common.currency"))}
+              </p>
+              {summary?.averageRating > 0 && (
+                <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Star className="size-4 fill-amber-400 text-amber-400" />
+                  <span dir="ltr">{summary.averageRating}</span>
+                </p>
+              )}
+            </div>
           </div>
 
-          <section className="space-y-3">
+          {showSentiment && (
+            <PropertySentimentSnapshot
+              summary={summary}
+              onViewReviews={() => scrollToSection("reviews")}
+              className="lg:hidden"
+            />
+          )}
+
+          <SectionNav
+            sections={sections}
+            activeId={activeSection}
+            onSelect={scrollToSection}
+          />
+
+          <section id="about" className="scroll-mt-28 space-y-4">
             <h2 className="text-lg font-semibold">{t("property.description")}</h2>
-            <p className="leading-relaxed text-muted-foreground">
-              {property.description}
-            </p>
+            <Card className="glass-card border-border/60">
+              <CardContent className="space-y-4 pt-6">
+                <p className="leading-relaxed text-muted-foreground">
+                  {property.description || t("propertyDetail.noDescription")}
+                </p>
+                <PropertyFypWorkflow />
+              </CardContent>
+            </Card>
           </section>
 
-          <section className="space-y-3">
+          <section id="location" className="scroll-mt-28 space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <MapPin className="size-5" />
+              <MapPin className="size-5 text-primary" />
               {t("property.locationSection")}
             </h2>
             <Card className="glass-card border-border/60">
-              <CardContent className="space-y-1 pt-6 text-sm">
-                <p>{property.location?.address}</p>
+              <CardContent className="space-y-2 pt-6 text-sm">
+                <p className="font-medium">{property.location?.address}</p>
                 <p className="text-muted-foreground">
                   {property.location?.city}, {property.location?.country}
                 </p>
@@ -247,109 +271,97 @@ const PropertyDetailPage = () => {
             </Card>
           </section>
 
-          <section className="space-y-3">
+          <section id="availability" className="scroll-mt-28 space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <CalendarRange className="size-5" />
+              <CalendarRange className="size-5 text-primary" />
               {t("property.availability")}
             </h2>
             {property.availabilityCalendar?.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {property.availabilityCalendar.map((range, index) => (
-                  <Badge key={`${range.startDate}-${index}`} variant="outline">
+                  <Badge
+                    key={`${range.startDate}-${index}`}
+                    variant="outline"
+                    className="rounded-lg px-3 py-1.5 text-sm"
+                  >
                     {formatDate(range.startDate, i18n.language)} –{" "}
                     {formatDate(range.endDate, i18n.language)}
                   </Badge>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                {t("propertyDetail.noAvailability")}
-              </p>
+              <Card className="glass-card border-dashed border-border/60">
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  {t("propertyDetail.noAvailability")}
+                </CardContent>
+              </Card>
             )}
           </section>
 
-          <section id="reviews" className="space-y-4 scroll-mt-24">
+          <section id="reviews" className="scroll-mt-28 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <MessageSquare className="size-5 text-primary" />
+                {t("review.reviews")}
+              </h2>
+              {summary?.totalReviews > 0 && (
+                <Badge variant="secondary" className="gap-1">
+                  <Sparkles className="size-3.5" />
+                  {t("propertyDetail.sentimentPowered")}
+                </Badge>
+              )}
+            </div>
+
             {showSentiment && <SentimentSummary summary={summary} />}
 
+            {!showSentiment && (
+              <Card className="glass-card border-dashed border-border/60">
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  {t("propertyDetail.noReviews")}
+                </CardContent>
+              </Card>
+            )}
+
             {canLeaveReview && (
-              <ReviewForm
-                propertyId={id}
-                onReviewCreated={refreshReviewData}
-              />
+              <ReviewForm propertyId={id} onReviewCreated={refreshReviewData} />
             )}
 
             <ReviewsList reviews={reviews} />
           </section>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <Card className="glass-card border-border/60">
-            <CardHeader className="hidden lg:block">
-              <CardTitle className="line-clamp-2 text-xl">{property.title}</CardTitle>
-              <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin className="mt-0.5 size-4 shrink-0" />
-                <span>
-                  {property.location?.city}, {property.location?.country}
-                </span>
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="hidden lg:block">
-                <p className="text-3xl font-bold text-primary" dir="ltr">
-                  {formatPrice(property.price, t("common.currency"))}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("bookingPage.pricePerStay")}
-                </p>
-                {summary?.averageRating > 0 && (
-                  <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
-                    <Star className="size-4 fill-amber-400 text-amber-400" />
-                    <span dir="ltr">{summary.averageRating}</span>
-                    <span>
-                      ({t("search.reviewCount", { count: summary.totalReviews })})
-                    </span>
-                  </p>
-                )}
-                {insightText ? (
-                  <p className="mt-3 rounded-md border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
-                    {insightText}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <ActionLink to={makeBookingPath} size="lg" className="h-11 w-full">
-                  {t("property.makeBooking")}
-                  <ArrowRight className="size-4 shrink-0" />
-                </ActionLink>
-                <ActionLink
-                  to={offlineBookingPath}
-                  variant="outline"
-                  size="lg"
-                  className="h-11 w-full"
-                >
-                  {t("offline.contactOwner")}
-                </ActionLink>
-              </div>
-              <p className="text-center text-xs text-muted-foreground">
-                {t("propertyDetail.bookingStepsHint")}
-              </p>
-            </CardContent>
-          </Card>
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 space-y-4">
+            <PropertyBookingPanel
+              property={property}
+              summary={summary}
+              makeBookingPath={makeBookingPath}
+              offlineBookingPath={offlineBookingPath}
+              onViewSentiment={
+                showSentiment ? () => scrollToSection("reviews") : undefined
+              }
+            />
+            {showSentiment && (
+              <PropertySentimentSnapshot
+                summary={summary}
+                onViewReviews={() => scrollToSection("reviews")}
+              />
+            )}
+          </div>
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 p-3 backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-7xl gap-2">
-          <ActionLink
-            to={offlineBookingPath}
-            variant="outline"
-            className="h-11 flex-1"
-          >
-            {t("offline.contactOwner")}
-          </ActionLink>
-          <ActionLink to={makeBookingPath} className="h-11 flex-1">
-            {t("property.makeBooking")}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 backdrop-blur-md lg:hidden">
+        <div className="site-container flex items-center gap-3 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{property.title}</p>
+            <p className="text-lg font-bold text-primary" dir="ltr">
+              {formatPrice(property.price, t("common.currency"))}
+            </p>
+          </div>
+          <ActionLink to={makeBookingPath} className="h-11 shrink-0 gap-1.5 px-5">
+            {t("propertyDetail.selectDatesBook")}
+            <ArrowRight className="size-4 shrink-0" />
           </ActionLink>
         </div>
       </div>

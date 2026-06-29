@@ -309,7 +309,7 @@ const AdminListingsPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="dashboard-page">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -370,7 +370,7 @@ const AdminListingsPage = () => {
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4">
               <div className="hidden md:block">
-                <Card className="glass-card overflow-hidden">
+                <Card className="glass-card overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

@@ -11,11 +11,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import joblib
-import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from feature_engineering import DEFAULT_PRICE, explain_match, extract_features
+from feature_engineering import DEFAULT_PRICE, explain_match, extract_features, features_to_frame
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "models" / "recommendation_model.joblib"
@@ -108,7 +107,7 @@ def recommend(payload: RecommendRequest):
 
         property_dict = prop.model_dump()
         features = extract_features(profile, property_dict, payload.globalBookingCounts)
-        feature_matrix = np.array([features])
+        feature_matrix = features_to_frame(features, FEATURE_NAMES)
         score = float(model.predict(feature_matrix)[0])
         score = max(0.0, min(1.0, score))
 

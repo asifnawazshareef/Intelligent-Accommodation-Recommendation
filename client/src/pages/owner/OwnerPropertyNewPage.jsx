@@ -34,7 +34,7 @@ const OwnerPropertyNewPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="dashboard-page">
         <div className="space-y-4">
           <Link to="/owner/properties">
             <Button variant="ghost" size="sm" className="whitespace-normal">

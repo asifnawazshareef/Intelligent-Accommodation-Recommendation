@@ -160,4 +160,20 @@
   .glass-card {
     @apply border border-border/60 bg-card/80 shadow-lg shadow-primary/5 backdrop-blur-sm;
   }
+
+  .site-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .property-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .dashboard-page {
+    @apply min-w-0 space-y-6;
+  }
+
+  .dashboard-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
 }

@@ -67,7 +67,7 @@ const OwnerPropertyEditPage = () => {
   if (error) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-3xl space-y-4">
+        <div className="dashboard-page">
           <Alert variant="destructive">
             <AlertTitle>{t("property.loadError")}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
@@ -82,7 +82,7 @@ const OwnerPropertyEditPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="dashboard-page">
         <div className="space-y-4">
           <Link to="/owner/properties">
             <Button variant="ghost" size="sm" className="whitespace-normal">

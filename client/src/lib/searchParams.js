@@ -1,9 +1,11 @@
+export const todayInputValue = () => new Date().toISOString().split("T")[0];
+
 export const emptySearchValues = {
   city: "",
   title: "",
   minPrice: "",
   maxPrice: "",
-  availabilityDate: "",
+  availabilityDate: todayInputValue(),
 };
 
 export const valuesFromSearchParams = (params) => ({
@@ -11,7 +13,7 @@ export const valuesFromSearchParams = (params) => ({
   title: params.get("title") || "",
   minPrice: params.get("minPrice") || "",
   maxPrice: params.get("maxPrice") || "",
-  availabilityDate: params.get("availabilityDate") || "",
+  availabilityDate: params.get("availabilityDate") || todayInputValue(),
 });
 
 export const searchParamsFromValues = (values) => {
@@ -34,5 +36,18 @@ export const toSearchApiParams = (values) => ({
   availabilityDate: values.availabilityDate || undefined,
 });
 
-export const hasActiveFilters = (values) =>
-  Object.values(values).some((value) => value?.toString().trim());
+export const hasActiveFilters = (values) => {
+  const today = todayInputValue();
+
+  return Object.entries(values).some(([key, value]) => {
+    if (!value?.toString().trim()) {
+      return false;
+    }
+
+    if (key === "availabilityDate" && value === today) {
+      return false;
+    }
+
+    return true;
+  });
+};

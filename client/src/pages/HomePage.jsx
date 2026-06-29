@@ -31,12 +31,12 @@ const HomePage = () => {
 
   return (
     <>
-      <section className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <div className="max-w-2xl">
+      <section className="site-container space-y-6 py-8 sm:py-10">
+        <div className="max-w-2xl space-y-1">
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {t("search.homeSearchTitle")}
           </h1>
-          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
             {t("search.homeSearchHintLive")}
           </p>
         </div>
@@ -47,6 +47,7 @@ const HomePage = () => {
           onSubmit={handleSubmit}
           onReset={handleReset}
           loading={loading}
+          showHeader={false}
         />
 
         {error && (
@@ -67,7 +68,7 @@ const HomePage = () => {
       </section>
 
       <section className="border-t border-border/60 bg-muted/20 py-12 sm:py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="site-container">
           <RecommendedProperties
             city={recommendationContext.city}
             price={recommendationContext.price}

@@ -71,7 +71,7 @@ const BookingPaymentSuccessPage = () => {
   if (error || !booking) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-lg space-y-4 px-1 py-4 sm:px-0 sm:py-8">
+        <div className="dashboard-page">
           <Alert variant="destructive">
             <AlertTitle>{t("bookingPage.errorTitle")}</AlertTitle>
             <AlertDescription>
@@ -93,7 +93,7 @@ const BookingPaymentSuccessPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto w-full max-w-2xl space-y-6 px-1 sm:px-0">
+      <div className="dashboard-page">
         <BookingStepIndicator currentStep={3} t={t} />
 
         <Card className="glass-card border-emerald-500/30">
@@ -131,7 +131,7 @@ const BookingPaymentSuccessPage = () => {
             <ActionLink to="/guest/bookings" className="h-11 w-full flex-1">
               {t("bookingPage.viewMyBookings")}
             </ActionLink>
-            {property?._id && (
+            {property?._id && !booking.hasReview && (
               <ActionLink
                 to={`/properties/${property._id}#reviews`}
                 variant="outline"

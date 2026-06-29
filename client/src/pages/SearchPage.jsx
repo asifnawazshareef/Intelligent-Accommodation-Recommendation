@@ -31,7 +31,7 @@ const SearchPage = () => {
   }, [formValues]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="site-container space-y-8 py-8 sm:py-10">
       <div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
           {t("search.pageTitle")}

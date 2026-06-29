@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { hasActiveFilters } from "@/lib/searchParams";
 
 const ResultSkeleton = ({ count = 6 }) => (
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div className="property-grid">
     {Array.from({ length: count }, (_, index) => (
       <Skeleton key={index} className="aspect-[4/3] w-full rounded-xl" />
     ))}
@@ -75,7 +75,7 @@ const PropertySearchResults = ({
 
       {!loading && results.length > 0 && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="property-grid">
             {visibleResults.map((property) => (
               <PropertySearchCard key={property._id} property={property} />
             ))}

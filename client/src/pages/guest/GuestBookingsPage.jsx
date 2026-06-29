@@ -1,48 +1,98 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CalendarRange,
+  CalendarCheck,
   CreditCard,
-  MapPin,
-  MessageSquarePlus,
   RefreshCw,
+  Star,
   Ticket,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import GuestBookingCard from "@/components/bookings/GuestBookingCard";
 import ActionLink from "@/components/ui/action-link";
-import { formatDate, formatPrice } from "@/lib/formatters";
 import { getMyBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+const FILTERS = ["all", "payment", "review", "reviewed"];
+
 const BookingCardSkeleton = () => (
-  <Card className="glass-card">
-    <CardHeader>
+  <Card className="glass-card overflow-hidden">
+    <Skeleton className="aspect-[16/10] rounded-none" />
+    <div className="space-y-3 p-4">
       <Skeleton className="h-5 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
-    </CardHeader>
-    <CardContent>
-      <Skeleton className="h-4 w-full" />
-    </CardContent>
+      <Skeleton className="h-16 w-full" />
+    </div>
   </Card>
 );
 
+const SummaryChip = ({ icon: Icon, label, value, tone = "default" }) => (
+  <div
+    className={cn(
+      "flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border px-4 py-3",
+      tone === "amber" && "border-amber-500/25 bg-amber-500/5",
+      tone === "emerald" && "border-emerald-500/25 bg-emerald-500/5",
+      tone === "primary" && "border-primary/25 bg-primary/5",
+      tone === "violet" && "border-violet-500/25 bg-violet-500/5",
+      tone === "default" && "border-border/60 bg-muted/20",
+    )}
+  >
+    <div
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-lg",
+        tone === "amber" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+        tone === "emerald" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+        tone === "primary" && "bg-primary/15 text-primary",
+        tone === "violet" && "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+        tone === "default" && "bg-muted text-muted-foreground",
+      )}
+    >
+      <Icon className="size-4" />
+    </div>
+    <div className="min-w-0">
+      <p className="truncate text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold leading-tight" dir="ltr">
+        {value}
+      </p>
+    </div>
+  </div>
+);
+
+const FilterPill = ({ active, onClick, children, count }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+      active
+        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+        : "border-border/60 bg-background/80 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+    )}
+  >
+    {children}
+    {count > 0 && (
+      <span
+        className={cn(
+          "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+          active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    )}
+  </button>
+);
+
 const GuestBookingsPage = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
@@ -62,13 +112,83 @@ const GuestBookingsPage = () => {
     fetchBookings();
   }, [fetchBookings]);
 
-  const pendingPaymentCount = bookings.filter(
-    (b) => b.paymentStatus === "pending" && b.status !== "cancelled",
-  ).length;
+  const stats = useMemo(() => {
+    const active = bookings.filter((b) => b.status !== "cancelled");
+    const pendingPayment = active.filter((b) => b.paymentStatus === "pending");
+    const needsReview = active.filter(
+      (b) =>
+        b.status === "confirmed" &&
+        b.paymentStatus === "confirmed" &&
+        !b.hasReview,
+    );
+    const reviewed = active.filter((b) => b.hasReview);
+
+    return {
+      total: active.length,
+      pendingPayment: pendingPayment.length,
+      needsReview: needsReview.length,
+      reviewed: reviewed.length,
+    };
+  }, [bookings]);
+
+  const filterCounts = useMemo(
+    () => ({
+      all: stats.total,
+      payment: stats.pendingPayment,
+      review: stats.needsReview,
+      reviewed: stats.reviewed,
+    }),
+    [stats],
+  );
+
+  const filteredBookings = useMemo(() => {
+    const active = bookings.filter((b) => b.status !== "cancelled");
+
+    const filtered = active.filter((booking) => {
+      if (activeFilter === "payment") {
+        return booking.paymentStatus === "pending";
+      }
+      if (activeFilter === "review") {
+        return (
+          booking.status === "confirmed" &&
+          booking.paymentStatus === "confirmed" &&
+          !booking.hasReview
+        );
+      }
+      if (activeFilter === "reviewed") {
+        return booking.hasReview;
+      }
+      return true;
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    return [...filtered].sort((a, b) => {
+      const aUpcoming = a.endDate >= today;
+      const bUpcoming = b.endDate >= today;
+
+      if (aUpcoming !== bUpcoming) {
+        return aUpcoming ? -1 : 1;
+      }
+
+      if (aUpcoming) {
+        return a.startDate.localeCompare(b.startDate);
+      }
+
+      return b.endDate.localeCompare(a.endDate);
+    });
+  }, [bookings, activeFilter]);
+
+  const filterLabels = {
+    all: t("bookingPage.filterAll"),
+    payment: t("bookingPage.filterPayment"),
+    review: t("bookingPage.filterReview"),
+    reviewed: t("bookingPage.filterReviewed"),
+  };
 
   return (
     <DashboardLayout>
-      <div className="mx-auto w-full max-w-5xl space-y-5 px-1 sm:space-y-6 sm:px-0">
+      <div className="dashboard-page">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -77,11 +197,6 @@ const GuestBookingsPage = () => {
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground sm:text-base">
               {t("bookingPage.historyHint")}
             </p>
-            {pendingPaymentCount > 0 && (
-              <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
-                {t("bookingPage.pendingPaymentCount", { count: pendingPaymentCount })}
-              </p>
-            )}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <ActionLink to="/search" variant="outline" className="h-10 w-full sm:w-auto">
@@ -99,6 +214,50 @@ const GuestBookingsPage = () => {
           </div>
         </div>
 
+        {!loading && bookings.length > 0 && (
+          <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <SummaryChip
+              icon={CalendarCheck}
+              label={t("bookingPage.statsTotal")}
+              value={stats.total}
+              tone="primary"
+            />
+            <SummaryChip
+              icon={CreditCard}
+              label={t("bookingPage.statsPendingPayment")}
+              value={stats.pendingPayment}
+              tone={stats.pendingPayment > 0 ? "amber" : "default"}
+            />
+            <SummaryChip
+              icon={Star}
+              label={t("bookingPage.statsNeedsReview")}
+              value={stats.needsReview}
+              tone={stats.needsReview > 0 ? "violet" : "default"}
+            />
+            <SummaryChip
+              icon={Star}
+              label={t("bookingPage.statsReviewed")}
+              value={stats.reviewed}
+              tone="emerald"
+            />
+          </div>
+        )}
+
+        {!loading && bookings.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map((filter) => (
+              <FilterPill
+                key={filter}
+                active={activeFilter === filter}
+                onClick={() => setActiveFilter(filter)}
+                count={filterCounts[filter]}
+              >
+                {filterLabels[filter]}
+              </FilterPill>
+            ))}
+          </div>
+        )}
+
         {error && (
           <Alert variant="destructive">
             <AlertTitle>{t("bookingPage.errorTitle")}</AlertTitle>
@@ -107,7 +266,7 @@ const GuestBookingsPage = () => {
         )}
 
         {loading && (
-          <div className="grid items-start gap-4 md:grid-cols-2">
+          <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => (
               <BookingCardSkeleton key={item} />
             ))}
@@ -133,87 +292,25 @@ const GuestBookingsPage = () => {
           </Card>
         )}
 
-        {!loading && bookings.length > 0 && (
-          <div className="grid items-start gap-4 md:grid-cols-2">
-            {bookings.map((booking) => {
-              const property = booking.property;
-              const needsPayment =
-                booking.paymentStatus === "pending" &&
-                booking.status !== "cancelled";
-              const canReview = booking.status === "confirmed";
+        {!loading && bookings.length > 0 && filteredBookings.length === 0 && (
+          <Card className="glass-card border-dashed">
+            <CardContent className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+              <p className="text-sm font-medium">{t("bookingPage.filterEmptyTitle")}</p>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                {t("bookingPage.filterEmptyHint")}
+              </p>
+              <Button variant="outline" onClick={() => setActiveFilter("all")}>
+                {t("bookingPage.filterAll")}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-              return (
-                <Card key={booking._id} className="glass-card flex flex-col border-border/60">
-                  <CardHeader className="space-y-2 pb-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <CardTitle className="line-clamp-2 min-w-0 flex-1 text-base leading-snug">
-                        {property?.title || t("booking.booking")}
-                      </CardTitle>
-                      <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-                        <BookingStatusBadge status={booking.status} />
-                        <BookingStatusBadge
-                          status={booking.paymentStatus}
-                          type="payment"
-                        />
-                      </div>
-                    </div>
-                    {property?.location && (
-                      <CardDescription className="flex items-start gap-1.5">
-                        <MapPin className="mt-0.5 size-3.5 shrink-0" />
-                        <span>
-                          {property.location.city}, {property.location.country}
-                        </span>
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-
-                  <CardContent className="flex-1 space-y-3 text-sm">
-                    <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/15 p-3">
-                      <CalendarRange className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <span dir="ltr" className="font-medium">
-                        {formatDate(booking.startDate, i18n.language)} –{" "}
-                        {formatDate(booking.endDate, i18n.language)}
-                      </span>
-                    </div>
-                    <p className="font-semibold text-primary" dir="ltr">
-                      {formatPrice(
-                        booking.totalAmount ?? property?.price,
-                        t("common.currency"),
-                      )}
-                    </p>
-                  </CardContent>
-
-                  <CardFooter className="flex flex-col gap-2 border-t border-border/60 bg-muted/10 p-4">
-                    <ActionLink
-                      to={`/properties/${property?._id}`}
-                      variant="outline"
-                      className="h-10 w-full"
-                    >
-                      {t("common.viewDetails")}
-                    </ActionLink>
-                    {needsPayment && (
-                      <ActionLink
-                        to={`/bookings/payment/${booking._id}`}
-                        className="h-10 w-full gap-2"
-                      >
-                        <CreditCard className="size-4 shrink-0" />
-                        {t("bookingPage.completePayment")}
-                      </ActionLink>
-                    )}
-                    {canReview && (
-                      <ActionLink
-                        to={`/properties/${property?._id}#reviews`}
-                        variant={needsPayment ? "outline" : "default"}
-                        className="h-10 w-full gap-2"
-                      >
-                        <MessageSquarePlus className="size-4 shrink-0" />
-                        {t("review.leaveReview")}
-                      </ActionLink>
-                    )}
-                  </CardFooter>
-                </Card>
-              );
-            })}
+        {!loading && filteredBookings.length > 0 && (
+          <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredBookings.map((booking) => (
+              <GuestBookingCard key={booking._id} booking={booking} />
+            ))}
           </div>
         )}
       </div>

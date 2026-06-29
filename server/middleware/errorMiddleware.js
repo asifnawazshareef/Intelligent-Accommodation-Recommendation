@@ -10,6 +10,8 @@ export const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message: err.message,
+    ...(err.code && { code: err.code }),
+    ...(err.existingBookingId && { existingBookingId: err.existingBookingId }),
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };

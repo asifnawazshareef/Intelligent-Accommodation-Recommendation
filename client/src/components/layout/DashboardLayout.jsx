@@ -222,7 +222,8 @@ const DashboardLayout = ({ children }) => {
       )}
 
       <div className="flex min-h-screen min-w-0 flex-col lg:ps-64">
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur-md sm:px-6">
+        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+          <div className="site-container flex h-16 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="outline"
@@ -247,9 +248,12 @@ const DashboardLayout = ({ children }) => {
             </Badge>
             <ThemeToggle />
           </div>
+          </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="w-full min-w-0 flex-1 py-4 sm:py-6 lg:py-8">
+          <div className="site-container">{children}</div>
+        </main>
       </div>
     </div>
   );

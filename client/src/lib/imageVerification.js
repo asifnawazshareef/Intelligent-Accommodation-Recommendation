@@ -34,3 +34,17 @@ export const getGuestDisplayImages = (images = [], { isPrivileged = false } = {}
 
   return getVerifiedImages(images);
 };
+
+/** Status to show on public listing cards (verified only for guests). */
+export const getListingVerificationBadge = (images = []) => {
+  const cover = images?.[0];
+  if (cover?.verificationStatus === "verified") {
+    return "verified";
+  }
+
+  if (getVerifiedImages(images).length > 0) {
+    return "verified";
+  }
+
+  return null;
+};

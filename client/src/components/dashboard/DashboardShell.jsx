@@ -141,7 +141,7 @@ const DashboardShell = ({ role, user, children }) => {
   const RoleIcon = meta.icon;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -161,7 +161,7 @@ const DashboardShell = ({ role, user, children }) => {
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">
           {t("dashboard.quickActions")}
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="dashboard-grid">
           {meta.quickLinks.map((link) => (
             <QuickLinkCard key={link.to} {...link} />
           ))}

@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Compass } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import PropertySearchCard from "@/components/search/PropertySearchCard";
+import RecommendedPropertyCard from "@/components/search/RecommendedPropertyCard";
 import { getRecommendations } from "@/services/searchService";
 import { useAuth } from "@/context/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import ActionLink from "@/components/ui/action-link";
 
-const RecommendationSkeleton = () => (
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {[1, 2, 3].map((item) => (
-      <Skeleton key={item} className="aspect-[4/3] w-full rounded-xl" />
-    ))}
+const DISPLAY_LIMIT = 6;
+
+const CardSkeleton = () => (
+  <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+    <Skeleton className="aspect-video w-full rounded-none" />
+    <div className="space-y-3 p-4">
+      <Skeleton className="h-5 w-4/5" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-6 w-1/3" />
+      <Skeleton className="h-4 w-2/3" />
+    </div>
   </div>
 );
 
@@ -20,7 +26,7 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [items, setItems] = useState([]);
-  const [meta, setMeta] = useState({ engine: "", personalized: false });
+  const [personalized, setPersonalized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -30,16 +36,13 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
       setError("");
 
       try {
-        const params = {};
+        const params = { limit: DISPLAY_LIMIT };
         if (city?.trim()) params.city = city.trim();
         if (price) params.price = price;
 
         const response = await getRecommendations(params);
-        setItems(response.data.data || []);
-        setMeta({
-          engine: response.data.engine || "",
-          personalized: Boolean(response.data.personalized),
-        });
+        setItems((response.data.data || []).slice(0, DISPLAY_LIMIT));
+        setPersonalized(Boolean(response.data.profileSignals?.personalized));
       } catch (err) {
         setError(
           err.response?.data?.message || t("search.recommendationsError"),
@@ -54,14 +57,19 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
 
   if (loading) {
     return (
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="size-5 text-primary" />
-          <h2 className="text-xl font-semibold sm:text-2xl">
-            {t("search.recommendedTitle")}
-          </h2>
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-10 rounded-xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-72" />
+          </div>
         </div>
-        <RecommendationSkeleton />
+        <div className="property-grid">
+          {[1, 2, 3].map((item) => (
+            <CardSkeleton key={item} />
+          ))}
+        </div>
       </section>
     );
   }
@@ -78,30 +86,44 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
     return null;
   }
 
-  const hint = user
-    ? t("search.recommendedHint")
-    : t("search.recommendedHintGuest");
+  const hint = !user
+    ? t("search.recommendedHintGuest")
+    : personalized
+      ? t("search.recommendedHintPersonalized")
+      : t("search.recommendedHint");
 
   return (
-    <section className="space-y-4">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Sparkles className="size-5 text-primary" />
-          <h2 className="text-xl font-semibold sm:text-2xl">
-            {t("search.recommendedTitle")}
-          </h2>
-          {meta.engine && meta.engine !== "fallback" ? (
-            <Badge variant="secondary" className="text-xs">
-              {t("search.recommendedEngine", { engine: meta.engine })}
-            </Badge>
-          ) : null}
+    <section className="space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Compass className="size-5 text-primary" />
+          </span>
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              {t("search.recommendedTitle")}
+            </h2>
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {hint}
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
-      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {!user ? (
+          <ActionLink
+            to="/login"
+            variant="outline"
+            size="sm"
+            className="shrink-0 self-start sm:self-center"
+          >
+            {t("common.signIn")}
+          </ActionLink>
+        ) : null}
+      </header>
+
+      <div className="property-grid gap-5">
         {items.map((property) => (
-          <PropertySearchCard key={property._id} property={property} />
+          <RecommendedPropertyCard key={property._id} property={property} />
         ))}
       </div>
     </section>

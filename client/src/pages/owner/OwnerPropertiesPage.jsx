@@ -61,7 +61,7 @@ const OwnerPropertiesPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="dashboard-page">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -87,7 +87,7 @@ const OwnerPropertiesPage = () => {
         )}
 
         {loading && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="property-grid">
             {[1, 2, 3].map((item) => (
               <PropertyCardSkeleton key={item} />
             ))}
@@ -119,7 +119,7 @@ const OwnerPropertiesPage = () => {
         )}
 
         {!loading && properties.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="property-grid">
             {properties.map((property) => {
               const coverImage = property.images?.[0];
               const coverUrl = coverImage?.url;
@@ -139,6 +139,10 @@ const OwnerPropertiesPage = () => {
                       {coverImage?.verificationStatus && (
                         <ImageVerificationBadge
                           status={coverImage.verificationStatus}
+                          variant="overlay"
+                          compact={
+                            coverImage.verificationStatus === "verified"
+                          }
                         />
                       )}
                     </div>
