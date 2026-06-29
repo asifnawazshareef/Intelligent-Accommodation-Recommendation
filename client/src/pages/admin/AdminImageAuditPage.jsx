@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   CheckCircle2,
   ExternalLink,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import ActionLink from "@/components/ui/action-link";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
@@ -31,7 +31,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import notify from "@/lib/notify";
 
 const FILTERS = ["all", "pending", "verified", "suspicious", "rejected"];
 const STATUS_OPTIONS = FILTERS.filter((status) => status !== "all");
@@ -56,7 +57,7 @@ const PRESETS = {
   verify: { verificationStatus: "verified", aiScore: "0.95" },
   suspicious: { verificationStatus: "suspicious", aiScore: "0.45" },
   reject: { verificationStatus: "rejected", aiScore: "0" },
-  pending: { verificationStatus: "pending", aiScore: "0.85" },
+  pending: { verificationStatus: "pending" },
 };
 
 const buildDraft = (item) => ({
@@ -108,8 +109,6 @@ const AdminImageAuditPage = () => {
   const { t } = useTranslation();
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [filter, setFilter] = useState("all");
   const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState("");
@@ -117,8 +116,6 @@ const AdminImageAuditPage = () => {
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await getImageAuditList();
@@ -132,7 +129,7 @@ const AdminImageAuditPage = () => {
       setDrafts(nextDrafts);
       setSavedIds({});
     } catch (err) {
-      setError(err.response?.data?.message || t("imageAudit.loadError"));
+      notify.error(err.response?.data?.message || t("imageAudit.loadError"));
     } finally {
       setLoading(false);
     }
@@ -166,7 +163,6 @@ const AdminImageAuditPage = () => {
   }, [allItems]);
 
   const updateDraft = (id, field, value) => {
-    setSuccess("");
     setSavedIds((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -185,9 +181,11 @@ const AdminImageAuditPage = () => {
     const draft = draftValues || drafts[item.id];
     if (!draft) return false;
 
-    const parsedScore = parseAiScore(draft.aiScore);
+    const hasScoreField = Object.prototype.hasOwnProperty.call(draft, "aiScore");
+    const parsedScore = hasScoreField ? parseAiScore(draft.aiScore) : undefined;
+
     if (parsedScore === null) {
-      setError(t("imageAudit.invalidScore"));
+      notify.error(t("imageAudit.invalidScore"));
       return false;
     }
 
@@ -195,7 +193,7 @@ const AdminImageAuditPage = () => {
       parsedScore !== undefined &&
       (parsedScore < 0 || parsedScore > 1)
     ) {
-      setError(t("imageAudit.invalidScore"));
+      notify.error(t("imageAudit.invalidScore"));
       return false;
     }
 
@@ -208,8 +206,6 @@ const AdminImageAuditPage = () => {
     }
 
     setSavingId(item.id);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await updateImageAudit(
@@ -243,7 +239,7 @@ const AdminImageAuditPage = () => {
       }));
 
       setSavedIds((prev) => ({ ...prev, [item.id]: true }));
-      setSuccess(
+      notify.success(
         t("imageAudit.saveSuccess", {
           property: item.propertyTitle,
         }),
@@ -251,7 +247,7 @@ const AdminImageAuditPage = () => {
 
       return true;
     } catch (err) {
-      setError(err.response?.data?.message || t("imageAudit.saveError"));
+      notify.error(err.response?.data?.message || t("imageAudit.saveError"));
       return false;
     } finally {
       setSavingId("");
@@ -290,6 +286,14 @@ const AdminImageAuditPage = () => {
             <p className="mt-1 max-w-2xl text-muted-foreground">
               {t("imageAudit.pageHint")}
             </p>
+            <ActionLink
+              to="/admin/listings"
+              variant="link"
+              className="mt-2 h-auto p-0 text-sm"
+            >
+              {t("imageAudit.goToModeration")}
+              <ExternalLink className="size-3.5" />
+            </ActionLink>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="whitespace-normal">
@@ -331,19 +335,10 @@ const AdminImageAuditPage = () => {
           ))}
         </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>{t("imageAudit.errorTitle")}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert>
-            <AlertTitle>{t("imageAudit.successTitle")}</AlertTitle>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        )}
+        <Alert>
+          <ShieldCheck className="size-4" />
+          <AlertDescription>{t("imageAudit.workflowHint")}</AlertDescription>
+        </Alert>
 
         {loading && (
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -442,17 +437,14 @@ const AdminImageAuditPage = () => {
                       >
                         {item.url}
                       </p>
-                      <Button
+                      <ActionLink
+                        to="/admin/listings"
                         variant="link"
-                        size="sm"
                         className="h-auto p-0 text-xs"
-                        asChild
                       >
-                        <Link to={`/properties/${item.propertyId}`}>
-                          {t("imageAudit.viewProperty")}
-                          <ExternalLink className="size-3" />
-                        </Link>
-                      </Button>
+                        {t("imageAudit.moderateProperty")}
+                        <ExternalLink className="size-3" />
+                      </ActionLink>
                     </div>
                   </CardHeader>
 
@@ -500,6 +492,9 @@ const AdminImageAuditPage = () => {
                         />
                         <p className="text-xs text-muted-foreground">
                           {t("imageAudit.scoreHint")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("imageAudit.scoreMeaning")}
                         </p>
                       </div>
                     </div>

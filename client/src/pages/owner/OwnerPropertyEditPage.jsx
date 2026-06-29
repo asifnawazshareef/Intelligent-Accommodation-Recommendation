@@ -7,6 +7,7 @@ import PropertyForm from "@/components/properties/PropertyForm";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
 import PageLoader from "@/components/layout/PageLoader";
 import { getPropertyById, updateProperty } from "@/services/propertyService";
+import notify from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -44,9 +45,12 @@ const OwnerPropertyEditPage = () => {
 
     try {
       await updateProperty(id, payload);
+      notify.success(t("property.updateSuccess"));
       navigate("/owner/properties", { replace: true });
     } catch (err) {
-      setSubmitError(err.response?.data?.message || t("property.submitError"));
+      const message = err.response?.data?.message || t("property.submitError");
+      setSubmitError(message);
+      notify.error(message);
     } finally {
       setSubmitting(false);
     }

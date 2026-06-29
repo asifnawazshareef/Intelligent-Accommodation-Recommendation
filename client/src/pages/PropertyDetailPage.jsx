@@ -18,7 +18,9 @@ import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
 import { formatDate, formatPrice } from "@/lib/formatters";
+import { resolveImageUrl } from "@/lib/imageUrl";
 import { buildPropertyInsightText } from "@/lib/sentimentInsights";
+import { getGuestDisplayImages } from "@/lib/imageVerification";
 import { getPropertyById } from "@/services/propertyService";
 import {
   getPropertyReviews,
@@ -34,14 +36,18 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
-const PropertyImageGallery = ({ images = [], title }) => {
+const PropertyImageGallery = ({ images = [], title, emptyMessage }) => {
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImage = images[activeIndex];
 
   if (!images.length) {
     return (
-      <div className="flex aspect-[16/10] items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/30">
+      <div className="flex aspect-[16/10] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-muted/30 px-6 text-center">
         <Building2 className="size-12 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">
+          {emptyMessage || t("property.imagesUnderReview")}
+        </p>
       </div>
     );
   }
@@ -77,7 +83,7 @@ const PropertyImageGallery = ({ images = [], title }) => {
               )}
             >
               <img
-                src={image.url}
+                src={resolveImageUrl(image.url)}
                 alt={`${title} ${index + 1}`}
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -170,6 +176,7 @@ const PropertyDetailPage = () => {
   const showSentiment = summary && summary.totalReviews > 0;
   const insightText = buildPropertyInsightText(summary, t);
   const canLeaveReview = isAuthenticated && user?.role === "guest";
+  const displayImages = getGuestDisplayImages(property.images);
 
   const refreshReviewData = async () => {
     try {
@@ -196,7 +203,7 @@ const PropertyDetailPage = () => {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
         <div className="min-w-0 space-y-8">
-          <PropertyImageGallery images={property.images} title={property.title} />
+          <PropertyImageGallery images={displayImages} title={property.title} />
 
           <div className="space-y-3 lg:hidden">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">

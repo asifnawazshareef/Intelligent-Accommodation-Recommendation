@@ -6,6 +6,7 @@ import {
   buildUserRecommendationProfile,
   getGlobalBookingCounts,
 } from "../utils/buildUserProfile.js";
+import { filterGuestImages } from "../utils/imageVerification.js";
 
 const parseNumber = (value) => {
   if (value === undefined || value === null || value === "") {
@@ -39,9 +40,12 @@ const attachReviewStats = async (properties) => {
 
   return properties.map((property) => {
     const propertyStats = statsMap.get(property._id.toString());
+    const plain =
+      typeof property.toObject === "function" ? property.toObject() : property;
 
     return {
-      ...property,
+      ...plain,
+      images: filterGuestImages(plain.images || []),
       avgRating: propertyStats?.avgRating
         ? Number(propertyStats.avgRating.toFixed(1))
         : null,
@@ -288,6 +292,7 @@ export const getRecommendations = async (req, res, next) => {
 
           return {
             ...property,
+            images: filterGuestImages(property.images || []),
             recommendationScore: item.score,
             matchReasons: item.matchReasons || [],
           };
@@ -324,7 +329,10 @@ export const getRecommendations = async (req, res, next) => {
       engine,
       personalized: Boolean(req.user),
       context,
-      data: recommendations,
+      data: recommendations.map((property) => ({
+        ...property,
+        images: filterGuestImages(property.images || []),
+      })),
     });
   } catch (error) {
     next(error);

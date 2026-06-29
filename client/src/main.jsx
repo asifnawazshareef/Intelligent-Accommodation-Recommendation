@@ -26,6 +26,7 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
 import OfflineBookingPage from "./pages/OfflineBookingPage.jsx";
 import OwnerOfflineRequestsPage from "./pages/owner/OwnerOfflineRequestsPage.jsx";
 import ReviewSentimentTestPage from "./pages/ReviewSentimentTestPage.jsx";
+import Toaster from "./components/ui/toaster.jsx";
 import "./i18n";
 import "./index.css";
 
@@ -34,6 +35,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <ThemeProvider>
       <BrowserRouter>
         <AuthProvider>
+          <Toaster />
           <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<HomePage />} />

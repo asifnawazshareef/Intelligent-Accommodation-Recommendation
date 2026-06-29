@@ -7,6 +7,7 @@ export const getMyProperties = () =>
 
 export const getPropertyById = (id) => api.get(`/properties/${id}`);
 
-export const createProperty = (data) => api.post("/properties", data);
+export const createProperty = (formData) => api.post("/properties", formData);
 
-export const updateProperty = (id, data) => api.put(`/properties/${id}`, data);
+export const updateProperty = (id, formData) =>
+  api.put(`/properties/${id}`, formData);

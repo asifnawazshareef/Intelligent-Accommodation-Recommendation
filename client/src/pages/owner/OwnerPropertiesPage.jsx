@@ -4,9 +4,11 @@ import { Building2, MapPin, Pencil, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
+import ImageVerificationSummary from "@/components/imageAudit/ImageVerificationSummary";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import { formatPrice } from "@/lib/formatters";
+import { summarizeImageVerification } from "@/lib/imageVerification";
 import { getMyProperties } from "@/services/propertyService";
 import { Button } from "@/components/ui/button";
 import {
@@ -121,6 +123,9 @@ const OwnerPropertiesPage = () => {
             {properties.map((property) => {
               const coverImage = property.images?.[0];
               const coverUrl = coverImage?.url;
+              const imageSummary = summarizeImageVerification(property.images);
+              const hasPendingImages = imageSummary.pending > 0;
+              const hasRejectedImages = imageSummary.rejected > 0;
 
               return (
                 <Card
@@ -151,13 +156,43 @@ const OwnerPropertiesPage = () => {
                     </CardDescription>
                   </CardHeader>
 
-                  <CardContent className="flex-1 pb-2">
+                  <CardContent className="flex-1 space-y-3 pb-2">
                     <p className="text-lg font-semibold text-primary" dir="ltr">
                       {formatPrice(property.price, t("common.currency"))}
                     </p>
-                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
                       {property.description}
                     </p>
+
+                    {property.status === "pending" && (
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        {t("property.waitingForApproval")}
+                      </p>
+                    )}
+
+                    {hasPendingImages && (
+                      <p className="text-sm text-muted-foreground">
+                        {t("property.imagesUnderReview")}
+                      </p>
+                    )}
+
+                    {hasRejectedImages && (
+                      <p className="text-sm text-destructive">
+                        {t("property.hasRejectedImages")}
+                      </p>
+                    )}
+
+                    {imageSummary.total > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {t("property.imageVerificationSummary")}
+                        </p>
+                        <ImageVerificationSummary
+                          images={property.images}
+                          compact
+                        />
+                      </div>
+                    )}
                   </CardContent>
 
                   <CardFooter className="border-t border-border/60 pt-4">

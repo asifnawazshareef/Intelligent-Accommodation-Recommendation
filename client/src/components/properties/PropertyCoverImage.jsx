@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Building2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { resolveImageUrl } from "@/lib/imageUrl";
 
 const normalizeImageUrl = (url) => {
   if (typeof url !== "string") return "";
@@ -17,7 +18,7 @@ const PropertyCoverImage = ({
   showLoader = true,
 }) => {
   const { t } = useTranslation();
-  const imageUrl = normalizeImageUrl(src);
+  const imageUrl = resolveImageUrl(normalizeImageUrl(src));
   const imgRef = useRef(null);
   const [status, setStatus] = useState(() =>
     imageUrl ? "loading" : "empty",

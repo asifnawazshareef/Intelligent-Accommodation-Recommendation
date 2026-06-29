@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyForm from "@/components/properties/PropertyForm";
 import { createProperty } from "@/services/propertyService";
+import notify from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -20,9 +21,12 @@ const OwnerPropertyNewPage = () => {
 
     try {
       await createProperty(payload);
+      notify.success(t("property.createSuccess"));
       navigate("/owner/properties", { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || t("property.submitError"));
+      const message = err.response?.data?.message || t("property.submitError");
+      setError(message);
+      notify.error(message);
     } finally {
       setLoading(false);
     }

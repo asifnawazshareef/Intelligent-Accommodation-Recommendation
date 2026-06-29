@@ -19,6 +19,15 @@ const imageMetaSchema = new mongoose.Schema(
       min: 0,
       max: 1,
     },
+    hash: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { _id: true },
 );

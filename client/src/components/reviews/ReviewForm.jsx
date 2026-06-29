@@ -26,6 +26,7 @@ import {
   getEligibleBookings,
 } from "@/services/reviewService";
 import { formatBookingLabel } from "@/lib/formatters";
+import notify from "@/lib/notify";
 
 const RATING_OPTIONS = ["5", "4", "3", "2", "1"];
 
@@ -61,7 +62,9 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
         }));
       } catch (err) {
         setEligibleBookings([]);
-        setError(err.response?.data?.message || t("review.loadBookingsError"));
+        const message = err.response?.data?.message || t("review.loadBookingsError");
+        setError(message);
+        notify.error(message);
       } finally {
         setLoadingBookings(false);
       }
@@ -87,12 +90,16 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
     setLatestAnalysis(null);
 
     if (!form.booking) {
-      setError(t("review.selectBookingRequired"));
+      const message = t("review.selectBookingRequired");
+      setError(message);
+      notify.warning(message);
       return;
     }
 
     if (!form.text.trim()) {
-      setError(t("review.textRequired"));
+      const message = t("review.textRequired");
+      setError(message);
+      notify.warning(message);
       return;
     }
 
@@ -108,6 +115,7 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
 
       setLatestAnalysis(response.data.data || null);
       setSuccess(t("review.submitSuccess"));
+      notify.success(t("review.submitSuccess"));
       await onReviewCreated?.();
 
       setEligibleBookings((prev) => {
@@ -123,7 +131,9 @@ const ReviewForm = ({ propertyId, onReviewCreated }) => {
         return remaining;
       });
     } catch (err) {
-      setError(err.response?.data?.message || t("review.submitError"));
+      const message = err.response?.data?.message || t("review.submitError");
+      setError(message);
+      notify.error(message);
     } finally {
       setLoading(false);
     }

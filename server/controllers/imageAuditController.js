@@ -1,5 +1,10 @@
 import Property from "../models/Property.js";
-import { VERIFICATION_STATUSES } from "../utils/imageVerification.js";
+import { computeImageAiScore } from "../utils/imageAiScore.js";
+import {
+  VERIFICATION_STATUSES,
+  getAbsoluteUploadPath,
+  refreshPendingImageScores,
+} from "../utils/imageVerification.js";
 
 export const getImageAuditList = async (req, res, next) => {
   try {
@@ -8,6 +13,10 @@ export const getImageAuditList = async (req, res, next) => {
     const properties = await Property.find()
       .populate("owner", "name email")
       .sort({ updatedAt: -1 });
+
+    for (const property of properties) {
+      await refreshPendingImageScores(property);
+    }
 
     const auditItems = [];
 
@@ -20,14 +29,14 @@ export const getImageAuditList = async (req, res, next) => {
         auditItems.push({
           id: `${property._id}:${image._id}`,
           propertyId: property._id.toString(),
-          imageId: image._id.toString(),
           propertyTitle: property.title,
+          propertyStatus: property.status,
+          imageId: image._id.toString(),
           ownerName: property.owner?.name || "Unknown",
           ownerEmail: property.owner?.email || "",
           url: image.url,
           verificationStatus: image.verificationStatus,
-          aiScore: image.aiScore,
-          propertyStatus: property.status,
+          aiScore: image.aiScore ?? 0,
           updatedAt: property.updatedAt,
         });
       });
@@ -94,6 +103,11 @@ export const updateImageAudit = async (req, res, next) => {
 
     if (aiScore !== undefined) {
       image.aiScore = Number(aiScore);
+    } else if (verificationStatus === "pending") {
+      const absolutePath = getAbsoluteUploadPath(image.url);
+      image.aiScore = computeImageAiScore(absolutePath);
+    } else if (verificationStatus === "rejected") {
+      image.aiScore = 0;
     }
 
     property.markModified("images");
@@ -107,6 +121,7 @@ export const updateImageAudit = async (req, res, next) => {
         propertyId: property._id.toString(),
         imageId: image._id.toString(),
         propertyTitle: property.title,
+        propertyStatus: property.status,
         url: image.url,
         verificationStatus: image.verificationStatus,
         aiScore: image.aiScore,

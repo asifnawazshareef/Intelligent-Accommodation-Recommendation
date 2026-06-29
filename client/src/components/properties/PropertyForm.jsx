@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { ImageOff, Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ImageOff, Loader2, Upload, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import { resolveImageUrl } from "@/lib/imageUrl";
 import {
   Card,
   CardContent,
@@ -15,36 +16,56 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+const MAX_IMAGES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
 const emptyRange = () => ({ startDate: "", endDate: "" });
 
-const ImageUrlPreview = ({ url }) => {
+const ImagePreview = ({ src, alt, onRemove, disabled }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState("loading");
 
-  if (!url?.trim()) {
-    return null;
-  }
-
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/60 bg-muted/30">
-      {status === "loading" && (
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {status === "error" && (
-        <div className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center text-xs text-muted-foreground">
-          <ImageOff className="size-5" />
-          {t("property.imagePreviewError")}
-        </div>
-      )}
-      <img
-        src={url}
-        alt={t("property.imagePreview")}
-        className={`h-full w-full object-cover ${status === "loaded" ? "block" : "hidden"}`}
-        onLoad={() => setStatus("loaded")}
-        onError={() => setStatus("error")}
-      />
+    <div className="relative overflow-hidden rounded-lg border border-border/60 bg-muted/30">
+      <div className="relative aspect-video w-full">
+        {status === "loading" && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {status === "error" && (
+          <div className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center text-xs text-muted-foreground">
+            <ImageOff className="size-5" />
+            {t("property.imagePreviewError")}
+          </div>
+        )}
+        <img
+          src={src}
+          alt={alt}
+          className={`h-full w-full object-cover ${status === "loaded" ? "block" : "hidden"}`}
+          onLoad={() => setStatus("loaded")}
+          onError={() => setStatus("error")}
+        />
+      </div>
+      {onRemove ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="absolute end-2 top-2 size-8 rounded-full shadow-sm"
+          onClick={onRemove}
+          disabled={disabled}
+          aria-label={t("property.removeImage")}
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
     </div>
   );
 };
@@ -57,6 +78,8 @@ const PropertyForm = ({
   error = "",
 }) => {
   const { t } = useTranslation();
+  const isEdit = Boolean(initialValues?._id);
+
   const [formData, setFormData] = useState({
     title: initialValues?.title || "",
     description: initialValues?.description || "",
@@ -64,10 +87,6 @@ const PropertyForm = ({
     city: initialValues?.location?.city || "",
     country: initialValues?.location?.country || "",
     price: initialValues?.price?.toString() || "",
-    imageUrls:
-      initialValues?.images?.length > 0
-        ? initialValues.images.map((img) => img.url)
-        : [""],
     availabilityRanges:
       initialValues?.availabilityCalendar?.length > 0
         ? initialValues.availabilityCalendar.map((range) => ({
@@ -76,7 +95,31 @@ const PropertyForm = ({
           }))
         : [emptyRange()],
   });
+
+  const [existingImages, setExistingImages] = useState(
+    initialValues?.images?.map((image) => ({
+      _id: image._id,
+      url: image.url,
+      verificationStatus: image.verificationStatus,
+      aiScore: image.aiScore,
+    })) || [],
+  );
+  const [newFiles, setNewFiles] = useState([]);
   const [validationError, setValidationError] = useState("");
+
+  const newPreviews = useMemo(
+    () => newFiles.map((file) => URL.createObjectURL(file)),
+    [newFiles],
+  );
+
+  useEffect(
+    () => () => {
+      newPreviews.forEach((preview) => URL.revokeObjectURL(preview));
+    },
+    [newPreviews],
+  );
+
+  const totalImages = existingImages.length + newFiles.length;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -84,27 +127,52 @@ const PropertyForm = ({
     setValidationError("");
   };
 
-  const updateImageUrl = (index, value) => {
-    setFormData((prev) => {
-      const imageUrls = [...prev.imageUrls];
-      imageUrls[index] = value;
-      return { ...prev, imageUrls };
-    });
+  const validateFiles = (files) => {
+    if (totalImages + files.length > MAX_IMAGES) {
+      return t("property.maxImagesError", { count: MAX_IMAGES });
+    }
+
+    for (const file of files) {
+      if (!ALLOWED_TYPES.has(file.type)) {
+        return t("property.invalidImageType");
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        return t("property.imageTooLarge");
+      }
+    }
+
+    return "";
+  };
+
+  const handleFileSelect = (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    if (!selected.length) {
+      return;
+    }
+
+    const fileError = validateFiles(selected);
+    if (fileError) {
+      setValidationError(fileError);
+      return;
+    }
+
+    setNewFiles((prev) => [...prev, ...selected]);
     setValidationError("");
   };
 
-  const addImageUrl = () => {
-    setFormData((prev) => ({
-      ...prev,
-      imageUrls: [...prev.imageUrls, ""],
-    }));
+  const removeExistingImage = (imageId) => {
+    setExistingImages((prev) =>
+      prev.filter((image) => image._id !== imageId),
+    );
+    setValidationError("");
   };
 
-  const removeImageUrl = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      imageUrls: prev.imageUrls.filter((_, i) => i !== index),
-    }));
+  const removeNewFile = (index) => {
+    setNewFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+    setValidationError("");
   };
 
   const updateRange = (index, field, value) => {
@@ -144,6 +212,10 @@ const PropertyForm = ({
     }
     if (Number(formData.price) < 0) return t("property.priceInvalid");
 
+    if (totalImages > MAX_IMAGES) {
+      return t("property.maxImagesError", { count: MAX_IMAGES });
+    }
+
     for (const range of formData.availabilityRanges) {
       if (
         (range.startDate && !range.endDate) ||
@@ -172,23 +244,32 @@ const PropertyForm = ({
       return;
     }
 
-    const payload = {
-      title: formData.title.trim(),
-      description: formData.description.trim(),
-      location: {
-        address: formData.address.trim(),
-        city: formData.city.trim(),
-        country: formData.country.trim(),
-      },
-      price: Number(formData.price),
-      images: formData.imageUrls
-        .map((url) => url.trim())
-        .filter(Boolean)
-        .map((url) => ({ url })),
-      availabilityCalendar: formData.availabilityRanges.filter(
-        (range) => range.startDate && range.endDate,
+    const payload = new FormData();
+    payload.append("title", formData.title.trim());
+    payload.append("description", formData.description.trim());
+    payload.append("address", formData.address.trim());
+    payload.append("city", formData.city.trim());
+    payload.append("country", formData.country.trim());
+    payload.append("price", String(Number(formData.price)));
+    payload.append(
+      "availabilityCalendar",
+      JSON.stringify(
+        formData.availabilityRanges.filter(
+          (range) => range.startDate && range.endDate,
+        ),
       ),
-    };
+    );
+
+    if (isEdit) {
+      payload.append(
+        "retainedImageIds",
+        JSON.stringify(existingImages.map((image) => image._id)),
+      );
+    }
+
+    newFiles.forEach((file) => {
+      payload.append("images", file);
+    });
 
     await onSubmit(payload);
   };
@@ -298,22 +379,9 @@ const PropertyForm = ({
       </Card>
 
       <Card className="glass-card border-border/60">
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("property.availability")}</CardTitle>
-            <CardDescription>{t("property.availabilityHint")}</CardDescription>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addRange}
-            disabled={loading}
-            className="shrink-0 whitespace-normal"
-          >
-            <Plus className="size-4" />
-            {t("property.addDateRange")}
-          </Button>
+        <CardHeader>
+          <CardTitle>{t("property.availability")}</CardTitle>
+          <CardDescription>{t("property.availabilityHint")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {formData.availabilityRanges.map((range, index) => (
@@ -358,81 +426,86 @@ const PropertyForm = ({
                   disabled={loading || formData.availabilityRanges.length === 1}
                   aria-label={t("property.remove")}
                 >
-                  <Trash2 className="size-4 text-destructive" />
+                  <X className="size-4 text-destructive" />
                 </Button>
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      <Card className="glass-card border-border/60">
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("property.images")}</CardTitle>
-            <CardDescription>{t("property.imagesHint")}</CardDescription>
-          </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={addImageUrl}
+            onClick={addRange}
             disabled={loading}
-            className="shrink-0 whitespace-normal"
           >
-            <Plus className="size-4" />
-            {t("property.addImage")}
+            {t("property.addDateRange")}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card border-border/60">
+        <CardHeader>
+          <CardTitle>{t("property.images")}</CardTitle>
+          <CardDescription>{t("property.imagesHint")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {formData.imageUrls.map((url, index) => {
-            const imageMeta = initialValues?.images?.[index];
+          <div className="space-y-2">
+            <Label htmlFor="property-images">{t("property.uploadImages")}</Label>
+            <Input
+              id="property-images"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              multiple
+              onChange={handleFileSelect}
+              disabled={loading || totalImages >= MAX_IMAGES}
+              className="w-full cursor-pointer"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("property.uploadImagesHint", { count: MAX_IMAGES })}
+            </p>
+          </div>
 
-            return (
-            <div
-              key={`image-${index}`}
-              className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 lg:grid-cols-[1fr_220px]"
-            >
-              <div className="flex gap-2">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Label htmlFor={`image-${index}`}>
-                    {t("property.imageUrl")} {index + 1}
-                  </Label>
-                  <Input
-                    id={`image-${index}`}
-                    value={url}
-                    onChange={(e) => updateImageUrl(index, e.target.value)}
-                    placeholder="https://example.com/image.jpg"
+          {totalImages > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {existingImages.map((image) => (
+                <div key={image._id} className="space-y-2">
+                  <ImagePreview
+                    src={resolveImageUrl(image.url)}
+                    alt={t("property.imagePreview")}
+                    onRemove={() => removeExistingImage(image._id)}
                     disabled={loading}
-                    className="w-full"
-                    dir="ltr"
                   />
+                  {image.verificationStatus ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ImageVerificationBadge status={image.verificationStatus} />
+                      <span className="text-xs text-muted-foreground" dir="ltr">
+                        {t("imageAudit.scoreLabel")}: {(image.aiScore ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeImageUrl(index)}
-                    disabled={loading || formData.imageUrls.length === 1}
-                    aria-label={t("property.remove")}
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
+              ))}
+
+              {newFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="space-y-2">
+                  <ImagePreview
+                    src={newPreviews[index]}
+                    alt={file.name}
+                    onRemove={() => removeNewFile(index)}
+                    disabled={loading}
+                  />
+                  <p className="truncate text-xs text-muted-foreground">{file.name}</p>
                 </div>
-              </div>
-              <ImageUrlPreview url={url} />
-              {imageMeta?.verificationStatus && (
-                <div className="flex flex-wrap items-center gap-2 lg:col-span-2">
-                  <ImageVerificationBadge status={imageMeta.verificationStatus} />
-                  <span className="text-xs text-muted-foreground" dir="ltr">
-                    {t("imageAudit.scoreLabel")}: {(imageMeta.aiScore ?? 0).toFixed(2)}
-                  </span>
-                </div>
-              )}
+              ))}
             </div>
-            );
-          })}
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-muted/20 px-4 py-10 text-center">
+              <Upload className="size-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {t("property.noImagesSelected")}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -446,7 +519,7 @@ const PropertyForm = ({
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              {t("common.loading")}
+              {t("property.uploading")}
             </>
           ) : (
             submitLabel

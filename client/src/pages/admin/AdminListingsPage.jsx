@@ -12,7 +12,14 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import ImageVerificationSummary from "@/components/imageAudit/ImageVerificationSummary";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import ActionLink from "@/components/ui/action-link";
+import {
+  hasUnverifiedImages,
+  hasVerifiedImage,
+  summarizeImageVerification,
+} from "@/lib/imageVerification";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
 import {
@@ -41,6 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatPrice } from "@/lib/formatters";
+import notify from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
@@ -114,6 +122,27 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {t("listingModeration.imageVerification")}
           </p>
+          <ImageVerificationSummary images={listing.images} />
+          {!hasVerifiedImage(listing.images) && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {t("listingModeration.noVerifiedImageError")}
+              </AlertDescription>
+            </Alert>
+          )}
+          {hasUnverifiedImages(listing.images) && hasVerifiedImage(listing.images) && (
+            <Alert>
+              <AlertDescription>
+                {t("listingModeration.unverifiedImagesWarning")}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("listingModeration.imagePreviews")}
+          </p>
           {listing.images?.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {listing.images.map((image, index) => (
@@ -143,7 +172,7 @@ const ListingDetailPanel = ({ listing, onApprove, onReject, actionId }) => {
       <CardFooter className="flex flex-col gap-2 border-t border-border/60 sm:flex-row">
         <Button
           className="w-full whitespace-normal sm:flex-1"
-          disabled={isBusy}
+          disabled={isBusy || !hasVerifiedImage(listing.images)}
           onClick={() => onApprove(listingId)}
         >
           {isBusy ? (
@@ -183,15 +212,11 @@ const AdminListingsPage = () => {
   const { t } = useTranslation();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [actionId, setActionId] = useState("");
 
   const fetchListings = useCallback(async () => {
     setLoading(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await getPendingListings();
@@ -205,7 +230,7 @@ const AdminListingsPage = () => {
         return data[0]?._id ? String(data[0]._id) : "";
       });
     } catch (err) {
-      setError(err.response?.data?.message || t("listingModeration.loadError"));
+      notify.error(err.response?.data?.message || t("listingModeration.loadError"));
     } finally {
       setLoading(false);
     }
@@ -223,9 +248,26 @@ const AdminListingsPage = () => {
 
   const handleApprove = async (id) => {
     const listingId = String(id);
+    const listing = listings.find((item) => String(item._id) === listingId);
+
+    if (!listing) {
+      return;
+    }
+
+    if (!hasVerifiedImage(listing.images)) {
+      notify.error(t("listingModeration.noVerifiedImageError"));
+      return;
+    }
+
+    if (hasUnverifiedImages(listing.images)) {
+      notify.warning(t("listingModeration.unverifiedImagesWarning"));
+      const confirmed = window.confirm(t("listingModeration.approveConfirmWarning"));
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setActionId(listingId);
-    setError("");
-    setSuccess("");
 
     try {
       await approveListing(listingId);
@@ -236,9 +278,9 @@ const AdminListingsPage = () => {
         );
         return next;
       });
-      setSuccess(t("listingModeration.approveSuccess"));
+      notify.success(t("listingModeration.approveSuccess"));
     } catch (err) {
-      setError(err.response?.data?.message || t("listingModeration.actionError"));
+      notify.error(err.response?.data?.message || t("listingModeration.actionError"));
     } finally {
       setActionId("");
     }
@@ -247,8 +289,6 @@ const AdminListingsPage = () => {
   const handleReject = async (id) => {
     const listingId = String(id);
     setActionId(listingId);
-    setError("");
-    setSuccess("");
 
     try {
       await rejectListing(listingId);
@@ -259,9 +299,9 @@ const AdminListingsPage = () => {
         );
         return next;
       });
-      setSuccess(t("listingModeration.rejectSuccess"));
+      notify.success(t("listingModeration.rejectSuccess"));
     } catch (err) {
-      setError(err.response?.data?.message || t("listingModeration.actionError"));
+      notify.error(err.response?.data?.message || t("listingModeration.actionError"));
     } finally {
       setActionId("");
     }
@@ -278,6 +318,14 @@ const AdminListingsPage = () => {
             <p className="mt-1 max-w-2xl text-muted-foreground">
               {t("listingModeration.pageHint")}
             </p>
+            <ActionLink
+              to="/admin/image-audit"
+              variant="link"
+              className="mt-2 h-auto p-0 text-sm"
+            >
+              {t("listingModeration.goToImageAudit")}
+              <Eye className="size-3.5" />
+            </ActionLink>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="whitespace-normal">
@@ -294,20 +342,6 @@ const AdminListingsPage = () => {
             </Button>
           </div>
         </div>
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>{t("listingModeration.errorTitle")}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert>
-            <AlertTitle>{t("listingModeration.successTitle")}</AlertTitle>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        )}
 
         {loading && (
           <div className="space-y-4">
@@ -373,7 +407,16 @@ const AdminListingsPage = () => {
                           <TableCell dir="ltr">
                             {formatPrice(listing.price, t("common.currency"))}
                           </TableCell>
-                          <TableCell>{listing.images?.length || 0}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              const summary = summarizeImageVerification(listing.images);
+                              return (
+                                <span dir="ltr">
+                                  {summary.verified}/{summary.total}
+                                </span>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell>
                             <div
                               className="flex justify-end gap-1"
@@ -459,7 +502,7 @@ const AdminListingsPage = () => {
                         <Button
                           size="sm"
                           className="flex-1 whitespace-normal"
-                          disabled={isBusy}
+                          disabled={isBusy || !hasVerifiedImage(listing.images)}
                           onClick={() => handleApprove(listingId)}
                         >
                           <CheckCircle2 className="size-4" />

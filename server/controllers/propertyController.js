@@ -1,5 +1,46 @@
 import Property from "../models/Property.js";
-import { buildVerifiedImages } from "../utils/imageVerification.js";
+import {
+  MAX_IMAGES_PER_PROPERTY,
+  buildVerifiedImagesFromFiles,
+  deleteUploadedImage,
+  sanitizePropertyImages,
+} from "../utils/imageVerification.js";
+
+const parseJsonField = (value, fallback) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const parseMultipartBody = (body) => {
+  const location =
+    body.location && typeof body.location === "object"
+      ? body.location
+      : {
+          address: body.address,
+          city: body.city,
+          country: body.country,
+        };
+
+  return {
+    title: body.title,
+    description: body.description,
+    price: body.price,
+    location,
+    availabilityCalendar: parseJsonField(body.availabilityCalendar, []),
+    retainedImageIds: parseJsonField(body.retainedImageIds, []),
+  };
+};
 
 const validateLocation = (location) => {
   if (!location || typeof location !== "object") {
@@ -21,27 +62,8 @@ const validateLocation = (location) => {
   return null;
 };
 
-const validateImages = (images) => {
-  if (images === undefined) {
-    return null;
-  }
-
-  if (!Array.isArray(images)) {
-    return "Images must be an array";
-  }
-
-  for (const image of images) {
-    if (!image?.url?.trim()) {
-      return "Each image must include a URL";
-    }
-  }
-
-  return null;
-};
-
 const validatePropertyInput = (body, isUpdate = false) => {
-  const { title, description, location, price, images, availabilityCalendar } =
-    body;
+  const { title, description, location, price, availabilityCalendar } = body;
 
   if (!isUpdate) {
     if (!title?.trim()) return "Title is required";
@@ -70,9 +92,6 @@ const validatePropertyInput = (body, isUpdate = false) => {
     }
   }
 
-  const imagesError = validateImages(images);
-  if (imagesError) return imagesError;
-
   if (
     availabilityCalendar !== undefined &&
     !Array.isArray(availabilityCalendar)
@@ -83,32 +102,106 @@ const validatePropertyInput = (body, isUpdate = false) => {
   return null;
 };
 
+const cleanupUploadedFiles = (files = []) => {
+  files.forEach((file) => {
+    deleteUploadedImage(`/uploads/properties/${file.filename}`);
+  });
+};
+
+const mergePropertyImages = async ({
+  propertyId,
+  previousImages = [],
+  retainedImageIds = [],
+  uploadedFiles = [],
+}) => {
+  const retainedSet = new Set(
+    Array.isArray(retainedImageIds)
+      ? retainedImageIds.map((id) => id.toString())
+      : [],
+  );
+
+  const retainedImages = previousImages.filter((image) =>
+    retainedSet.has(image._id.toString()),
+  );
+
+  const removedImages = previousImages.filter(
+    (image) => !retainedSet.has(image._id.toString()),
+  );
+
+  const newImages = await buildVerifiedImagesFromFiles(
+    uploadedFiles,
+    propertyId,
+  );
+
+  const combined = [...retainedImages, ...newImages];
+
+  if (combined.length > MAX_IMAGES_PER_PROPERTY) {
+    const error = new Error(
+      `A property can have at most ${MAX_IMAGES_PER_PROPERTY} images.`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  removedImages.forEach((image) => {
+    if (image.url?.startsWith("/uploads/properties/")) {
+      deleteUploadedImage(image.url);
+    }
+  });
+
+  return combined.map((image) => ({
+    url: image.url,
+    verificationStatus: image.verificationStatus,
+    aiScore: image.aiScore,
+    hash: image.hash || "",
+    uploadedAt: image.uploadedAt || new Date(),
+  }));
+};
+
+const canViewAllImages = (property, user) => {
+  if (!user) {
+    return false;
+  }
+
+  const ownerId = property.owner._id?.toString() || property.owner.toString();
+  return user.role === "admin" || user._id.toString() === ownerId;
+};
+
 export const createProperty = async (req, res, next) => {
   try {
-    const validationError = validatePropertyInput(req.body);
+    const body = parseMultipartBody(req.body);
+    const validationError = validatePropertyInput(body);
 
     if (validationError) {
+      cleanupUploadedFiles(req.files);
       res.status(400);
       throw new Error(validationError);
     }
 
-    const { title, description, location, price, images, availabilityCalendar } =
-      req.body;
+    const uploadedFiles = req.files || [];
 
-    const verifiedImages = await buildVerifiedImages(images || []);
+    if (uploadedFiles.length > MAX_IMAGES_PER_PROPERTY) {
+      cleanupUploadedFiles(uploadedFiles);
+      res.status(400);
+      throw new Error(
+        `You can upload up to ${MAX_IMAGES_PER_PROPERTY} images per property.`,
+      );
+    }
+
+    const verifiedImages = await buildVerifiedImagesFromFiles(uploadedFiles);
 
     const property = await Property.create({
-      title: title.trim(),
-      description: description.trim(),
+      title: body.title.trim(),
+      description: body.description.trim(),
       location: {
-        address: location.address.trim(),
-        city: location.city.trim(),
-        country: location.country.trim(),
+        address: body.location.address.trim(),
+        city: body.location.city.trim(),
+        country: body.location.country.trim(),
       },
-      price: Number(price),
+      price: Number(body.price),
       owner: req.user._id,
       images: verifiedImages,
-      availabilityCalendar: availabilityCalendar || [],
+      availabilityCalendar: body.availabilityCalendar || [],
       status: "pending",
     });
 
@@ -118,6 +211,7 @@ export const createProperty = async (req, res, next) => {
       data: property,
     });
   } catch (error) {
+    cleanupUploadedFiles(req.files);
     next(error);
   }
 };
@@ -131,7 +225,9 @@ export const getProperties = async (req, res, next) => {
     res.json({
       success: true,
       count: properties.length,
-      data: properties,
+      data: properties.map((property) =>
+        sanitizePropertyImages(property, { verifiedOnly: true }),
+      ),
     });
   } catch (error) {
     next(error);
@@ -166,18 +262,20 @@ export const getPropertyById = async (req, res, next) => {
       throw new Error("Property not found");
     }
 
+    const includeAllImages = canViewAllImages(property, req.user);
+    const payload = sanitizePropertyImages(property, {
+      includeRejected: includeAllImages,
+      verifiedOnly: property.status === "approved" && !includeAllImages,
+    });
+
     if (property.status === "approved") {
       return res.json({
         success: true,
-        data: property,
+        data: payload,
       });
     }
 
-    const ownerId = property.owner._id?.toString() || property.owner.toString();
-    const isOwner = req.user && req.user._id.toString() === ownerId;
-    const isAdmin = req.user && req.user.role === "admin";
-
-    if (!isOwner && !isAdmin) {
+    if (!includeAllImages) {
       res.status(404);
       throw new Error("Property not found");
     }
@@ -196,44 +294,59 @@ export const updateProperty = async (req, res, next) => {
     const property = await Property.findById(req.params.id);
 
     if (!property) {
+      cleanupUploadedFiles(req.files);
       res.status(404);
       throw new Error("Property not found");
     }
 
     if (property.owner.toString() !== req.user._id.toString()) {
+      cleanupUploadedFiles(req.files);
       res.status(403);
       throw new Error("Not authorized to update this property");
     }
 
-    const validationError = validatePropertyInput(req.body, true);
+    const body = parseMultipartBody(req.body);
+    const validationError = validatePropertyInput(body, true);
 
     if (validationError) {
+      cleanupUploadedFiles(req.files);
       res.status(400);
       throw new Error(validationError);
     }
 
-    const { title, description, location, price, images, availabilityCalendar } =
-      req.body;
-
-    if (title !== undefined) property.title = title.trim();
-    if (description !== undefined) property.description = description.trim();
-    if (price !== undefined) property.price = Number(price);
-    if (location !== undefined) {
+    if (body.title !== undefined) property.title = body.title.trim();
+    if (body.description !== undefined) {
+      property.description = body.description.trim();
+    }
+    if (body.price !== undefined) property.price = Number(body.price);
+    if (body.location !== undefined) {
       property.location = {
-        address: location.address.trim(),
-        city: location.city.trim(),
-        country: location.country.trim(),
+        address: body.location.address.trim(),
+        city: body.location.city.trim(),
+        country: body.location.country.trim(),
       };
     }
-    if (images !== undefined) {
-      property.images = await buildVerifiedImages(
-        images,
-        property._id,
-        property.images,
-      );
+
+    const hasImageChanges =
+      (req.files && req.files.length > 0) ||
+      body.retainedImageIds !== undefined;
+
+    if (hasImageChanges) {
+      const retainedImageIds =
+        body.retainedImageIds !== undefined
+          ? body.retainedImageIds
+          : property.images.map((image) => image._id.toString());
+
+      property.images = await mergePropertyImages({
+        propertyId: property._id,
+        previousImages: property.images,
+        retainedImageIds,
+        uploadedFiles: req.files || [],
+      });
     }
-    if (availabilityCalendar !== undefined) {
-      property.availabilityCalendar = availabilityCalendar;
+
+    if (body.availabilityCalendar !== undefined) {
+      property.availabilityCalendar = body.availabilityCalendar;
     }
 
     const updatedProperty = await property.save();
@@ -244,6 +357,10 @@ export const updateProperty = async (req, res, next) => {
       data: updatedProperty,
     });
   } catch (error) {
+    cleanupUploadedFiles(req.files);
+    if (error.statusCode) {
+      res.status(error.statusCode);
+    }
     next(error);
   }
 };
