@@ -15,6 +15,7 @@ import GuestBookingsPage from "./pages/guest/GuestBookingsPage.jsx";
 import GuestOfflineRequestsPage from "./pages/guest/GuestOfflineRequestsPage.jsx";
 import BookingNewPage from "./pages/guest/BookingNewPage.jsx";
 import BookingPaymentPage from "./pages/guest/BookingPaymentPage.jsx";
+import BookingPaymentSuccessPage from "./pages/guest/BookingPaymentSuccessPage.jsx";
 import OwnerDashboard from "./pages/owner/OwnerDashboard.jsx";
 import OwnerPropertiesPage from "./pages/owner/OwnerPropertiesPage.jsx";
 import OwnerPropertyNewPage from "./pages/owner/OwnerPropertyNewPage.jsx";
@@ -88,6 +89,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               element={
                 <RoleBasedRoute allowedRoles={["guest"]}>
                   <BookingPaymentPage />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/bookings/payment-success"
+              element={
+                <RoleBasedRoute allowedRoles={["guest"]}>
+                  <BookingPaymentSuccessPage />
                 </RoleBasedRoute>
               }
             />

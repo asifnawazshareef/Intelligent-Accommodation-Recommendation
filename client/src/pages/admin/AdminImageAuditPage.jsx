@@ -1,57 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CheckCircle2,
+  ArrowRight,
   ExternalLink,
-  Loader2,
   RefreshCw,
-  ShieldAlert,
   ShieldCheck,
-  ShieldX,
-  User,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import ActionLink from "@/components/ui/action-link";
-import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
-import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
-import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
+import ImageAuditPropertyGroup from "@/components/imageAudit/ImageAuditPropertyGroup";
+import ImageAuditStatsBar from "@/components/imageAudit/ImageAuditStatsBar";
 import {
   getImageAuditList,
   updateImageAudit,
 } from "@/services/imageAuditService";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import notify from "@/lib/notify";
-
-const FILTERS = ["all", "pending", "verified", "suspicious", "rejected"];
-const STATUS_OPTIONS = FILTERS.filter((status) => status !== "all");
-
-const QUICK_ACTIONS = [
-  { key: "verify", labelKey: "verify", icon: CheckCircle2, iconClass: "text-emerald-600" },
-  { key: "suspicious", labelKey: "markSuspicious", icon: ShieldAlert, iconClass: "text-orange-600" },
-  { key: "reject", labelKey: "reject", icon: ShieldX, iconClass: "text-destructive" },
-  { key: "pending", labelKey: "resetPending", icon: RefreshCw, iconClass: "" },
-];
 
 const PRESETS = {
   verify: { verificationStatus: "verified", aiScore: "0.95" },
@@ -91,18 +61,16 @@ const isDraftDirty = (item, draft) => {
   return statusChanged || scoreChanged;
 };
 
-const AuditCardSkeleton = () => (
-  <Card className="glass-card overflow-hidden">
-    <Skeleton className="aspect-video w-full rounded-none" />
-    <CardHeader className="space-y-2">
-      <Skeleton className="h-5 w-3/4" />
-      <Skeleton className="h-4 w-1/2" />
-    </CardHeader>
-    <CardContent className="space-y-3">
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-8 w-full" />
-    </CardContent>
-  </Card>
+const GroupSkeleton = () => (
+  <div className="glass-card space-y-4 rounded-xl border border-border/60 p-4">
+    <Skeleton className="h-6 w-2/3" />
+    <Skeleton className="h-4 w-1/2" />
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {[1, 2, 3].map((item) => (
+        <Skeleton key={item} className="aspect-[4/3] w-full rounded-xl" />
+      ))}
+    </div>
+  </div>
 );
 
 const AdminImageAuditPage = () => {
@@ -161,6 +129,38 @@ const AdminImageAuditPage = () => {
 
     return tally;
   }, [allItems]);
+
+  const propertyGroups = useMemo(() => {
+    const groups = new Map();
+
+    items.forEach((item) => {
+      const key = item.propertyId;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          propertyId: item.propertyId,
+          propertyTitle: item.propertyTitle,
+          propertyStatus: item.propertyStatus,
+          ownerName: item.ownerName,
+          ownerEmail: item.ownerEmail,
+          images: [],
+        });
+      }
+
+      groups.get(key).images.push(item);
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      const aPending = a.images.filter((img) => img.verificationStatus === "pending").length;
+      const bPending = b.images.filter((img) => img.verificationStatus === "pending").length;
+
+      if (aPending !== bPending) {
+        return bPending - aPending;
+      }
+
+      return a.propertyTitle.localeCompare(b.propertyTitle);
+    });
+  }, [items]);
 
   const updateDraft = (id, field, value) => {
     setSavedIds((prev) => {
@@ -279,72 +279,53 @@ const AdminImageAuditPage = () => {
     <DashboardLayout>
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("admin.imageAudit")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-muted-foreground">
-              {t("imageAudit.pageHint")}
-            </p>
-            <ActionLink
-              to="/admin/listings"
-              variant="link"
-              className="mt-2 h-auto p-0 text-sm"
-            >
-              {t("imageAudit.goToModeration")}
-              <ExternalLink className="size-3.5" />
-            </ActionLink>
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                {t("admin.imageAudit")}
+              </h1>
+              <p className="mt-1 max-w-2xl text-muted-foreground">
+                {t("imageAudit.pageHint")}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/15 p-3 text-sm">
+              <ShieldCheck className="size-4 shrink-0 text-primary" />
+              <span className="text-muted-foreground">{t("imageAudit.workflowStep1")}</span>
+              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-muted-foreground">{t("imageAudit.workflowStep2")}</span>
+              <ActionLink
+                to="/admin/listings"
+                variant="link"
+                className="ms-auto h-auto p-0 text-sm"
+              >
+                {t("imageAudit.goToModeration")}
+                <ExternalLink className="size-3.5" />
+              </ActionLink>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="whitespace-normal">
-              {t("imageAudit.totalImages", { count: counts.all })}
-            </Badge>
-            {counts.pending > 0 && (
-              <Badge className="whitespace-normal bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-300">
-                {t("imageAudit.pendingCount", { count: counts.pending })}
-              </Badge>
-            )}
-            <Button
-              variant="outline"
-              onClick={fetchItems}
-              disabled={loading}
-              className="w-full min-w-fit whitespace-normal sm:w-auto"
-            >
-              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-              {t("imageAudit.refresh")}
-            </Button>
-          </div>
+
+          <Button
+            variant="outline"
+            onClick={fetchItems}
+            disabled={loading}
+            className="w-full min-w-fit shrink-0 whitespace-normal sm:w-auto"
+          >
+            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            {t("imageAudit.refresh")}
+          </Button>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((value) => (
-            <Button
-              key={value}
-              size="sm"
-              variant={filter === value ? "default" : "outline"}
-              onClick={() => setFilter(value)}
-              className="whitespace-normal"
-            >
-              {filterLabel(value)}
-              {!loading && (
-                <span className="ms-1 rounded-full bg-background/20 px-1.5 text-xs">
-                  {counts[value]}
-                </span>
-              )}
-            </Button>
-          ))}
-        </div>
-
-        <Alert>
-          <ShieldCheck className="size-4" />
-          <AlertDescription>{t("imageAudit.workflowHint")}</AlertDescription>
-        </Alert>
+        <ImageAuditStatsBar
+          counts={counts}
+          activeFilter={filter}
+          onFilterChange={setFilter}
+          loading={loading}
+        />
 
         {loading && (
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {[1, 2, 3].map((item) => (
-              <AuditCardSkeleton key={item} />
-            ))}
+          <div className="space-y-4">
+            <GroupSkeleton />
           </div>
         )}
 
@@ -379,165 +360,22 @@ const AdminImageAuditPage = () => {
           </Card>
         )}
 
-        {!loading && items.length > 0 && (
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {items.map((item) => {
-              const draft = drafts[item.id] || buildDraft(item);
-              const isSaving = savingId === item.id;
-              const isDirty = isDraftDirty(item, draft);
-              const isSaved = savedIds[item.id] && !isDirty;
-
-              return (
-                <Card
-                  key={item.id}
-                  className={cn(
-                    "glass-card flex flex-col overflow-hidden transition-shadow",
-                    isDirty && "ring-1 ring-primary/30",
-                    isSaved && "ring-1 ring-emerald-500/30",
-                  )}
-                >
-                  <PropertyCoverImage
-                    src={item.url}
-                    alt={item.propertyTitle}
-                    className="rounded-none border-b border-border/60"
-                  />
-
-                  <CardHeader className="space-y-3 pb-3">
-                    <div className="space-y-2">
-                      <CardTitle className="line-clamp-2 text-base">
-                        {item.propertyTitle}
-                      </CardTitle>
-                      <CardDescription className="space-y-1">
-                        <span className="flex items-center gap-1.5">
-                          <User className="size-3.5 shrink-0" />
-                          <span className="truncate">{item.ownerName}</span>
-                        </span>
-                        {item.ownerEmail && (
-                          <span className="block truncate text-xs" dir="ltr">
-                            {item.ownerEmail}
-                          </span>
-                        )}
-                      </CardDescription>
-                      <div className="flex flex-wrap gap-2">
-                        <ImageVerificationBadge
-                          status={item.verificationStatus}
-                        />
-                        <PropertyStatusBadge status={item.propertyStatus} />
-                        {isSaved && (
-                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="size-3" />
-                            {t("imageAudit.saved")}
-                          </Badge>
-                        )}
-                      </div>
-                      <p
-                        className="line-clamp-2 break-all text-xs text-muted-foreground"
-                        dir="ltr"
-                        title={item.url}
-                      >
-                        {item.url}
-                      </p>
-                      <ActionLink
-                        to="/admin/listings"
-                        variant="link"
-                        className="h-auto p-0 text-xs"
-                      >
-                        {t("imageAudit.moderateProperty")}
-                        <ExternalLink className="size-3" />
-                      </ActionLink>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>{t("imageAudit.statusLabel")}</Label>
-                        <Select
-                          value={draft.verificationStatus}
-                          onValueChange={(value) =>
-                            updateDraft(item.id, "verificationStatus", value)
-                          }
-                          disabled={isSaving}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATUS_OPTIONS.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {t(`imageAudit.status.${status}`, status)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor={`score-${item.id}`}>
-                          {t("imageAudit.aiScore")}
-                        </Label>
-                        <Input
-                          id={`score-${item.id}`}
-                          type="number"
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          value={draft.aiScore}
-                          onChange={(e) =>
-                            updateDraft(item.id, "aiScore", e.target.value)
-                          }
-                          disabled={isSaving}
-                          dir="ltr"
-                          className="w-full"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {t("imageAudit.scoreHint")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t("imageAudit.scoreMeaning")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {QUICK_ACTIONS.map(({ key, labelKey, icon: Icon, iconClass }) => (
-                        <Button
-                          key={key}
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={isSaving}
-                          onClick={() => applyQuickAction(item, key)}
-                          className="whitespace-normal"
-                        >
-                          <Icon className={cn("size-4", iconClass)} />
-                          {t(`imageAudit.${labelKey}`)}
-                        </Button>
-                      ))}
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="mt-auto border-t border-border/60 pt-4">
-                    <Button
-                      className="w-full whitespace-normal"
-                      disabled={isSaving || !isDirty}
-                      onClick={() => saveItem(item)}
-                    >
-                      {isSaving ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          {t("common.loading")}
-                        </>
-                      ) : isDirty ? (
-                        t("imageAudit.saveDecision")
-                      ) : (
-                        t("imageAudit.noChanges")
-                      )}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              );
-            })}
+        {!loading && propertyGroups.length > 0 && (
+          <div className="space-y-5">
+            {propertyGroups.map((group) => (
+              <ImageAuditPropertyGroup
+                key={group.propertyId}
+                group={group}
+                drafts={drafts}
+                savingId={savingId}
+                savedIds={savedIds}
+                isDraftDirty={isDraftDirty}
+                buildDraft={buildDraft}
+                onDraftChange={updateDraft}
+                onQuickAction={applyQuickAction}
+                onSave={saveItem}
+              />
+            ))}
           </div>
         )}
       </div>

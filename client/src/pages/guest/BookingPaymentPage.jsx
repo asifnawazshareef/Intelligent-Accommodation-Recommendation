@@ -8,6 +8,7 @@ import {
   Loader2,
   MapPin,
   MessageSquarePlus,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -17,7 +18,9 @@ import BookingStepIndicator from "@/components/bookings/BookingStepIndicator";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import { formatDate, formatPrice } from "@/lib/formatters";
-import { confirmPayment, getBookingById } from "@/services/bookingService";
+import notify from "@/lib/notify";
+import { confirmDemoPayment, getBookingById } from "@/services/bookingService";
+import { createStripeCheckoutSession } from "@/services/paymentService";
 import { Button } from "@/components/ui/button";
 import ActionLink from "@/components/ui/action-link";
 import {
@@ -30,15 +33,18 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+// Set to true when Stripe test checkout should appear on the payment page.
+const SHOW_STRIPE_PAYMENT = false;
+
 const BookingPaymentPage = () => {
   const { t, i18n } = useTranslation();
   const { bookingId } = useParams();
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [confirming, setConfirming] = useState(false);
+  const [confirmingDemo, setConfirmingDemo] = useState(false);
+  const [redirectingStripe, setRedirectingStripe] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const fetchBooking = useCallback(async () => {
     setLoading(true);
@@ -49,7 +55,10 @@ const BookingPaymentPage = () => {
       setBooking(response.data.data);
     } catch (err) {
       setBooking(null);
-      setError(err.response?.data?.message || t("bookingPage.loadBookingError"));
+      const message =
+        err.response?.data?.message || t("bookingPage.loadBookingError");
+      setError(message);
+      notify.error(message);
     } finally {
       setLoading(false);
     }
@@ -59,19 +68,43 @@ const BookingPaymentPage = () => {
     fetchBooking();
   }, [fetchBooking]);
 
-  const handleConfirmPayment = async () => {
-    setConfirming(true);
+  const handleDemoPayment = async () => {
+    setConfirmingDemo(true);
     setError("");
-    setSuccess("");
 
     try {
-      const response = await confirmPayment(bookingId);
+      const response = await confirmDemoPayment(bookingId);
       setBooking(response.data.data);
-      setSuccess(t("bookingPage.paymentSuccess"));
+      notify.success(t("bookingPage.paymentSuccess"));
     } catch (err) {
-      setError(err.response?.data?.message || t("bookingPage.paymentError"));
+      const message =
+        err.response?.data?.message || t("bookingPage.paymentError");
+      setError(message);
+      notify.error(message);
     } finally {
-      setConfirming(false);
+      setConfirmingDemo(false);
+    }
+  };
+
+  const handleStripePayment = async () => {
+    setRedirectingStripe(true);
+    setError("");
+
+    try {
+      const response = await createStripeCheckoutSession(bookingId);
+      const checkoutUrl = response.data.data?.url;
+
+      if (!checkoutUrl) {
+        throw new Error(t("bookingPage.stripeSessionError"));
+      }
+
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      const message =
+        err.response?.data?.message || t("bookingPage.stripeCheckoutError");
+      setError(message);
+      notify.error(message);
+      setRedirectingStripe(false);
     }
   };
 
@@ -103,8 +136,13 @@ const BookingPaymentPage = () => {
   const property = booking.property;
   const isPaid = booking.paymentStatus === "confirmed";
   const isCancelled = booking.status === "cancelled";
+  const isBusy = confirmingDemo || (SHOW_STRIPE_PAYMENT && redirectingStripe);
   const currentStep = isPaid ? 3 : 2;
   const coverUrl = property?.images?.[0]?.url;
+  const displayAmount = booking.totalAmount ?? property?.price ?? 0;
+  const paymentNoteKey = SHOW_STRIPE_PAYMENT
+    ? "bookingPage.stripeTestModeNote"
+    : "bookingPage.mockPaymentNote";
 
   return (
     <DashboardLayout>
@@ -137,14 +175,6 @@ const BookingPaymentPage = () => {
           <Alert variant="destructive">
             <AlertTitle>{t("bookingPage.errorTitle")}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="border-emerald-500/30 bg-emerald-500/5">
-            <CheckCircle2 className="size-4 text-emerald-600" />
-            <AlertTitle>{t("bookingPage.successTitle")}</AlertTitle>
-            <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
 
@@ -204,34 +234,62 @@ const BookingPaymentPage = () => {
                   {t("bookingPage.amountDue")}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-primary" dir="ltr">
-                  {formatPrice(property?.price, t("common.currency"))}
+                  {formatPrice(displayAmount, t("common.currency"))}
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {t("bookingPage.mockPaymentNote")}
+                  {t(paymentNoteKey)}
                 </p>
               </div>
             </CardContent>
 
             <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-6 py-5">
               {!isPaid && !isCancelled && (
-                <Button
-                  size="lg"
-                  disabled={confirming}
-                  onClick={handleConfirmPayment}
-                  className="h-11 w-full gap-2"
-                >
-                  {confirming ? (
-                    <>
-                      <Loader2 className="size-4 shrink-0 animate-spin" />
-                      {t("bookingPage.confirmingPayment")}
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="size-4 shrink-0" />
-                      {t("booking.confirmPayment")}
-                    </>
+                <>
+                  {SHOW_STRIPE_PAYMENT && (
+                    <Button
+                      size="lg"
+                      disabled={isBusy}
+                      onClick={handleStripePayment}
+                      className="h-11 w-full gap-2"
+                    >
+                      {redirectingStripe ? (
+                        <>
+                          <Loader2 className="size-4 shrink-0 animate-spin" />
+                          {t("bookingPage.redirectingStripe")}
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="size-4 shrink-0" />
+                          {t("bookingPage.payWithStripeTest")}
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
+
+                  <Button
+                    size="lg"
+                    variant={SHOW_STRIPE_PAYMENT ? "outline" : "default"}
+                    disabled={isBusy}
+                    onClick={handleDemoPayment}
+                    className="h-11 w-full gap-2"
+                  >
+                    {confirmingDemo ? (
+                      <>
+                        <Loader2 className="size-4 shrink-0 animate-spin" />
+                        {t("bookingPage.confirmingPayment")}
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="size-4 shrink-0" />
+                        {t("bookingPage.confirmDemoPayment")}
+                      </>
+                    )}
+                  </Button>
+
+                  <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                    {t(paymentNoteKey)}
+                  </p>
+                </>
               )}
 
               {isPaid && (
@@ -251,12 +309,6 @@ const BookingPaymentPage = () => {
                     {t("bookingPage.viewMyBookings")}
                   </ActionLink>
                 </div>
-              )}
-
-              {!isPaid && !isCancelled && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {t("bookingPage.mockPaymentNote")}
-                </p>
               )}
             </CardFooter>
           </Card>
@@ -289,10 +341,10 @@ const BookingPaymentPage = () => {
                     {t("bookingPage.amountDue")}
                   </p>
                   <p className="mt-1 text-2xl font-bold text-primary" dir="ltr">
-                    {formatPrice(property?.price, t("common.currency"))}
+                    {formatPrice(displayAmount, t("common.currency"))}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    {t("bookingPage.mockPaymentNote")}
+                    {t(paymentNoteKey)}
                   </p>
                 </div>
 

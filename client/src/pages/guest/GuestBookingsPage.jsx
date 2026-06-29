@@ -176,7 +176,10 @@ const GuestBookingsPage = () => {
                       </span>
                     </div>
                     <p className="font-semibold text-primary" dir="ltr">
-                      {formatPrice(property?.price, t("common.currency"))}
+                      {formatPrice(
+                        booking.totalAmount ?? property?.price,
+                        t("common.currency"),
+                      )}
                     </p>
                   </CardContent>
 
@@ -194,7 +197,7 @@ const GuestBookingsPage = () => {
                         className="h-10 w-full gap-2"
                       >
                         <CreditCard className="size-4 shrink-0" />
-                        {t("booking.confirmPayment")}
+                        {t("bookingPage.completePayment")}
                       </ActionLink>
                     )}
                     {canReview && (
