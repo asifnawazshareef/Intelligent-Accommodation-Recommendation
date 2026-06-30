@@ -8,6 +8,9 @@
     "start": "node server.js",
     "seed": "node scripts/seed.js",
     "seed:admin": "node scripts/seed.js",
+    "seed:properties": "node scripts/seedProperties.js",
+    "sync:sentiment": "node scripts/syncPropertySentiment.js",
+    "clear:listings": "node scripts/clearListings.js",
     "reanalyze:reviews": "node scripts/reanalyzeReviews.js"
   },
   "keywords": [],

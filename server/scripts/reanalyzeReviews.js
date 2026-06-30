@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import connectDB from "../config/db.js";
 import Review from "../models/Review.js";
 import { analyzeSentiment } from "../services/sentimentService.js";
+import { syncPropertySentiment } from "../utils/propertySentimentStore.js";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ const reanalyze = async () => {
 
   const reviews = await Review.find().sort({ createdAt: 1 });
   let updated = 0;
+  const propertyIds = new Set();
 
   console.log(`Re-analyzing ${reviews.length} review(s)...\n`);
 
@@ -41,11 +43,18 @@ const reanalyze = async () => {
     review.summary = result.summary;
 
     await review.save();
+    propertyIds.add(review.property.toString());
     updated += 1;
 
     console.log(
       `  ✓ ${review._id} -> ${result.sentiment} (${Math.round(result.confidence * 100)}%)`,
     );
+  }
+
+  console.log(`\nSyncing sentiment on ${propertyIds.size} propert(ies)...`);
+
+  for (const propertyId of propertyIds) {
+    await syncPropertySentiment(propertyId);
   }
 
   console.log(`\nDone. Updated ${updated} review(s).`);

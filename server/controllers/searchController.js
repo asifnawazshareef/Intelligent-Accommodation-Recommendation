@@ -1,7 +1,6 @@
 import Property from "../models/Property.js";
 import Review from "../models/Review.js";
 import SearchHistory from "../models/SearchHistory.js";
-import { getMlRecommendations } from "../services/recommendationService.js";
 import {
   buildUserRecommendationProfile,
   getGlobalBookingCounts,
@@ -183,6 +182,7 @@ export const getRecommendations = async (req, res, next) => {
   try {
     const queryCity = req.query.city?.trim();
     const queryPrice = parseNumber(req.query.price);
+    const availabilityDate = req.query.availabilityDate?.trim() || null;
     const limit = Math.min(parseNumber(req.query.limit) || 6, 12);
 
     const [userProfile, globalBookingCounts, properties] = await Promise.all([
@@ -202,27 +202,17 @@ export const getRecommendations = async (req, res, next) => {
     const context = {
       city: queryCity || userProfile.preferredCities[0] || "",
       price: queryPrice ?? userProfile.preferredPrice ?? null,
+      availabilityDate,
     };
 
     const profileSignals = buildProfileSignals(userProfile, Boolean(req.user));
-    const rankingPool = propertiesWithSentiment.filter(
-      (property) =>
-        !userProfile.excludePropertyIds.includes(property._id.toString()),
-    );
-
-    const mlResult = await getMlRecommendations({
-      userProfile,
-      properties: propertiesWithSentiment,
-      globalBookingCounts,
-      limit: rankingPool.length || propertiesWithSentiment.length,
-    });
 
     const recommendations = rankRecommendedProperties({
       properties: propertiesWithSentiment,
-      mlRecommendations: mlResult.recommendations,
       userProfile,
       context,
       isPersonalized: profileSignals.personalized,
+      globalBookingCounts,
       limit,
     });
 
@@ -231,6 +221,7 @@ export const getRecommendations = async (req, res, next) => {
     res.json({
       success: true,
       count: data.length,
+      engine: "hybrid-sentiment-ranker",
       personalized: profileSignals.personalized,
       profileSignals,
       context,

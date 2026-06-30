@@ -3,6 +3,7 @@ import Review from "../models/Review.js";
 import Booking from "../models/Booking.js";
 import Property from "../models/Property.js";
 import { analyzeSentiment } from "../services/sentimentService.js";
+import { syncPropertySentiment } from "../utils/propertySentimentStore.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -86,6 +87,8 @@ export const createReview = async (req, res) => {
       aspectInsights,
       summary: sentimentResult.summary,
     });
+
+    await syncPropertySentiment(property);
 
     const populatedReview = await Review.findById(review._id)
       .populate("guest", "name")

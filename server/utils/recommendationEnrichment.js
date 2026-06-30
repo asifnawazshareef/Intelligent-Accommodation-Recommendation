@@ -3,6 +3,11 @@ import {
   aggregateAspectSentiments,
   buildPropertyInsight,
 } from "./sentimentAggregation.js";
+import { snapshotToSummary } from "./propertySentimentStore.js";
+import {
+  computeAvailabilityScore,
+  computeAmenityScore,
+} from "./propertySignals.js";
 
 const SENTIMENT_REASON_KEYS = {
   positive_reviews: "positive_reviews",
@@ -71,7 +76,9 @@ export const attachSentimentSummaries = async (properties = []) => {
   return properties.map((property) => {
     const propertyReviews =
       reviewsByProperty.get(property._id.toString()) || [];
-    const sentimentSummary = buildSentimentSummaryForReviews(propertyReviews);
+    const storedSummary = snapshotToSummary(property.sentimentSnapshot);
+    const sentimentSummary =
+      storedSummary || buildSentimentSummaryForReviews(propertyReviews);
 
     return {
       ...property,
@@ -85,12 +92,18 @@ const clampScore = (value) => Math.max(0, Math.min(1, value));
 const logNorm = (value, cap = 8) =>
   Math.min(Math.log1p(Math.max(0, value)) / Math.log1p(cap), 1);
 
-export const computePropertyQualityScore = (property) => {
+export const computePropertyQualityScore = (property, context = {}) => {
   const sentiment = property.sentimentSummary || {};
   const reviewCount = property.reviewCount || sentiment.totalReviews || 0;
 
+  const availabilityScore = computeAvailabilityScore(
+    property.availabilityCalendar,
+    context.availabilityDate,
+  );
+  const amenityScore = computeAmenityScore(property.description);
+
   if (reviewCount === 0) {
-    return 0.05;
+    return clampScore(0.05 + availabilityScore * 0.08 + amenityScore * 0.04);
   }
 
   const avgRating = property.avgRating || sentiment.averageRating || 0;
@@ -103,10 +116,12 @@ export const computePropertyQualityScore = (property) => {
   const credibility = logNorm(reviewCount);
 
   let quality =
-    ratingScore * 0.3 +
-    sentimentScore * 0.5 +
-    credibility * 0.2 -
-    negativeShare * 0.2;
+    ratingScore * 0.22 +
+    sentimentScore * 0.38 +
+    credibility * 0.12 +
+    availabilityScore * 0.14 +
+    amenityScore * 0.08 -
+    negativeShare * 0.18;
 
   if (avgRating >= 4 && positivePercent < 50) {
     quality -= 0.12;
@@ -128,9 +143,9 @@ export const computeRulePersonalizationScore = (property, userProfile, context) 
     .filter(Boolean);
 
   if (context.city && propertyCity === context.city.trim().toLowerCase()) {
-    score += 0.28;
+    score += 0.24;
   } else if (preferredCities.includes(propertyCity)) {
-    score += 0.22;
+    score += 0.18;
   }
 
   const preferredPrice = context.price ?? userProfile.preferredPrice ?? null;
@@ -140,11 +155,11 @@ export const computeRulePersonalizationScore = (property, userProfile, context) 
       Math.abs(property.price - preferredPrice) / preferredPrice;
 
     if (difference <= 0.15) {
-      score += 0.24;
+      score += 0.2;
     } else if (difference <= 0.3) {
-      score += 0.14;
+      score += 0.12;
     } else if (difference <= 0.5) {
-      score += 0.06;
+      score += 0.05;
     }
   }
 
@@ -153,10 +168,125 @@ export const computeRulePersonalizationScore = (property, userProfile, context) 
     .filter(Boolean);
 
   if (bookedCities.includes(propertyCity)) {
-    score += 0.18;
+    score += 0.14;
+  }
+
+  if (context.availabilityDate) {
+    const availabilityScore = computeAvailabilityScore(
+      property.availabilityCalendar,
+      context.availabilityDate,
+    );
+    score += availabilityScore * 0.16;
+  }
+
+  const positivePercent = property.sentimentSummary?.positivePercent || 0;
+
+  if (positivePercent >= 60) {
+    score += 0.08;
   }
 
   return clampScore(score);
+};
+
+export const computePersonalizationScore = (
+  property,
+  userProfile,
+  context,
+  globalBookingCounts = {},
+) => {
+  let score = computeRulePersonalizationScore(property, userProfile, context);
+
+  const propertyId = property._id?.toString?.() || "";
+  const bookingCount = globalBookingCounts[propertyId] || 0;
+  score += Math.min(bookingCount / 10, 1) * 0.1;
+
+  const amenityScore = computeAmenityScore(property.description);
+  if (amenityScore >= 0.4) {
+    score += 0.06;
+  }
+
+  return clampScore(score);
+};
+
+export const buildRuleMatchReasons = (
+  property,
+  userProfile,
+  context,
+  globalBookingCounts = {},
+) => {
+  const reasons = [];
+  const propertyCity = property.location?.city?.trim().toLowerCase() || "";
+  const preferredCities = (userProfile.preferredCities || [])
+    .map((city) => city?.trim().toLowerCase())
+    .filter(Boolean);
+  const contextCity = context.city?.trim().toLowerCase() || "";
+  const preferredPrice = context.price ?? userProfile.preferredPrice ?? null;
+  const summary = property.sentimentSummary || {};
+  const propertyId = property._id?.toString?.() || "";
+  const bookingCount = globalBookingCounts[propertyId] || 0;
+
+  if (contextCity && propertyCity === contextCity) {
+    reasons.push("matches_preferred_city");
+  } else if (preferredCities.includes(propertyCity)) {
+    reasons.push("matches_preferred_city");
+  }
+
+  if (preferredPrice && property.price) {
+    const difference = Math.abs(property.price - preferredPrice) / preferredPrice;
+    if (difference <= 0.3) {
+      reasons.push("matches_budget");
+    }
+  }
+
+  const bookedCities = (userProfile.bookedCities || [])
+    .map((city) => city?.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (bookedCities.includes(propertyCity)) {
+    reasons.push("similar_to_past_stays");
+  }
+
+  if (context.availabilityDate) {
+    const availabilityScore = computeAvailabilityScore(
+      property.availabilityCalendar,
+      context.availabilityDate,
+    );
+    if (availabilityScore >= 0.75) {
+      reasons.push("available_for_dates");
+    }
+  }
+
+  if ((summary.positivePercent || 0) >= 55) {
+    reasons.push("positive_reviews");
+  }
+
+  if (summary.topPraisedAspect) {
+    reasons.push("praised_sentiment");
+  }
+
+  const avgRating = property.avgRating || summary.averageRating || 0;
+  if (avgRating >= 4) {
+    reasons.push("highly_rated");
+  }
+
+  if (bookingCount >= 3) {
+    reasons.push("popular_with_guests");
+  }
+
+  if (computeAmenityScore(property.description) >= 0.4) {
+    reasons.push("good_amenities");
+  }
+
+  if (preferredPrice && property.price && userProfile.bookedAvgPrice) {
+    const diff =
+      Math.abs(property.price - userProfile.bookedAvgPrice) /
+      userProfile.bookedAvgPrice;
+    if (diff <= 0.25) {
+      reasons.push("similar_price_to_bookings");
+    }
+  }
+
+  return [...new Set(reasons)].slice(0, 3);
 };
 
 export const computeFinalRecommendationScore = ({
@@ -173,16 +303,12 @@ export const computeFinalRecommendationScore = ({
 
 export const rankRecommendedProperties = ({
   properties,
-  mlRecommendations = [],
   userProfile,
   context,
   isPersonalized,
+  globalBookingCounts = {},
   limit,
 }) => {
-  const mlMap = new Map(
-    mlRecommendations.map((item) => [item.propertyId, item]),
-  );
-
   const eligible = properties.filter(
     (property) =>
       !userProfile.excludePropertyIds.includes(property._id.toString()),
@@ -190,12 +316,13 @@ export const rankRecommendedProperties = ({
 
   return eligible
     .map((property) => {
-      const propertyId = property._id.toString();
-      const mlItem = mlMap.get(propertyId);
-      const personalizationScore =
-        mlItem?.score ??
-        computeRulePersonalizationScore(property, userProfile, context);
-      const qualityScore = computePropertyQualityScore(property);
+      const personalizationScore = computePersonalizationScore(
+        property,
+        userProfile,
+        context,
+        globalBookingCounts,
+      );
+      const qualityScore = computePropertyQualityScore(property, context);
       const recommendationScore = computeFinalRecommendationScore({
         qualityScore,
         personalizationScore,
@@ -206,7 +333,12 @@ export const rankRecommendedProperties = ({
         ...property,
         recommendationScore: Number(recommendationScore.toFixed(4)),
         qualityScore: Number(qualityScore.toFixed(4)),
-        matchReasons: mlItem?.matchReasons || [],
+        matchReasons: buildRuleMatchReasons(
+          property,
+          userProfile,
+          context,
+          globalBookingCounts,
+        ),
       };
     })
     .sort((a, b) => {

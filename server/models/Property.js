@@ -92,6 +92,40 @@ const propertySchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
+    sentimentSnapshot: {
+      totalReviews: { type: Number, default: 0 },
+      positiveCount: { type: Number, default: 0 },
+      negativeCount: { type: Number, default: 0 },
+      neutralCount: { type: Number, default: 0 },
+      mixedCount: { type: Number, default: 0 },
+      positivePercent: { type: Number, default: 0 },
+      averageRating: { type: Number, default: 0 },
+      aspectBreakdown: {
+        type: [
+          {
+            aspect: String,
+            positive: Number,
+            negative: Number,
+            neutral: Number,
+            mixed: Number,
+            total: Number,
+            dominantSentiment: String,
+          },
+        ],
+        default: [],
+      },
+      praisedAspects: {
+        type: [{ aspect: String, count: Number, total: Number }],
+        default: [],
+      },
+      concernAspects: {
+        type: [{ aspect: String, count: Number, total: Number }],
+        default: [],
+      },
+      insightType: { type: String, default: "none" },
+      topPraisedAspect: { type: String, default: null },
+      updatedAt: { type: Date, default: null },
+    },
   },
   {
     timestamps: true,
