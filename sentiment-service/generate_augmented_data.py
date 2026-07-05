@@ -13,9 +13,9 @@ from pathlib import Path
 import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent
+TRAINING_PATH = BASE_DIR / "data" / "sentiment_training.csv"
+# Optional one-time source; merged into TRAINING_PATH then removed from the repo.
 HRAST_PATH = BASE_DIR / "data" / "HRAST_cleaned_for_sentiment_training.csv"
-AUGMENTED_PATH = BASE_DIR / "data" / "sentiment_augmented_negation.csv"
-COMBINED_PATH = BASE_DIR / "data" / "sentiment_training_combined.csv"
 
 NEGATION_PREFIXES = [
     "not",
@@ -200,7 +200,8 @@ def _build_negation_rows() -> list[dict]:
     return rows
 
 
-def build_combined_dataset(seed: int = 42) -> pd.DataFrame:
+def build_training_dataset(seed: int = 42) -> pd.DataFrame:
+    """Merge HRAST reviews (if present) with negation augmentation into one CSV."""
     random.seed(seed)
     augmented = pd.DataFrame(_build_negation_rows())
 
@@ -208,6 +209,9 @@ def build_combined_dataset(seed: int = 42) -> pd.DataFrame:
         hrast = pd.read_csv(HRAST_PATH)[["review", "sentiment"]].copy()
         hrast["source"] = "hrast"
         combined = pd.concat([hrast, augmented], ignore_index=True)
+    elif TRAINING_PATH.exists():
+        existing = pd.read_csv(TRAINING_PATH)
+        combined = pd.concat([existing, augmented], ignore_index=True)
     else:
         combined = augmented
 
@@ -217,21 +221,23 @@ def build_combined_dataset(seed: int = 42) -> pd.DataFrame:
     combined = combined[combined["review"].str.len() > 2]
     combined = combined.drop_duplicates(subset=["review"])
 
-    # Mixed reviews are treated as negative for sentence-level model training
-    # but kept in dataset for diversity; map mixed -> use as both or keep separate
     # For 3-class model, map mixed to negative for training stability on negation side
     combined.loc[combined["sentiment"] == "mixed", "sentiment"] = "negative"
 
-    AUGMENTED_PATH.parent.mkdir(parents=True, exist_ok=True)
-    augmented.to_csv(AUGMENTED_PATH, index=False)
-    combined.to_csv(COMBINED_PATH, index=False)
+    TRAINING_PATH.parent.mkdir(parents=True, exist_ok=True)
+    combined.to_csv(TRAINING_PATH, index=False)
 
     return combined
 
 
+# Backward-compatible alias used by train_model.py
+build_combined_dataset = build_training_dataset
+
+
 if __name__ == "__main__":
-    dataset = build_combined_dataset()
-    print(f"Augmented rows: {len(pd.read_csv(AUGMENTED_PATH))}")
-    print(f"Combined rows: {len(dataset)}")
+    dataset = build_training_dataset()
+    print(f"Training rows: {len(dataset)}")
     print(dataset["sentiment"].value_counts())
-    print(f"Saved: {COMBINED_PATH}")
+    if "source" in dataset.columns:
+        print(dataset["source"].value_counts())
+    print(f"Saved: {TRAINING_PATH}")

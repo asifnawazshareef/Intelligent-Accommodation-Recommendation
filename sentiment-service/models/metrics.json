@@ -7,11 +7,11 @@
     "negative",
     "neutral"
   ],
-  "accuracy": 0.9067311922569292,
-  "cv_f1_weighted_mean": 0.8422403235333997,
-  "cv_f1_weighted_std": 0.05040162171252471,
+  "accuracy": 0.9082710074791025,
+  "cv_f1_weighted_mean": 0.8891682671585448,
+  "cv_f1_weighted_std": 0.026004648739975888,
   "best_C": 4.0,
-  "negation_subset_accuracy": 0.9648674933138828,
+  "negation_subset_accuracy": 0.9804279115001215,
   "hard_case_accuracy": 0.8333333333333334,
   "hard_cases": [
     {
@@ -19,116 +19,116 @@
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 0.9998
+      "confidence": 0.9209
     },
     {
       "text": "The service was not good at all.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 1.0
+      "confidence": 0.9991
     },
     {
       "text": "Staff was not helpful and room was dirty.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 1.0
+      "confidence": 0.999
     },
     {
       "text": "Not a good experience, would not recommend.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 1.0
+      "confidence": 0.9965
     },
     {
       "text": "Room is not clean and wifi is not working.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 1.0
+      "confidence": 0.9991
     },
     {
       "text": "Hotel is not worth the money.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 1.0
+      "confidence": 0.9836
     },
     {
       "text": "Not so good wifi connection.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 0.9999
+      "confidence": 0.9541
     },
     {
       "text": "Air conditioning's not good.",
       "expected": "negative",
       "predicted": "negative",
       "correct": true,
-      "confidence": 0.9999
+      "confidence": 0.9224
     },
     {
       "text": "The room was clean and staff was friendly.",
       "expected": "positive",
       "predicted": "positive",
       "correct": true,
-      "confidence": 0.9999
+      "confidence": 0.9962
     },
     {
       "text": "Excellent service and very clean rooms.",
       "expected": "positive",
       "predicted": "positive",
       "correct": true,
-      "confidence": 0.9999
+      "confidence": 0.9967
     },
     {
       "text": "The hotel is located near the city center.",
       "expected": "neutral",
       "predicted": "positive",
       "correct": false,
-      "confidence": 0.9273
+      "confidence": 0.9181
     },
     {
       "text": "We stayed here for three nights.",
       "expected": "neutral",
       "predicted": "negative",
       "correct": false,
-      "confidence": 0.9308
+      "confidence": 0.4039
     }
   ],
   "classification_report": {
     "negative": {
-      "precision": 0.8936708860759494,
-      "recall": 0.9701609736945426,
-      "f1-score": 0.9303463855421686,
+      "precision": 0.9554192229038855,
+      "recall": 0.917157440125638,
+      "f1-score": 0.9358974358974359,
       "support": 2547.0
     },
     "neutral": {
-      "precision": 0.14285714285714285,
-      "recall": 0.064,
-      "f1-score": 0.08839779005524862,
+      "precision": 0.14634146341463414,
+      "recall": 0.24,
+      "f1-score": 0.18181818181818182,
       "support": 125.0
     },
     "positive": {
-      "precision": 0.952463768115942,
-      "recall": 0.8767342582710779,
-      "f1-score": 0.9130313976104474,
+      "precision": 0.9298523206751055,
+      "recall": 0.9407684098185699,
+      "f1-score": 0.9352785145888595,
       "support": 1874.0
     },
-    "accuracy": 0.9067311922569292,
+    "accuracy": 0.9082710074791025,
     "macro avg": {
-      "precision": 0.6629972656830114,
-      "recall": 0.6369650773218735,
-      "f1-score": 0.6439251910692882,
+      "precision": 0.6772043356645417,
+      "recall": 0.6993086166480693,
+      "f1-score": 0.6843313774348257,
       "support": 4546.0
     },
     "weighted avg": {
-      "precision": 0.8972622065864191,
-      "recall": 0.9067311922569292,
-      "f1-score": 0.9000578105707848,
+      "precision": 0.9226327964382256,
+      "recall": 0.9082710074791025,
+      "f1-score": 0.9149076063127067,
       "support": 4546.0
     }
   },
@@ -139,19 +139,19 @@
   ],
   "confusion_matrix": [
     [
-      1643,
-      210,
-      21
+      1763,
+      56,
+      55
     ],
     [
-      49,
-      2471,
-      27
+      91,
+      2336,
+      120
     ],
     [
-      33,
-      84,
-      8
+      42,
+      53,
+      30
     ]
   ],
   "model_type": "TF-IDF (1-3 gram, negation-safe) + Logistic Regression",

@@ -6,10 +6,9 @@ Model:
 - Logistic Regression with cross-validated regularization
 
 Dataset:
-- data/sentiment_training_combined.csv (HRAST + negation augmentation)
+- data/sentiment_training.csv (HRAST hotel reviews + negation augmentation)
 
 Run:
-python generate_augmented_data.py
 python train_model.py
 """
 
@@ -26,7 +25,7 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 
-from generate_augmented_data import COMBINED_PATH, build_combined_dataset
+from generate_augmented_data import TRAINING_PATH, build_training_dataset
 from text_preprocessing import HARD_NEGATION_TEST_CASES, get_custom_stop_words, normalize_text
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -36,11 +35,11 @@ METRICS_PATH = MODEL_DIR / "metrics.json"
 
 
 def load_dataset() -> pd.DataFrame:
-    if not COMBINED_PATH.exists():
-        print("Combined dataset missing. Building HRAST + negation augmentation...")
-        return build_combined_dataset()
+    if not TRAINING_PATH.exists():
+        print("Training dataset missing. Building merged HRAST + negation augmentation...")
+        return build_training_dataset()
 
-    df = pd.read_csv(COMBINED_PATH)
+    df = pd.read_csv(TRAINING_PATH)
 
     required_columns = {"review", "sentiment"}
     missing = required_columns - set(df.columns)

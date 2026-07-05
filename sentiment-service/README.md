@@ -2,7 +2,7 @@
 
 This is a self-trained sentiment analysis service for the Intelligent Accommodation Recommendation System.
 
-It trains a hotel/accommodation review sentiment model using the cleaned HRAST dataset.
+It trains a hotel/accommodation review sentiment model using a single merged training CSV (HRAST hotel reviews + negation augmentation).
 
 ## Model
 
@@ -17,7 +17,7 @@ It trains a hotel/accommodation review sentiment model using the cleaned HRAST d
 ```text
 sentiment-service/
 ├── data/
-│   └── HRAST_cleaned_for_sentiment_training.csv
+│   └── sentiment_training.csv
 ├── models/
 │   ├── sentiment_pipeline.joblib
 │   └── metrics.json
@@ -51,6 +51,15 @@ pip install -r requirements.txt
 ## Train the Model
 
 ```bash
+python train_model.py
+```
+
+Training reads one file: `data/sentiment_training.csv` (HRAST hotel reviews + negation augmentation merged).
+
+To rebuild that CSV from scratch (only if you add new source data):
+
+```bash
+python generate_augmented_data.py
 python train_model.py
 ```
 
