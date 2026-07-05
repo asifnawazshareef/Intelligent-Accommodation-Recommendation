@@ -194,6 +194,8 @@
     "positiveReviewPercent": "{{percent}}% positive",
     "noReviewsYet": "No reviews yet",
     "recommendationsError": "Could not load recommendations",
+    "recommendedEmptyTitle": "No recommendations yet",
+    "recommendedEmptyHint": "Approved properties will appear here once owners add listings.",
     "matchReason": {
       "matches_preferred_city": "Matches your preferred city",
       "matches_budget": "Fits your budget range",

@@ -20,6 +20,31 @@ const average = (values) => {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
+const todayDateValue = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi" }).format(
+    new Date(),
+  );
+
+const getUpcomingBookingPropertyIds = (bookings = []) => {
+  const today = todayDateValue();
+
+  return [
+    ...new Set(
+      bookings
+        .filter((booking) => {
+          if (!["confirmed", "pending"].includes(booking.status)) {
+            return false;
+          }
+
+          const endDate = booking.endDate?.trim();
+          return Boolean(endDate && endDate >= today);
+        })
+        .map((booking) => booking.property?._id?.toString())
+        .filter(Boolean),
+    ),
+  ];
+};
+
 export const buildUserRecommendationProfile = async (userId, queryOverrides = {}) => {
   const queryCity = queryOverrides.city?.trim() || "";
   const queryPrice = parseNumber(queryOverrides.price);
@@ -99,12 +124,7 @@ export const buildUserRecommendationProfile = async (userId, queryOverrides = {}
   });
 
   const reviewRatings = reviews.map((review) => review.rating).filter(Boolean);
-  const excludePropertyIds = [
-    ...new Set([
-      ...bookings.map((booking) => booking.property?._id?.toString()).filter(Boolean),
-      ...reviews.map((review) => review.property?.toString()).filter(Boolean),
-    ]),
-  ];
+  const excludePropertyIds = getUpcomingBookingPropertyIds(bookings);
 
   const preferredPrice =
     queryPrice ??

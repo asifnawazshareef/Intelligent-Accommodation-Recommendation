@@ -78,8 +78,14 @@ const usePropertySearch = ({ syncUrl = true } = {}) => {
     () => ({
       city: formValues.city,
       price: formValues.maxPrice || formValues.minPrice,
+      availabilityDate: formValues.availabilityDate,
     }),
-    [formValues.city, formValues.maxPrice, formValues.minPrice],
+    [
+      formValues.city,
+      formValues.maxPrice,
+      formValues.minPrice,
+      formValues.availabilityDate,
+    ],
   );
 
   return {

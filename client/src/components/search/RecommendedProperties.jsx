@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ActionLink from "@/components/ui/action-link";
 
+import EmptyState from "@/components/ui/EmptyState";
+
 const DISPLAY_LIMIT = 6;
 
 const CardSkeleton = () => (
@@ -22,7 +24,11 @@ const CardSkeleton = () => (
   </div>
 );
 
-const RecommendedProperties = ({ city = "", price = "" }) => {
+const RecommendedProperties = ({
+  city = "",
+  price = "",
+  availabilityDate = "",
+}) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [items, setItems] = useState([]);
@@ -39,6 +45,9 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
         const params = { limit: DISPLAY_LIMIT };
         if (city?.trim()) params.city = city.trim();
         if (price) params.price = price;
+        if (availabilityDate?.trim()) {
+          params.availabilityDate = availabilityDate.trim();
+        }
 
         const response = await getRecommendations(params);
         setItems((response.data.data || []).slice(0, DISPLAY_LIMIT));
@@ -53,7 +62,7 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
     };
 
     fetchRecommendations();
-  }, [city, price, t, user?._id]);
+  }, [city, price, availabilityDate, t, user?._id]);
 
   if (loading) {
     return (
@@ -83,7 +92,28 @@ const RecommendedProperties = ({ city = "", price = "" }) => {
   }
 
   if (items.length === 0) {
-    return null;
+    return (
+      <section className="space-y-6">
+        <header className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Compass className="size-5 text-primary" />
+          </span>
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              {t("search.recommendedTitle")}
+            </h2>
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {t("search.recommendedEmptyHint")}
+            </p>
+          </div>
+        </header>
+
+        <EmptyState
+          title={t("search.recommendedEmptyTitle")}
+          description={t("search.recommendedEmptyHint")}
+        />
+      </section>
+    );
   }
 
   const hint = !user

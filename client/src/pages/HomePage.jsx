@@ -70,6 +70,7 @@ const HomePage = () => {
           <RecommendedProperties
             city={recommendationContext.city}
             price={recommendationContext.price}
+            availabilityDate={recommendationContext.availabilityDate}
           />
         </div>
       </section>

@@ -194,6 +194,8 @@
     "positiveReviewPercent": "{{percent}}% إيجابي",
     "noReviewsYet": "لا توجد مراجعات بعد",
     "recommendationsError": "فشل تحميل التوصيات",
+    "recommendedEmptyTitle": "لا توجد توصيات بعد",
+    "recommendedEmptyHint": "ستظهر العقارات الموصى بها هنا بعد موافقة الإدارة على قوائم المالكين.",
     "matchReason": {
       "matches_preferred_city": "يطابق مدينتك المفضلة",
       "matches_budget": "يناسب نطاق ميزانيتك",

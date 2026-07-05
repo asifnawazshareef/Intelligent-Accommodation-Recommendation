@@ -309,10 +309,15 @@ export const rankRecommendedProperties = ({
   globalBookingCounts = {},
   limit,
 }) => {
-  const eligible = properties.filter(
-    (property) =>
-      !userProfile.excludePropertyIds.includes(property._id.toString()),
+  const excludedIds = new Set(userProfile.excludePropertyIds || []);
+  let eligible = properties.filter(
+    (property) => !excludedIds.has(property._id.toString()),
   );
+
+  // If the guest already booked every approved listing, still show top picks.
+  if (eligible.length === 0 && properties.length > 0) {
+    eligible = properties;
+  }
 
   return eligible
     .map((property) => {

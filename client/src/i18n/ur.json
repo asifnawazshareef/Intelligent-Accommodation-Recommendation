@@ -194,6 +194,8 @@
     "positiveReviewPercent": "{{percent}}% مثبت",
     "noReviewsYet": "ابھی کوئی جائزہ نہیں",
     "recommendationsError": "تجاویز لوڈ نہیں ہو سکیں",
+    "recommendedEmptyTitle": "ابھی کوئی تجویز نہیں",
+    "recommendedEmptyHint": "مالکان کی فہرستیں منظور ہونے کے بعد یہاں تجویز کردہ پراپرٹیز دکھائی جائیں گی۔",
     "matchReason": {
       "matches_preferred_city": "آپ کے پسندیدہ شہر سے مماثل",
       "matches_budget": "آپ کے بجٹ کی حد میں",
