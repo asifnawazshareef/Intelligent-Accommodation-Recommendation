@@ -156,9 +156,9 @@ const SentimentSummary = ({ summary }) => {
           </div>
         </div>
 
-        <Badge variant="outline" className="text-xs font-normal">
+        {/* <Badge variant="outline" className="text-xs font-normal">
           {t("review.nlpPowered")}
-        </Badge>
+        </Badge> */}
       </CardContent>
     </Card>
   );

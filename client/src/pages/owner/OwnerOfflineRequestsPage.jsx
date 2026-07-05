@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, MessageSquare, RefreshCw } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import OfflineRequestCard from "@/components/offline/OfflineRequestCard";
+import EmptyState from "@/components/ui/EmptyState";
+import FilterChipBar, { FilterChip } from "@/components/ui/FilterChipBar";
+import PageHeader from "@/components/ui/PageHeader";
+import RefreshButton from "@/components/ui/RefreshButton";
 import {
   getOwnerOfflineRequests,
   respondToOfflineRequest,
@@ -124,51 +128,38 @@ const OwnerOfflineRequestsPage = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("offlinePage.ownerTitle")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-muted-foreground">
-              {t("offlinePage.ownerHint")}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {counts.pending > 0 && (
-              <Badge className="whitespace-normal bg-amber-500/15 text-amber-800 dark:text-amber-300">
-                {t("offlinePage.pendingCount", { count: counts.pending })}
-              </Badge>
-            )}
-            <Button
-              variant="outline"
-              onClick={fetchRequests}
-              disabled={loading}
-              className="w-full min-w-fit whitespace-normal sm:w-auto"
-            >
-              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-              {t("offlinePage.refresh")}
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title={t("offlinePage.ownerTitle")}
+          description={t("offlinePage.ownerHint")}
+          actions={
+            <>
+              {counts.pending > 0 && (
+                <Badge className="whitespace-normal bg-amber-500/15 text-amber-800 dark:text-amber-300">
+                  {t("offlinePage.pendingCount", { count: counts.pending })}
+                </Badge>
+              )}
+              <RefreshButton
+                onClick={fetchRequests}
+                loading={loading}
+                label={t("offlinePage.refresh")}
+                className="w-full sm:w-auto"
+              />
+            </>
+          }
+        />
 
-        <div className="flex flex-wrap gap-2">
+        <FilterChipBar>
           {FILTERS.map((value) => (
-            <Button
+            <FilterChip
               key={value}
-              size="sm"
-              variant={filter === value ? "default" : "outline"}
+              active={filter === value}
               onClick={() => setFilter(value)}
-              className="whitespace-normal"
+              count={counts[value]}
             >
               {filterLabel(value)}
-              {!loading && (
-                <span className="ms-1 rounded-full bg-background/20 px-1.5 text-xs">
-                  {counts[value]}
-                </span>
-              )}
-            </Button>
+            </FilterChip>
           ))}
-        </div>
+        </FilterChipBar>
 
         {error && (
           <Alert variant="destructive">
@@ -186,23 +177,18 @@ const OwnerOfflineRequestsPage = () => {
         )}
 
         {!loading && requests.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <MessageSquare className="size-10 text-muted-foreground/50" />
-              <h2 className="text-lg font-semibold">{t("offlinePage.emptyTitle")}</h2>
-              <p className="max-w-md text-sm text-muted-foreground">
-                {t("offlinePage.emptyHint")}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={MessageSquare}
+            title={t("offlinePage.emptyTitle")}
+            description={t("offlinePage.emptyHint")}
+          />
         )}
 
         {!loading && requests.length > 0 && filteredRequests.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              {t("offlinePage.noFilterResults", { status: filterLabel(filter) })}
-            </CardContent>
-          </Card>
+          <EmptyState
+            compact
+            title={t("offlinePage.noFilterResults", { status: filterLabel(filter) })}
+          />
         )}
 
         {!loading && filteredRequests.length > 0 && (

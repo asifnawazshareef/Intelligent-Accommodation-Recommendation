@@ -1,22 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import AspectInsightBadges from "@/components/reviews/AspectInsightBadges";
 import SentimentBadge from "./SentimentBadge";
-import {
-  getAspectLabel,
-  sentimentToneClass,
-} from "@/lib/sentimentInsights";
-
-const normalizeAspectInsights = (review) => {
-  if (Array.isArray(review.aspectInsights) && review.aspectInsights.length) {
-    return review.aspectInsights;
-  }
-
-  return (review.aspects || []).map((aspect) => ({
-    aspect,
-    sentiment: review.sentiment || "neutral",
-  }));
-};
+import { normalizeAspectInsights } from "@/lib/reviewAspects";
 
 const SentimentResultCard = ({ review }) => {
   const { t } = useTranslation();
@@ -63,23 +49,18 @@ const SentimentResultCard = ({ review }) => {
 
         <div>
           <p className="text-sm font-medium">{t("review.detectedThemes")}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {aspectInsights.length ? (
-              aspectInsights.map((item) => (
-                <Badge
-                  key={item.aspect}
-                  variant="outline"
-                  className={`capitalize ${sentimentToneClass(item.sentiment)}`}
-                >
-                  {getAspectLabel(item.aspect, t)}
-                </Badge>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t("review.noThemesDetected")}
-              </p>
-            )}
-          </div>
+          {aspectInsights.length ? (
+            <AspectInsightBadges
+              insights={aspectInsights}
+              reviewId={review._id || "result"}
+              t={t}
+              className="mt-2"
+            />
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("review.noThemesDetected")}
+            </p>
+          )}
         </div>
 
         {reviewText ? (

@@ -10,9 +10,15 @@ const EmptyState = ({
   description,
   children,
   className,
+  compact = false,
 }) => (
   <Card className={cn("glass-card border-dashed", className)}>
-    <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+    <CardContent
+      className={cn(
+        "flex flex-col items-center justify-center gap-3 text-center",
+        compact ? "py-10" : "py-14",
+      )}
+    >
       {Icon ? (
         <Icon className="size-10 text-muted-foreground/50" aria-hidden="true" />
       ) : null}

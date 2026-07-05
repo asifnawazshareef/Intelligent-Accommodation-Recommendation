@@ -23,6 +23,7 @@ import { getBookingById } from "@/services/bookingService";
 import { createStripeCheckoutSession } from "@/services/paymentService";
 import { Button } from "@/components/ui/button";
 import ActionLink from "@/components/ui/action-link";
+import PageHeader from "@/components/ui/PageHeader";
 import {
   Card,
   CardContent,
@@ -131,19 +132,17 @@ const BookingPaymentPage = () => {
             {t("booking.myBookings")}
           </Link>
 
-          <div className="space-y-3">
-            <BookingStepIndicator currentStep={currentStep} t={t} />
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {isPaid ? t("bookingPage.paymentCompleteTitle") : t("booking.payment")}
-              </h1>
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                {isPaid
-                  ? t("bookingPage.paymentCompleteHint")
-                  : t("bookingPage.paymentHint")}
-              </p>
-            </div>
-          </div>
+          <PageHeader
+            title={
+              isPaid ? t("bookingPage.paymentCompleteTitle") : t("booking.payment")
+            }
+            description={
+              isPaid
+                ? t("bookingPage.paymentCompleteHint")
+                : t("bookingPage.paymentHint")
+            }
+            meta={<BookingStepIndicator currentStep={currentStep} t={t} />}
+          />
         </div>
 
         {error && (

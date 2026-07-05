@@ -1,32 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import EmptyState from "@/components/ui/EmptyState";
+import AspectInsightBadges from "@/components/reviews/AspectInsightBadges";
 import SentimentBadge from "@/components/reviews/SentimentBadge";
+import StarRatingRow from "@/components/reviews/StarRatingDisplay";
 import { formatDate } from "@/lib/formatters";
-import {
-  getAspectLabel,
-  sentimentToneClass,
-} from "@/lib/sentimentInsights";
-
-const StarRating = ({ rating }) => (
-  <p className="flex items-center gap-0.5 text-amber-400" dir="ltr" aria-hidden="true">
-    {"★".repeat(Math.min(5, Math.max(0, rating)))}
-    {"☆".repeat(Math.max(0, 5 - rating))}
-  </p>
-);
-
-const normalizeAspectInsights = (review) => {
-  if (Array.isArray(review.aspectInsights) && review.aspectInsights.length) {
-    return review.aspectInsights;
-  }
-
-  return (review.aspects || []).map((aspect) => ({
-    aspect,
-    sentiment: review.sentiment || "neutral",
-  }));
-};
+import { normalizeAspectInsights } from "@/lib/reviewAspects";
 
 const ReviewsList = ({ reviews = [] }) => {
   const { t, i18n } = useTranslation();
@@ -52,7 +32,7 @@ const ReviewsList = ({ reviews = [] }) => {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="font-medium">{guestName}</p>
-                      <StarRating rating={review.rating} />
+                      <StarRatingRow rating={review.rating} />
                       <p className="text-xs text-muted-foreground">
                         {formatDate(review.createdAt, i18n.language)}
                       </p>
@@ -77,19 +57,12 @@ const ReviewsList = ({ reviews = [] }) => {
                     </p>
                   ) : null}
 
-                  {aspectInsights.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {aspectInsights.map((item) => (
-                        <Badge
-                          key={`${review._id}-${item.aspect}`}
-                          variant="outline"
-                          className={`capitalize ${sentimentToneClass(item.sentiment)}`}
-                        >
-                          {getAspectLabel(item.aspect, t)}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
+                  <AspectInsightBadges
+                    insights={aspectInsights}
+                    reviewId={review._id}
+                    t={t}
+                    className="mt-3"
+                  />
                 </article>
               );
             })}
@@ -99,6 +72,7 @@ const ReviewsList = ({ reviews = [] }) => {
             icon={MessageSquare}
             title={t("review.reviews")}
             description={t("review.noReviewsHint")}
+            compact
           />
         )}
       </CardContent>

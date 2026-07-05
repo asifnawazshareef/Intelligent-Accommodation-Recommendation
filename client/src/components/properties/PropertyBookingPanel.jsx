@@ -5,10 +5,10 @@ import {
   MapPin,
   MessageSquarePlus,
   Sparkles,
-  Star,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ActionLink from "@/components/ui/action-link";
+import StarRatingDisplay from "@/components/reviews/StarRatingDisplay";
 import PropertyInsightStrip from "@/components/properties/PropertyInsightStrip";
 import { formatPrice } from "@/lib/formatters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,30 +31,6 @@ const BookingStep = ({ step, label, active }) => (
     </span>
   </div>
 );
-
-const StarRatingDisplay = ({ rating, reviewCount, t }) => {
-  if (!rating || rating <= 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {t("propertyDetail.noReviewsYet")}
-      </p>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1">
-        <Star className="size-4 fill-amber-400 text-amber-400" />
-        <span className="text-sm font-semibold" dir="ltr">
-          {rating}
-        </span>
-      </div>
-      <span className="text-sm text-muted-foreground">
-        ({t("search.reviewCount", { count: reviewCount || 0 })})
-      </span>
-    </div>
-  );
-};
 
 const PropertyBookingPanel = ({
   property,
@@ -95,15 +71,19 @@ const PropertyBookingPanel = ({
 
         <StarRatingDisplay
           rating={summary?.averageRating}
-          reviewCount={summary?.totalReviews}
-          t={t}
+          reviewCountLabel={t("search.reviewCount", {
+            count: summary?.totalReviews || 0,
+          })}
+          size="lg"
+          showEmptyHint
+          emptyHint={t("propertyDetail.noReviewsYet")}
         />
 
         {hasSentiment && (
           <PropertyInsightStrip summary={summary} compact />
         )}
 
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+        {/* <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary">
             {t("propertyDetail.howToBook")}
           </p>
@@ -114,7 +94,7 @@ const PropertyBookingPanel = ({
             <div className="h-px flex-1 bg-border/80" aria-hidden="true" />
             <BookingStep step={3} label={t("review.reviews")} active={false} />
           </div>
-        </div>
+        </div> */}
 
         <div className="flex flex-col gap-2.5">
           <ActionLink to={makeBookingPath} size="lg" className="h-11 w-full gap-2 shadow-sm">
@@ -143,7 +123,7 @@ const PropertyBookingPanel = ({
           </button>
         )}
 
-        <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
+        {/* <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
           <span className="inline-flex flex-col items-center gap-1 rounded-lg bg-muted/20 px-2 py-2">
             <CalendarRange className="size-3.5 text-primary" />
             {t("bookingPage.stepDates")}
@@ -156,7 +136,7 @@ const PropertyBookingPanel = ({
             <MessageSquarePlus className="size-3.5 text-primary" />
             {t("review.reviews")}
           </span>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );

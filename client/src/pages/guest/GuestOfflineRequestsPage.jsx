@@ -1,28 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-import { Link } from "react-router-dom";
-
-import { MessageSquare, RefreshCw } from "lucide-react";
-
+import { MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
-
 import DashboardLayout from "@/components/layout/DashboardLayout";
-
 import OfflineRequestCard from "@/components/offline/OfflineRequestCard";
-
 import { getGuestOfflineRequests } from "@/services/offlineRequestService";
-
-import { Button } from "@/components/ui/button";
-
+import ActionLink from "@/components/ui/action-link";
+import EmptyState from "@/components/ui/EmptyState";
+import FilterChipBar, { FilterChip } from "@/components/ui/FilterChipBar";
+import PageHeader from "@/components/ui/PageHeader";
+import RefreshButton from "@/components/ui/RefreshButton";
 import { Badge } from "@/components/ui/badge";
-
-import { Card, CardContent } from "@/components/ui/card";
-
+import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 import { Skeleton } from "@/components/ui/skeleton";
-
-import { cn } from "@/lib/utils";
 
 
 
@@ -158,125 +148,44 @@ const GuestOfflineRequestsPage = () => {
 
       <div className="dashboard-page">
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <PageHeader
+          title={t("offlinePage.guestTitle")}
+          description={t("offlinePage.guestHint")}
+          actions={
+            <>
+              {newResponses > 0 && (
+                <Badge className="w-fit whitespace-normal bg-emerald-500/15 px-3 py-1 text-emerald-700 dark:text-emerald-400">
+                  {t("offlinePage.newResponses", { count: newResponses })}
+                </Badge>
+              )}
+              <RefreshButton
+                onClick={fetchRequests}
+                loading={loading}
+                label={t("offlinePage.refresh")}
+                className="w-full sm:w-auto"
+              />
+            </>
+          }
+        />
 
-          <div className="min-w-0">
-
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-
-              {t("offlinePage.guestTitle")}
-
-            </h1>
-
-            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-
-              {t("offlinePage.guestHint")}
-
-            </p>
-
-          </div>
-
-          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-
-            {newResponses > 0 && (
-
-              <Badge className="w-fit whitespace-normal bg-emerald-500/15 px-3 py-1 text-emerald-700 dark:text-emerald-400">
-
-                {t("offlinePage.newResponses", { count: newResponses })}
-
-              </Badge>
-
-            )}
-
-            <Button
-
-              variant="outline"
-
-              onClick={fetchRequests}
-
-              disabled={loading}
-
-              className="w-full gap-2 sm:w-auto"
-
-            >
-
-              <RefreshCw className={cn("size-4 shrink-0", loading && "animate-spin")} />
-
-              {t("offlinePage.refresh")}
-
-            </Button>
-
-          </div>
-
-        </div>
-
-
-
-        <div className="-mx-1 overflow-x-auto pb-1 sm:mx-0 sm:overflow-visible">
-
+        <FilterChipBar className="-mx-1 overflow-x-auto pb-1 sm:mx-0 sm:overflow-visible">
           <div
-
             className="flex w-max min-w-full gap-2 px-1 sm:w-auto sm:flex-wrap"
-
             role="tablist"
-
             aria-label={t("offlinePage.guestTitle")}
-
           >
-
             {FILTERS.map((value) => (
-
-              <Button
-
+              <FilterChip
                 key={value}
-
-                size="sm"
-
-                variant={filter === value ? "default" : "outline"}
-
+                active={filter === value}
                 onClick={() => setFilter(value)}
-
-                className="shrink-0 gap-1.5 whitespace-nowrap"
-
-                role="tab"
-
-                aria-selected={filter === value}
-
+                count={counts[value]}
               >
-
                 {filterLabel(value)}
-
-                {!loading && (
-
-                  <span
-
-                    className={cn(
-
-                      "rounded-full px-1.5 py-0.5 text-xs tabular-nums",
-
-                      filter === value
-
-                        ? "bg-primary-foreground/20"
-
-                        : "bg-muted text-muted-foreground",
-
-                    )}
-
-                  >
-
-                    {counts[value]}
-
-                  </span>
-
-                )}
-
-              </Button>
-
+              </FilterChip>
             ))}
-
           </div>
-
-        </div>
+        </FilterChipBar>
 
 
 
@@ -311,55 +220,22 @@ const GuestOfflineRequestsPage = () => {
 
 
         {!loading && requests.length === 0 && (
-
-          <Card className="glass-card border-dashed">
-
-            <CardContent className="flex flex-col items-center justify-center gap-4 px-4 py-14 text-center sm:py-16">
-
-              <MessageSquare className="size-10 text-muted-foreground/50" />
-
-              <div className="max-w-md space-y-1.5">
-
-                <h2 className="text-lg font-semibold">
-
-                  {t("offlinePage.guestEmptyTitle")}
-
-                </h2>
-
-                <p className="text-sm leading-relaxed text-muted-foreground">
-
-                  {t("offlinePage.guestEmptyHint")}
-
-                </p>
-
-              </div>
-
-              <Button asChild className="w-full sm:w-auto">
-
-                <Link to="/search">{t("nav.search")}</Link>
-
-              </Button>
-
-            </CardContent>
-
-          </Card>
-
+          <EmptyState
+            icon={MessageSquare}
+            title={t("offlinePage.guestEmptyTitle")}
+            description={t("offlinePage.guestEmptyHint")}
+          >
+            <ActionLink to="/search" className="w-full sm:w-auto">
+              {t("nav.search")}
+            </ActionLink>
+          </EmptyState>
         )}
 
-
-
         {!loading && requests.length > 0 && filteredRequests.length === 0 && (
-
-          <Card className="glass-card border-dashed">
-
-            <CardContent className="px-4 py-10 text-center text-sm text-muted-foreground">
-
-              {t("offlinePage.noFilterResults", { status: filterLabel(filter) })}
-
-            </CardContent>
-
-          </Card>
-
+          <EmptyState
+            compact
+            title={t("offlinePage.noFilterResults", { status: filterLabel(filter) })}
+          />
         )}
 
 

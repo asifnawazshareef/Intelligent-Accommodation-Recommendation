@@ -203,6 +203,8 @@
       "similar_price_to_bookings": "سعر مشابه لحجوزاتك",
       "positive_reviews": "مراجعات ضيوف إيجابية في الغالب",
       "praised_sentiment": "الضيوف يمدحون {{aspect}}",
+      "available_for_dates": "متاح لتواريخك",
+      "good_amenities": "مرافق قوية",
       "recommended_for_you": "موصى به لك"
     },
     "reviewCount": "{{count}} مراجعات",

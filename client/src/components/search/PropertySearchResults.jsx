@@ -2,7 +2,7 @@ import { Building2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PropertySearchCard from "@/components/search/PropertySearchCard";
 import ActionLink from "@/components/ui/action-link";
-import { Card, CardContent } from "@/components/ui/card";
+import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hasActiveFilters } from "@/lib/searchParams";
 
@@ -60,17 +60,11 @@ const PropertySearchResults = ({
       {loading && <ResultSkeleton count={previewLimit || 6} />}
 
       {!loading && !error && results.length === 0 && (
-        <Card className="glass-card border-dashed">
-          <CardContent className="flex flex-col items-center justify-center gap-3 px-4 py-14 text-center sm:py-16">
-            <Building2 className="size-10 text-muted-foreground/50" />
-            <div className="max-w-md space-y-1.5">
-              <h3 className="text-lg font-semibold">{t("search.emptyTitle")}</h3>
-              <p className="text-sm text-muted-foreground">
-                {t("search.emptyHint")}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Building2}
+          title={t("search.emptyTitle")}
+          description={t("search.emptyHint")}
+        />
       )}
 
       {!loading && results.length > 0 && (

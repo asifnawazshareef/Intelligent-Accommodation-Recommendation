@@ -7,7 +7,6 @@ import {
   MapPin,
   MessageSquare,
   Sparkles,
-  Star,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
@@ -21,6 +20,8 @@ import PropertyTrustStrip from "@/components/properties/PropertyTrustStrip";
 import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
+import StarRatingDisplay from "@/components/reviews/StarRatingDisplay";
+import EmptyState from "@/components/ui/EmptyState";
 import { formatDate, formatPrice } from "@/lib/formatters";
 import { getGuestDisplayImages } from "@/lib/imageVerification";
 import { getPropertyById } from "@/services/propertyService";
@@ -222,10 +223,13 @@ const PropertyDetailPage = () => {
                 {formatPrice(property.price, t("common.currency"))}
               </p>
               {summary?.averageRating > 0 && (
-                <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Star className="size-4 fill-amber-400 text-amber-400" />
-                  <span dir="ltr">{summary.averageRating}</span>
-                </p>
+                <StarRatingDisplay
+                  rating={summary.averageRating}
+                  reviewCountLabel={t("search.reviewCount", {
+                    count: summary.totalReviews || 0,
+                  })}
+                  size="lg"
+                />
               )}
             </div>
           </div>
@@ -290,11 +294,10 @@ const PropertyDetailPage = () => {
                 ))}
               </div>
             ) : (
-              <Card className="glass-card border-dashed border-border/60">
-                <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  {t("propertyDetail.noAvailability")}
-                </CardContent>
-              </Card>
+              <EmptyState
+                compact
+                title={t("propertyDetail.noAvailability")}
+              />
             )}
           </section>
 
@@ -315,11 +318,11 @@ const PropertyDetailPage = () => {
             {showSentiment && <SentimentSummary summary={summary} />}
 
             {!showSentiment && (
-              <Card className="glass-card border-dashed border-border/60">
-                <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  {t("propertyDetail.noReviews")}
-                </CardContent>
-              </Card>
+              <EmptyState
+                compact
+                title={t("propertyDetail.noReviews")}
+                description={t("review.noReviewsHint")}
+              />
             )}
 
             {canLeaveReview && (
@@ -341,12 +344,6 @@ const PropertyDetailPage = () => {
                 showSentiment ? () => scrollToSection("reviews") : undefined
               }
             />
-            {showSentiment && (
-              <PropertySentimentSnapshot
-                summary={summary}
-                onViewReviews={() => scrollToSection("reviews")}
-              />
-            )}
           </div>
         </aside>
       </div>

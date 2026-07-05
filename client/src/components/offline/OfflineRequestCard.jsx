@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import {
   CalendarRange,
   Clock,
@@ -10,7 +9,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import OfflineRequestStatusBadge from "@/components/offline/OfflineRequestStatusBadge";
-import { buttonVariants } from "@/components/ui/button";
+import ActionLink from "@/components/ui/action-link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
@@ -29,19 +28,6 @@ const DetailItem = ({ label, children, className = "" }) => (
     </dt>
     <dd className="mt-0.5 break-words font-medium text-foreground">{children}</dd>
   </div>
-);
-
-const CardActionLink = ({ to, variant = "default", className, children }) => (
-  <Link
-    to={to}
-    className={cn(
-      buttonVariants({ variant, size: "default" }),
-      "inline-flex w-full flex-row items-center justify-center gap-2 no-underline",
-      className,
-    )}
-  >
-    {children}
-  </Link>
 );
 
 const OfflineRequestCard = ({
@@ -141,13 +127,14 @@ const OfflineRequestCard = ({
                 </div>
               </div>
               {request.property?._id && (
-                <CardActionLink
+                <ActionLink
                   to={`/properties/${request.property._id}`}
                   variant="outline"
+                  className="w-full"
                 >
                   <ExternalLink className="size-4 shrink-0" />
                   <span>{t("offlinePage.viewProperty")}</span>
-                </CardActionLink>
+                </ActionLink>
               )}
             </div>
           )}
@@ -197,17 +184,18 @@ const OfflineRequestCard = ({
                 {t("offlinePage.proceedToBookingHint")}
               </p>
               <div className="flex flex-col gap-2">
-                <CardActionLink to={`/bookings/new/${request.property._id}`}>
+                <ActionLink to={`/bookings/new/${request.property._id}`} className="w-full">
                   <Ticket className="size-4 shrink-0" />
                   <span>{t("offlinePage.proceedToBooking")}</span>
-                </CardActionLink>
-                <CardActionLink
+                </ActionLink>
+                <ActionLink
                   to={`/properties/${request.property._id}`}
                   variant="outline"
+                  className="w-full"
                 >
                   <ExternalLink className="size-4 shrink-0" />
                   <span>{t("offlinePage.viewProperty")}</span>
-                </CardActionLink>
+                </ActionLink>
               </div>
             </div>
           )}
@@ -216,14 +204,14 @@ const OfflineRequestCard = ({
             request.property?._id &&
             !canProceedToBooking &&
             request.status !== "pending" && (
-              <CardActionLink
+              <ActionLink
                 to={`/properties/${request.property._id}`}
                 variant="outline"
-                className="sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 <ExternalLink className="size-4 shrink-0" />
                 <span>{t("offlinePage.viewProperty")}</span>
-              </CardActionLink>
+              </ActionLink>
             )}
         </div>
       </CardContent>

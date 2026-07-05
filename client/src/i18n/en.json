@@ -203,6 +203,8 @@
       "similar_price_to_bookings": "Similar price to your bookings",
       "positive_reviews": "Mostly positive guest reviews",
       "praised_sentiment": "Guests praise {{aspect}}",
+      "available_for_dates": "Available for your dates",
+      "good_amenities": "Strong amenities match",
       "recommended_for_you": "Recommended for you"
     },
     "reviewCount": "{{count}} reviews",

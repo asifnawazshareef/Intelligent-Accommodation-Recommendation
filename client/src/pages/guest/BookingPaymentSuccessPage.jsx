@@ -11,6 +11,7 @@ import PageLoader from "@/components/layout/PageLoader";
 import BookingStepIndicator from "@/components/bookings/BookingStepIndicator";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import ActionLink from "@/components/ui/action-link";
+import PageHeader from "@/components/ui/PageHeader";
 import { formatDate, formatPrice } from "@/lib/formatters";
 import notify from "@/lib/notify";
 import { verifyStripeSession } from "@/services/paymentService";
@@ -19,7 +20,6 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -94,19 +94,17 @@ const BookingPaymentSuccessPage = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <BookingStepIndicator currentStep={3} t={t} />
+        <PageHeader
+          title={t("bookingPage.stripeSuccessTitle")}
+          description={t("bookingPage.stripeSuccessHint")}
+          meta={<BookingStepIndicator currentStep={3} t={t} />}
+        />
 
         <Card className="glass-card border-emerald-500/30">
           <CardHeader className="space-y-3 text-center">
             <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
               <CheckCircle2 className="size-8" />
             </div>
-            <CardTitle className="text-2xl">
-              {t("bookingPage.stripeSuccessTitle")}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {t("bookingPage.stripeSuccessHint")}
-            </p>
           </CardHeader>
 
           <CardContent className="space-y-4">

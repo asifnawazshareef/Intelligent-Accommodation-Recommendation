@@ -4,7 +4,6 @@ import {
   Loader2,
   Mail,
   Phone,
-  RefreshCw,
   ShieldCheck,
   ShieldOff,
   UserRound,
@@ -14,6 +13,10 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import UserRoleBadge from "@/components/admin/UserRoleBadge";
+import FilterChipBar, { FilterChip } from "@/components/ui/FilterChipBar";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import RefreshButton from "@/components/ui/RefreshButton";
 import {
   getAllUsers,
   updateUserRole,
@@ -240,47 +243,31 @@ const AdminUsersPage = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("admin.manageUsers")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-muted-foreground">
-              {t("userManagement.pageHint")}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={fetchUsers}
-            disabled={loading}
-            className="w-full min-w-fit whitespace-normal sm:w-auto"
-          >
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-            {t("userManagement.refresh")}
-          </Button>
-        </div>
+        <PageHeader
+          title={t("admin.manageUsers")}
+          description={t("userManagement.pageHint")}
+          actions={
+            <RefreshButton
+              onClick={fetchUsers}
+              loading={loading}
+              label={t("userManagement.refresh")}
+              className="w-full sm:w-auto"
+            />
+          }
+        />
 
-        <div className="flex flex-wrap gap-2">
+        <FilterChipBar>
           {ROLE_FILTERS.map((filter) => (
-            <Button
+            <FilterChip
               key={filter}
-              size="sm"
-              variant={roleFilter === filter ? "default" : "outline"}
-              className="whitespace-normal"
+              active={roleFilter === filter}
               onClick={() => setRoleFilter(filter)}
+              count={roleCounts[filter] ?? 0}
             >
               {t(`userManagement.filter.${filter}`)}
-              {!loading && (
-                <Badge
-                  variant={roleFilter === filter ? "secondary" : "outline"}
-                  className="ms-1.5"
-                >
-                  {roleCounts[filter] ?? 0}
-                </Badge>
-              )}
-            </Button>
+            </FilterChip>
           ))}
-        </div>
+        </FilterChipBar>
 
         {error && (
           <Alert variant="destructive">
@@ -299,19 +286,11 @@ const AdminUsersPage = () => {
         {loading && <TableSkeleton />}
 
         {!loading && filteredUsers.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <Users className="size-10 text-muted-foreground/50" />
-              <div className="max-w-md space-y-1">
-                <h2 className="text-lg font-semibold">
-                  {t("userManagement.emptyTitle")}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {t("userManagement.emptyHint")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Users}
+            title={t("userManagement.emptyTitle")}
+            description={t("userManagement.emptyHint")}
+          />
         )}
 
         {!loading && filteredUsers.length > 0 && (

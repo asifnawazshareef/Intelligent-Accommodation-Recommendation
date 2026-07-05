@@ -4,9 +4,11 @@ import { Building2, MapPin, Pencil, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
-import ImageVerificationSummary from "@/components/imageAudit/ImageVerificationSummary";
-import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
+import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
+import ImageVerificationSummary from "@/components/imageAudit/ImageVerificationSummary";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
 import { formatPrice } from "@/lib/formatters";
 import { summarizeImageVerification } from "@/lib/imageVerification";
 import { getMyProperties } from "@/services/propertyService";
@@ -62,22 +64,18 @@ const OwnerPropertiesPage = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("property.myPropertiesTitle")}
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              {t("property.myPropertiesHint")}
-            </p>
-          </div>
-          <Link to="/owner/properties/new">
-            <Button className="w-full min-w-fit whitespace-normal sm:w-auto">
-              <Plus className="size-4" />
-              {t("property.createProperty")}
-            </Button>
-          </Link>
-        </div>
+        <PageHeader
+          title={t("property.myPropertiesTitle")}
+          description={t("property.myPropertiesHint")}
+          actions={
+            <Link to="/owner/properties/new">
+              <Button className="w-full min-w-fit whitespace-normal sm:w-auto">
+                <Plus className="size-4" />
+                {t("property.createProperty")}
+              </Button>
+            </Link>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -95,27 +93,18 @@ const OwnerPropertiesPage = () => {
         )}
 
         {!loading && !error && properties.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-              <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Building2 className="size-7" />
-              </div>
-              <div className="max-w-md space-y-2">
-                <h2 className="text-lg font-semibold">
-                  {t("property.noPropertiesFound")}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {t("property.emptyStateHint")}
-                </p>
-              </div>
-              <Link to="/owner/properties/new">
-                <Button>
-                  <Plus className="size-4" />
-                  {t("property.createProperty")}
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Building2}
+            title={t("property.noPropertiesFound")}
+            description={t("property.emptyStateHint")}
+          >
+            <Link to="/owner/properties/new">
+              <Button>
+                <Plus className="size-4" />
+                {t("property.createProperty")}
+              </Button>
+            </Link>
+          </EmptyState>
         )}
 
         {!loading && properties.length > 0 && (

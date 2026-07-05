@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ExternalLink,
-  RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import ActionLink from "@/components/ui/action-link";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import RefreshButton from "@/components/ui/RefreshButton";
 import ImageAuditPropertyGroup from "@/components/imageAudit/ImageAuditPropertyGroup";
 import ImageAuditStatsBar from "@/components/imageAudit/ImageAuditStatsBar";
 import {
@@ -15,12 +17,7 @@ import {
   updateImageAudit,
 } from "@/services/imageAuditService";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import notify from "@/lib/notify";
 
 const PRESETS = {
@@ -278,17 +275,10 @@ const AdminImageAuditPage = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("admin.imageAudit")}
-              </h1>
-              <p className="mt-1 max-w-2xl text-muted-foreground">
-                {t("imageAudit.pageHint")}
-              </p>
-            </div>
-
+        <PageHeader
+          title={t("admin.imageAudit")}
+          description={t("imageAudit.pageHint")}
+          meta={
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/15 p-3 text-sm">
               <ShieldCheck className="size-4 shrink-0 text-primary" />
               <span className="text-muted-foreground">{t("imageAudit.workflowStep1")}</span>
@@ -303,18 +293,16 @@ const AdminImageAuditPage = () => {
                 <ExternalLink className="size-3.5" />
               </ActionLink>
             </div>
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={fetchItems}
-            disabled={loading}
-            className="w-full min-w-fit shrink-0 whitespace-normal sm:w-auto"
-          >
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-            {t("imageAudit.refresh")}
-          </Button>
-        </div>
+          }
+          actions={
+            <RefreshButton
+              onClick={fetchItems}
+              loading={loading}
+              label={t("imageAudit.refresh")}
+              className="w-full sm:w-auto"
+            />
+          }
+        />
 
         <ImageAuditStatsBar
           counts={counts}
@@ -330,34 +318,24 @@ const AdminImageAuditPage = () => {
         )}
 
         {!loading && allItems.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <ShieldCheck className="size-10 text-muted-foreground/50" />
-              <div className="max-w-md space-y-1">
-                <h2 className="text-lg font-semibold">
-                  {t("imageAudit.emptyTitle")}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {t("imageAudit.emptyHint")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={ShieldCheck}
+            title={t("imageAudit.emptyTitle")}
+            description={t("imageAudit.emptyHint")}
+          />
         )}
 
         {!loading && allItems.length > 0 && items.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <p className="text-sm text-muted-foreground">
-                {t("imageAudit.noFilterResults", {
-                  status: filterLabel(filter),
-                })}
-              </p>
-              <Button variant="outline" size="sm" onClick={() => setFilter("all")}>
-                {t("imageAudit.filterAll")}
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            compact
+            title={t("imageAudit.noFilterResults", {
+              status: filterLabel(filter),
+            })}
+          >
+            <Button variant="outline" size="sm" onClick={() => setFilter("all")}>
+              {t("imageAudit.filterAll")}
+            </Button>
+          </EmptyState>
         )}
 
         {!loading && propertyGroups.length > 0 && (

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import PropertySearchForm from "@/components/search/PropertySearchForm";
 import PropertySearchResults from "@/components/search/PropertySearchResults";
 import RecommendedProperties from "@/components/search/RecommendedProperties";
+import PageHeader from "@/components/ui/PageHeader";
 import usePropertySearch from "@/hooks/usePropertySearch";
 import { searchParamsFromValues } from "@/lib/searchParams";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -32,14 +33,10 @@ const SearchPage = () => {
 
   return (
     <div className="site-container space-y-8 py-8 sm:py-10">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          {t("search.pageTitle")}
-        </h1>
-        <p className="mt-1 max-w-2xl text-muted-foreground">
-          {t("search.pageHint")}
-        </p>
-      </div>
+      <PageHeader
+        title={t("search.pageTitle")}
+        description={t("search.pageHint")}
+      />
 
       <PropertySearchForm
         values={formValues}

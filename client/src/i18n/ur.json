@@ -203,6 +203,8 @@
       "similar_price_to_bookings": "آپ کی بکنگز جیسی قیمت",
       "positive_reviews": "زیادہ تر مثبت مہمان جائزے",
       "praised_sentiment": "مہمان {{aspect}} کی تعریف کرتے ہیں",
+      "available_for_dates": "آپ کی تاریخوں کے لیے دستیاب",
+      "good_amenities": "بہترین سہولیات",
       "recommended_for_you": "آپ کے لیے تجویز کردہ"
     },
     "reviewCount": "{{count}} جائزے",

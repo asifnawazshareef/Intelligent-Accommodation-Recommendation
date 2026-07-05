@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { createOfflineRequest } from "@/services/offlineRequestService";
 import { getApprovedProperties } from "@/services/propertyService";
 import { formatPropertyOption } from "@/lib/formatters";
+import PageHeader from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -192,12 +193,10 @@ const OfflineBookingPage = () => {
         </Button>
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          {t("offline.contactOwner")}
-        </h1>
-        <p className="mt-1 text-muted-foreground">{t("offlinePage.formHint")}</p>
-      </div>
+      <PageHeader
+        title={t("offline.contactOwner")}
+        description={t("offlinePage.formHint")}
+      />
 
       <Card className="glass-card border-border/60">
         <CardHeader className="pb-3">

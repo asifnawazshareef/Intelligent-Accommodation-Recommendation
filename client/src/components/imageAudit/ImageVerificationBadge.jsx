@@ -72,28 +72,29 @@ const ImageVerificationBadge = ({
       status === "verified" ? t("imageAudit.verifiedPhotoHint") : undefined;
 
     return (
-      <span
-        className={cn(
-          "inline-flex max-w-[calc(100%-0.5rem)] items-center gap-1.5 rounded-full border px-2 py-1",
-          config.overlayStyle,
-          className,
-        )}
-        title={titleText}
-      >
-        <span
-          className={cn(
-            "flex size-5 shrink-0 items-center justify-center rounded-full",
-            config.iconWrap,
-          )}
-        >
-          <Icon className="size-3.5" strokeWidth={2.5} />
-        </span>
-        {showLabel && (
-          <span className="truncate text-[11px] font-semibold leading-none tracking-wide sm:text-xs">
-            {label}
-          </span>
-        )}
-      </span>
+      // <span
+      //   className={cn(
+      //     "inline-flex max-w-[calc(100%-0.5rem)] items-center gap-1.5 rounded-full border px-2 py-1",
+      //     config.overlayStyle,
+      //     className,
+      //   )}
+      //   title={titleText}
+      // >
+      //   <span
+      //     className={cn(
+      //       "flex size-5 shrink-0 items-center justify-center rounded-full",
+      //       config.iconWrap,
+      //     )}
+      //   >
+      //     <Icon className="size-3.5" strokeWidth={2.5} />
+      //   </span>
+      //   {showLabel && (
+      //     <span className="truncate text-[11px] font-semibold leading-none tracking-wide sm:text-xs">
+      //       {label}
+      //     </span>
+      //   )}
+      // </span>
+      <span></span>
     );
   }
 
@@ -124,23 +125,6 @@ const ImageVerificationBadge = ({
       <Icon className="size-3.5 shrink-0" />
       {showLabel && t(config.labelKey, status)}
     </Badge>
-  );
-};
-
-export const VerifiedListingBadge = ({ className }) => {
-  const { t } = useTranslation();
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-emerald-400/45 bg-gradient-to-r from-emerald-600/90 to-emerald-500/90 px-2.5 py-1 text-xs font-semibold text-white shadow-lg shadow-emerald-950/30 backdrop-blur-sm",
-        className,
-      )}
-      title={t("imageAudit.verifiedPhotoHint")}
-    >
-      <ShieldCheck className="size-3.5 shrink-0" strokeWidth={2.5} />
-      <span>{t("imageAudit.verifiedShort")}</span>
-    </span>
   );
 };
 

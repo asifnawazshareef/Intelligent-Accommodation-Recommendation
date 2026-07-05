@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import PageHeader from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
 
 const QuickLinkCard = ({ to, icon: Icon, title, description }) => (
@@ -142,20 +143,16 @@ const DashboardShell = ({ role, user, children }) => {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="gap-1 whitespace-normal">
-              <RoleIcon className="size-3.5 shrink-0" />
-              {meta.badge}
-            </Badge>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            {meta.dashboardTitle}
-          </h1>
-          <p className="mt-1 text-muted-foreground">{meta.subtitle}</p>
-        </div>
-      </div>
+      <PageHeader
+        badge={
+          <Badge variant="secondary" className="gap-1 whitespace-normal">
+            <RoleIcon className="size-3.5 shrink-0" />
+            {meta.badge}
+          </Badge>
+        }
+        title={meta.dashboardTitle}
+        description={meta.subtitle}
+      />
 
       <div>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">

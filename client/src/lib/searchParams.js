@@ -1,4 +1,6 @@
-export const todayInputValue = () => new Date().toISOString().split("T")[0];
+import { todayInputValue } from "@/lib/dateUtils";
+
+export { todayInputValue };
 
 export const emptySearchValues = {
   city: "",

@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyForm from "@/components/properties/PropertyForm";
+import PageHeader from "@/components/ui/PageHeader";
 import { createProperty } from "@/services/propertyService";
 import notify from "@/lib/notify";
 import { Button } from "@/components/ui/button";
@@ -43,19 +44,16 @@ const OwnerPropertyNewPage = () => {
             </Button>
           </Link>
 
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("property.createProperty")}
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              {t("property.createHint")}
-            </p>
-          </div>
-
-          <Alert>
-            <AlertTitle>{t("property.pending")}</AlertTitle>
-            <AlertDescription>{t("property.newListingPending")}</AlertDescription>
-          </Alert>
+          <PageHeader
+            title={t("property.createProperty")}
+            description={t("property.createHint")}
+            meta={
+              <Alert>
+                <AlertTitle>{t("property.pending")}</AlertTitle>
+                <AlertDescription>{t("property.newListingPending")}</AlertDescription>
+              </Alert>
+            }
+          />
         </div>
 
         <PropertyForm

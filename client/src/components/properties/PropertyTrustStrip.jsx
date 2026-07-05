@@ -27,34 +27,35 @@ const PropertyTrustStrip = ({ property, reviewCount = 0, className }) => {
   const imageStats = summarizeImageVerification(property?.images);
 
   return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
-      <TrustPill
-        icon={ShieldCheck}
-        label={t("propertyDetail.adminApproved")}
-        tone="emerald"
-      />
-      {imageStats.verified > 0 && (
-        <TrustPill
-          icon={Camera}
-          label={t("propertyDetail.verifiedPhotos", { count: imageStats.verified })}
-          tone="primary"
-        />
-      )}
-      {reviewCount > 0 && (
-        <TrustPill
-          icon={Sparkles}
-          label={t("propertyDetail.sentimentAnalyzed")}
-          tone="violet"
-        />
-      )}
-      {property?.status === "approved" && (
-        <TrustPill
-          icon={BadgeCheck}
-          label={t("propertyDetail.listingVerified")}
-          tone="default"
-        />
-      )}
-    </div>
+    // <div className={cn("flex flex-wrap gap-2", className)}>
+    //   <TrustPill
+    //     icon={ShieldCheck}
+    //     label={t("propertyDetail.adminApproved")}
+    //     tone="emerald"
+    //   />
+    //   {imageStats.verified > 0 && (
+    //     <TrustPill
+    //       icon={Camera}
+    //       label={t("propertyDetail.verifiedPhotos", { count: imageStats.verified })}
+    //       tone="primary"
+    //     />
+    //   )}
+    //   {reviewCount > 0 && (
+    //     <TrustPill
+    //       icon={Sparkles}
+    //       label={t("propertyDetail.sentimentAnalyzed")}
+    //       tone="violet"
+    //     />
+    //   )}
+    //   {property?.status === "approved" && (
+    //     <TrustPill
+    //       icon={BadgeCheck}
+    //       label={t("propertyDetail.listingVerified")}
+    //       tone="default"
+    //     />
+    //   )}
+    // </div>
+    <div></div>
   );
 };
 

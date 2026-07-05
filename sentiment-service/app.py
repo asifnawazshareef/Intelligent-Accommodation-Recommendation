@@ -68,6 +68,28 @@ def split_sentences(text: str) -> List[str]:
     return [s.strip() for s in sentences if len(s.strip()) > 0]
 
 
+# Split contrastive clauses so mixed reviews map aspects correctly
+# e.g. "the room was clean but the Wi-Fi was poor"
+CLAUSE_SPLITTERS = re.compile(
+    r"\s*,?\s*\b(?:but|however|although|though|yet|while|whereas)\b\s*",
+    re.IGNORECASE,
+)
+
+
+def split_analysis_units(text: str) -> List[str]:
+    """Sentences split further on contrast words for per-clause aspect sentiment."""
+    units: List[str] = []
+
+    for sentence in split_sentences(text):
+        clauses = CLAUSE_SPLITTERS.split(sentence)
+        for clause in clauses:
+            cleaned = clause.strip(" ,;")
+            if len(cleaned) > 0:
+                units.append(cleaned)
+
+    return units if units else [text.strip()]
+
+
 def detect_aspects(text: str) -> List[str]:
     lower_text = text.lower()
     found = []
@@ -162,8 +184,8 @@ def predict(payload: PredictRequest):
     if not review:
         raise HTTPException(status_code=400, detail="Review text is required.")
 
-    sentences = split_sentences(review)
-    sentence_results = [predict_single(sentence) for sentence in sentences]
+    sentences = split_analysis_units(review)
+    sentence_results = [predict_single(unit) for unit in sentences]
 
     sentiment_counts = Counter(item["sentiment"] for item in sentence_results)
     sentiments_found = set(sentiment_counts.keys())

@@ -15,7 +15,9 @@ import PageLoader from "@/components/layout/PageLoader";
 import BookingStepIndicator from "@/components/bookings/BookingStepIndicator";
 import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import ActionLink from "@/components/ui/action-link";
+import PageHeader from "@/components/ui/PageHeader";
 import { formatDate, formatPrice } from "@/lib/formatters";
+import { todayInputValue } from "@/lib/dateUtils";
 import { findOverlappingBooking } from "@/lib/bookingDates";
 import notify from "@/lib/notify";
 import { getPropertyById } from "@/services/propertyService";
@@ -33,8 +35,6 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-
-const todayInputValue = () => new Date().toISOString().split("T")[0];
 
 const countNights = (startDate, endDate) => {
   if (!startDate || !endDate) return 0;
@@ -276,15 +276,11 @@ const BookingNewPage = () => {
           </Link>
 
           <div className="space-y-3">
-            <BookingStepIndicator currentStep={1} t={t} />
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("bookingPage.newTitle")}
-              </h1>
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                {t("bookingPage.newHint")}
-              </p>
-            </div>
+            <PageHeader
+              title={t("bookingPage.newTitle")}
+              description={t("bookingPage.newHint")}
+              meta={<BookingStepIndicator currentStep={1} t={t} />}
+            />
           </div>
         </div>
 

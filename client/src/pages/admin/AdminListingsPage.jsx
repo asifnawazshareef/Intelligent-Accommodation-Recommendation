@@ -6,7 +6,6 @@ import {
   Eye,
   Loader2,
   MapPin,
-  RefreshCw,
   User,
   XCircle,
 } from "lucide-react";
@@ -15,6 +14,9 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import ImageVerificationSummary from "@/components/imageAudit/ImageVerificationSummary";
 import ImageVerificationBadge from "@/components/imageAudit/ImageVerificationBadge";
 import ActionLink from "@/components/ui/action-link";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import RefreshButton from "@/components/ui/RefreshButton";
 import {
   hasUnverifiedImages,
   hasVerifiedImage,
@@ -310,38 +312,33 @@ const AdminListingsPage = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("admin.moderateListings")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-muted-foreground">
-              {t("listingModeration.pageHint")}
-            </p>
+        <PageHeader
+          title={t("admin.moderateListings")}
+          description={t("listingModeration.pageHint")}
+          meta={
             <ActionLink
               to="/admin/image-audit"
               variant="link"
-              className="mt-2 h-auto p-0 text-sm"
+              className="h-auto p-0 text-sm"
             >
               {t("listingModeration.goToImageAudit")}
               <Eye className="size-3.5" />
             </ActionLink>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="whitespace-normal">
-              {t("listingModeration.pendingCount", { count: listings.length })}
-            </Badge>
-            <Button
-              variant="outline"
-              onClick={fetchListings}
-              disabled={loading}
-              className="w-full min-w-fit whitespace-normal sm:w-auto"
-            >
-              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-              {t("listingModeration.refresh")}
-            </Button>
-          </div>
-        </div>
+          }
+          actions={
+            <>
+              <Badge variant="secondary" className="whitespace-normal">
+                {t("listingModeration.pendingCount", { count: listings.length })}
+              </Badge>
+              <RefreshButton
+                onClick={fetchListings}
+                loading={loading}
+                label={t("listingModeration.refresh")}
+                className="w-full sm:w-auto"
+              />
+            </>
+          }
+        />
 
         {loading && (
           <div className="space-y-4">
@@ -351,19 +348,11 @@ const AdminListingsPage = () => {
         )}
 
         {!loading && listings.length === 0 && (
-          <Card className="glass-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <Building2 className="size-10 text-muted-foreground/50" />
-              <div className="max-w-md space-y-1">
-                <h2 className="text-lg font-semibold">
-                  {t("listingModeration.emptyTitle")}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {t("listingModeration.emptyHint")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Building2}
+            title={t("listingModeration.emptyTitle")}
+            description={t("listingModeration.emptyHint")}
+          />
         )}
 
         {!loading && listings.length > 0 && (
@@ -533,14 +522,11 @@ const AdminListingsPage = () => {
                 actionId={actionId}
               />
             ) : (
-              <Card className="glass-card border-dashed">
-                <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                  <Eye className="size-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">
-                    {t("listingModeration.selectListing")}
-                  </p>
-                </CardContent>
-              </Card>
+              <EmptyState
+                compact
+                icon={Eye}
+                title={t("listingModeration.selectListing")}
+              />
             )}
           </div>
         )}

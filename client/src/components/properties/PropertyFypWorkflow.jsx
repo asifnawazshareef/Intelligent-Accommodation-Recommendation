@@ -21,12 +21,12 @@ const PropertyFypWorkflow = ({ className }) => {
 
   return (
     <div
-      className={cn(
-        "rounded-2xl border border-border/60 bg-muted/15 p-4 sm:p-5",
-        className,
-      )}
+      // className={cn(
+      //   "rounded-2xl border border-border/60 bg-muted/15 p-4 sm:p-5",
+      //   className,
+      // )}
     >
-      <p className="text-sm font-semibold">{t("propertyDetail.fypWorkflowTitle")}</p>
+      {/* <p className="text-sm font-semibold">{t("propertyDetail.fypWorkflowTitle")}</p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
         {t("propertyDetail.fypWorkflowHint")}
       </p>
@@ -54,7 +54,7 @@ const PropertyFypWorkflow = ({ className }) => {
             </div>
           );
         })}
-      </div>
+      </div> */}
     </div>
   );
 };

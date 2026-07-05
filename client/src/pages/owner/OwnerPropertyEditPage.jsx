@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PropertyForm from "@/components/properties/PropertyForm";
 import PropertyStatusBadge from "@/components/properties/PropertyStatusBadge";
+import PageHeader from "@/components/ui/PageHeader";
 import PageLoader from "@/components/layout/PageLoader";
 import { getPropertyById, updateProperty } from "@/services/propertyService";
 import notify from "@/lib/notify";
@@ -91,17 +92,11 @@ const OwnerPropertyEditPage = () => {
             </Button>
           </Link>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {t("property.editProperty")}
-              </h1>
-              <p className="mt-1 text-muted-foreground">
-                {t("property.editHint")}
-              </p>
-            </div>
-            <PropertyStatusBadge status={property?.status} />
-          </div>
+          <PageHeader
+            title={t("property.editProperty")}
+            description={t("property.editHint")}
+            actions={<PropertyStatusBadge status={property?.status} />}
+          />
         </div>
 
         <PropertyForm

@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { Building2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/button";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import RefreshButton from "@/components/ui/RefreshButton";
 import {
   Card,
   CardContent,
@@ -23,7 +26,6 @@ import SentimentResultCard from "@/components/reviews/SentimentResultCard";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
 
 const ReviewSentimentTestPage = () => {
-  const { t } = useTranslation();
   const { isAuthenticated, user } = useAuth();
   const [properties, setProperties] = useState([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
@@ -31,6 +33,8 @@ const ReviewSentimentTestPage = () => {
   const [reviews, setReviews] = useState([]);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchProperties = async () => {
     const response = await getApprovedProperties();
@@ -53,17 +57,45 @@ const ReviewSentimentTestPage = () => {
     setSummary(summaryResponse.data.data || null);
   };
 
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      await fetchProperties();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchProperties().catch((err) =>
-      setError(err.response?.data?.message || err.message),
-    );
+    loadAll();
   }, []);
 
   useEffect(() => {
+    if (!selectedPropertyId) return;
+
     fetchReviewData(selectedPropertyId).catch((err) =>
       setError(err.response?.data?.message || err.message),
     );
   }, [selectedPropertyId]);
+
+  const handleRefresh = async () => {
+    if (!selectedPropertyId) return;
+
+    setRefreshing(true);
+    setError("");
+
+    try {
+      await fetchReviewData(selectedPropertyId);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleReviewCreated = async (review) => {
     setLatestReview(review);
@@ -73,17 +105,22 @@ const ReviewSentimentTestPage = () => {
   const canSubmitReview = isAuthenticated && user?.role === "guest";
 
   return (
-    <main className="min-h-screen bg-muted/30 px-4 py-8">
+    <DashboardLayout>
       <div className="dashboard-page">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Review Sentiment Test
-          </h1>
-          <p className="text-muted-foreground">
-            View sentiment analysis results for property reviews. Submit reviews
-            as a logged-in guest with a confirmed booking.
-          </p>
-        </div>
+        <PageHeader
+          title="Review Sentiment Test"
+          description="View sentiment analysis results for property reviews. Submit reviews as a logged-in guest with a confirmed booking."
+          actions={
+            selectedPropertyId ? (
+              <RefreshButton
+                onClick={handleRefresh}
+                loading={refreshing}
+                label="Refresh Results"
+                className="w-full sm:w-auto"
+              />
+            ) : null
+          }
+        />
 
         {error ? (
           <Alert variant="destructive">
@@ -102,38 +139,40 @@ const ReviewSentimentTestPage = () => {
           </Alert>
         ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Select Property</CardTitle>
-            <CardDescription>
-              Choose an approved property to inspect review sentiment data.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Property</Label>
-              <select
-                value={selectedPropertyId}
-                onChange={(e) => setSelectedPropertyId(e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select property</option>
-                {properties.map((property) => (
-                  <option key={property._id} value={property._id}>
-                    {property.title} — {property.location?.city}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fetchReviewData(selectedPropertyId)}
-            >
-              Refresh Results
-            </Button>
-          </CardContent>
-        </Card>
+        {!loading && properties.length === 0 ? (
+          <EmptyState
+            icon={Building2}
+            title="No approved properties"
+            description="Add and approve listings before testing review sentiment."
+          />
+        ) : (
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Select Property</CardTitle>
+              <CardDescription>
+                Choose an approved property to inspect review sentiment data.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Property</Label>
+                <select
+                  value={selectedPropertyId}
+                  onChange={(e) => setSelectedPropertyId(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  disabled={loading}
+                >
+                  <option value="">Select property</option>
+                  {properties.map((property) => (
+                    <option key={property._id} value={property._id}>
+                      {property.title} — {property.location?.city}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {selectedPropertyId ? (
           <>
@@ -154,7 +193,7 @@ const ReviewSentimentTestPage = () => {
           </>
         ) : null}
       </div>
-    </main>
+    </DashboardLayout>
   );
 };
 

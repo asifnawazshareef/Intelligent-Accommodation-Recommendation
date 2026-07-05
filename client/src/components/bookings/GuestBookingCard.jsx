@@ -13,11 +13,10 @@ import ReviewSubmittedBanner from "@/components/reviews/ReviewSubmittedBanner";
 import ActionLink from "@/components/ui/action-link";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatPrice } from "@/lib/formatters";
+import { todayInputValue } from "@/lib/dateUtils";
 import { getGuestDisplayImages } from "@/lib/imageVerification";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-const todayValue = () => new Date().toISOString().slice(0, 10);
 
 const GuestBookingCard = ({ booking }) => {
   const { t, i18n } = useTranslation();
@@ -36,7 +35,7 @@ const GuestBookingCard = ({ booking }) => {
   const isCancelled = booking.status === "cancelled";
 
   const stayTiming = useMemo(() => {
-    const today = todayValue();
+    const today = todayInputValue();
     if (booking.endDate < today) return "past";
     if (booking.startDate > today) return "upcoming";
     return "active";
