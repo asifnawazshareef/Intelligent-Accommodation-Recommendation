@@ -61,24 +61,38 @@ export const attachSentimentSummaries = async (properties = []) => {
     return [];
   }
 
-  const ids = properties.map((property) => property._id);
-  const reviews = await Review.find({ property: { $in: ids } }).lean();
+  const missingSnapshotIds = properties
+    .filter((property) => !snapshotToSummary(property.sentimentSnapshot))
+    .map((property) => property._id);
 
   const reviewsByProperty = new Map();
-  reviews.forEach((review) => {
-    const key = review.property.toString();
-    if (!reviewsByProperty.has(key)) {
-      reviewsByProperty.set(key, []);
-    }
-    reviewsByProperty.get(key).push(review);
-  });
+
+  if (missingSnapshotIds.length > 0) {
+    const reviews = await Review.find({
+      property: { $in: missingSnapshotIds },
+    }).lean();
+
+    reviews.forEach((review) => {
+      const key = review.property.toString();
+      if (!reviewsByProperty.has(key)) {
+        reviewsByProperty.set(key, []);
+      }
+      reviewsByProperty.get(key).push(review);
+    });
+  }
 
   return properties.map((property) => {
+    const storedSummary = snapshotToSummary(property.sentimentSnapshot);
+    if (storedSummary) {
+      return {
+        ...property,
+        sentimentSummary: storedSummary,
+      };
+    }
+
     const propertyReviews =
       reviewsByProperty.get(property._id.toString()) || [];
-    const storedSummary = snapshotToSummary(property.sentimentSnapshot);
-    const sentimentSummary =
-      storedSummary || buildSentimentSummaryForReviews(propertyReviews);
+    const sentimentSummary = buildSentimentSummaryForReviews(propertyReviews);
 
     return {
       ...property,
@@ -143,7 +157,7 @@ export const computeRulePersonalizationScore = (property, userProfile, context) 
     .filter(Boolean);
 
   if (context.city && propertyCity === context.city.trim().toLowerCase()) {
-    score += 0.24;
+    score += context.cityFromQuery ? 0.4 : 0.24;
   } else if (preferredCities.includes(propertyCity)) {
     score += 0.18;
   }

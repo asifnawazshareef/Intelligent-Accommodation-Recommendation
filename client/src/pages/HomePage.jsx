@@ -8,7 +8,7 @@ import usePropertySearch from "@/hooks/usePropertySearch";
 import { searchParamsFromValues } from "@/lib/searchParams";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const HOME_RESULTS_PREVIEW = 6;
+const HOME_RESULTS_PREVIEW = 8;
 
 const HomePage = () => {
   const { t } = useTranslation();
@@ -69,6 +69,8 @@ const HomePage = () => {
         <div className="site-container">
           <RecommendedProperties
             city={recommendationContext.city}
+            minPrice={recommendationContext.minPrice}
+            maxPrice={recommendationContext.maxPrice}
             price={recommendationContext.price}
             availabilityDate={recommendationContext.availabilityDate}
           />

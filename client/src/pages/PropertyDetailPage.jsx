@@ -24,7 +24,7 @@ import StarRatingDisplay from "@/components/reviews/StarRatingDisplay";
 import EmptyState from "@/components/ui/EmptyState";
 import { formatDate, formatPrice } from "@/lib/formatters";
 import { getGuestDisplayImages } from "@/lib/imageVerification";
-import { getPropertyById } from "@/services/propertyService";
+import { getPropertyById, trackPropertyView } from "@/services/propertyService";
 import {
   getPropertyReviews,
   getPropertySentimentSummary,
@@ -100,6 +100,10 @@ const PropertyDetailPage = () => {
 
         setProperty(propertyData);
 
+        if (isAuthenticated && user?.role === "guest") {
+          trackPropertyView(id).catch(() => {});
+        }
+
         const [reviewsResponse, summaryResponse] = await Promise.all([
           getPropertyReviews(id),
           getPropertySentimentSummary(id),
@@ -116,7 +120,7 @@ const PropertyDetailPage = () => {
     };
 
     fetchPropertyDetails();
-  }, [id, t]);
+  }, [id, t, isAuthenticated, user?.role]);
 
   useEffect(() => {
     const observers = SECTION_IDS.map((sectionId) => {

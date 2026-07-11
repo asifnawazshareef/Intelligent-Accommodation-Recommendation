@@ -2,16 +2,21 @@ import Property from "../models/Property.js";
 import Review from "../models/Review.js";
 import SearchHistory from "../models/SearchHistory.js";
 import {
+  attachSentimentSummaries,
+} from "../utils/recommendationEnrichment.js";
+import {
   buildUserRecommendationProfile,
   getGlobalBookingCounts,
 } from "../utils/buildUserProfile.js";
-import { filterGuestImages } from "../utils/imageVerification.js";
+import { buildCoOccurrenceMatrix } from "../utils/collaborativeFiltering.js";
 import {
-  attachSentimentSummaries,
-  buildProfileSignals,
-  enrichMatchReasons,
-  rankRecommendedProperties,
-} from "../utils/recommendationEnrichment.js";
+  buildRecommendationMode,
+  buildStructuredRecommendations,
+  buildColdStartRecommendations,
+  finalizePersonalizedRecommendations,
+  RECOMMENDATION_TOTAL,
+} from "../utils/personalizedRecommendationEngine.js";
+import { filterGuestImages } from "../utils/imageVerification.js";
 
 const parseNumber = (value) => {
   if (value === undefined || value === null || value === "") {
@@ -171,28 +176,29 @@ export const searchProperties = async (req, res, next) => {
   }
 };
 
-const finalizeRecommendations = (recommendations) =>
-  recommendations.map((property) => ({
-    ...property,
-    images: filterGuestImages(property.images || []),
-    matchReasons: enrichMatchReasons(property, property.matchReasons || []),
-  }));
+const finalizeRecommendations = finalizePersonalizedRecommendations;
 
 export const getRecommendations = async (req, res, next) => {
   try {
     const queryCity = req.query.city?.trim();
-    const queryPrice = parseNumber(req.query.price);
+    const queryMinPrice = parseNumber(req.query.minPrice);
+    const queryMaxPrice = parseNumber(req.query.maxPrice);
+    const queryPrice =
+      parseNumber(req.query.price) ?? queryMaxPrice ?? queryMinPrice;
     const availabilityDate = req.query.availabilityDate?.trim() || null;
-    const limit = Math.min(parseNumber(req.query.limit) || 6, 12);
 
-    const [userProfile, globalBookingCounts, properties] = await Promise.all([
-      buildUserRecommendationProfile(req.user?._id, {
-        city: queryCity,
-        price: queryPrice,
-      }),
-      getGlobalBookingCounts(),
-      Property.find({ status: "approved" }).populate("owner", "name").lean(),
-    ]);
+    const [userProfile, globalBookingCounts, coOccurrenceMatrix, properties] =
+      await Promise.all([
+        buildUserRecommendationProfile(req.user?._id, {
+          city: queryCity,
+          price: queryPrice,
+          minPrice: queryMinPrice,
+          maxPrice: queryMaxPrice,
+        }),
+        getGlobalBookingCounts(),
+        buildCoOccurrenceMatrix(),
+        Property.find({ status: "approved" }).populate("owner", "name").lean(),
+      ]);
 
     const enrichedProperties = await attachReviewStats(properties);
     const propertiesWithSentiment = await attachSentimentSummaries(
@@ -201,30 +207,68 @@ export const getRecommendations = async (req, res, next) => {
 
     const context = {
       city: queryCity || userProfile.preferredCities[0] || "",
+      cityFromQuery: Boolean(queryCity),
       price: queryPrice ?? userProfile.preferredPrice ?? null,
+      minPrice: queryMinPrice ?? userProfile.latestBudgetMin ?? null,
+      maxPrice: queryMaxPrice ?? userProfile.latestBudgetMax ?? null,
+      priceFromQuery:
+        queryPrice !== null || queryMinPrice !== null || queryMaxPrice !== null,
       availabilityDate,
     };
 
-    const profileSignals = buildProfileSignals(userProfile, Boolean(req.user));
+    const profileSignals = buildRecommendationMode(
+      userProfile,
+      Boolean(req.user),
+    );
 
-    const recommendations = rankRecommendedProperties({
+    const engineContext = {
       properties: propertiesWithSentiment,
       userProfile,
       context,
       isPersonalized: profileSignals.personalized,
+      isAuthenticated: Boolean(req.user),
       globalBookingCounts,
-      limit,
-    });
+      coOccurrenceMatrix,
+    };
 
-    const data = finalizeRecommendations(recommendations);
+    let sections = null;
+    let recommendations = [];
+
+    if (profileSignals.personalized) {
+      const structured = buildStructuredRecommendations(engineContext);
+      sections = structured.sections.map((section) => ({
+        ...section,
+        items: finalizeRecommendations(section.items).map((property) => ({
+          ...property,
+          images: filterGuestImages(property.images || []),
+        })),
+      }));
+      recommendations = sections.flatMap((section) => section.items);
+    } else {
+      const coldStart = buildColdStartRecommendations(engineContext);
+      sections = coldStart.sections.map((section) => ({
+        ...section,
+        items: finalizeRecommendations(section.items).map((property) => ({
+          ...property,
+          images: filterGuestImages(property.images || []),
+        })),
+      }));
+      recommendations = sections.flatMap((section) => section.items);
+    }
+
+    const data = recommendations.slice(0, RECOMMENDATION_TOTAL);
 
     res.json({
       success: true,
       count: data.length,
-      engine: "hybrid-sentiment-ranker",
+      engine: profileSignals.personalized
+        ? "hybrid-personalized-sectioned"
+        : "bayesian-sentiment-cold-start",
+      layout: profileSignals.personalized ? "personalized" : "cold_start",
       personalized: profileSignals.personalized,
       profileSignals,
       context,
+      sections,
       data,
     });
   } catch (error) {

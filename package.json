@@ -13,6 +13,9 @@
     "reanalyze:reviews": "npm run reanalyze:reviews --prefix server",
     "dev": "concurrently -n CLIENT,SERVER,SENTIMENT -c blue,green,magenta \"npm run client\" \"npm run server\" \"npm run sentiment\"",
     "seed": "npm run seed --prefix server",
+    "seed:demo": "npm run seed:demo --prefix server",
+    "seed:demo:reviews": "npm run seed:demo:reviews --prefix server",
+    "seed:demo:full": "npm run seed:demo:full --prefix server",
     "test": "echo \"No tests configured\" && exit 0"
   },
   "keywords": [],

@@ -12,6 +12,7 @@ import Property from "../models/Property.js";
 import Review from "../models/Review.js";
 import Booking from "../models/Booking.js";
 import OfflineRequest from "../models/OfflineRequest.js";
+import PropertyView from "../models/PropertyView.js";
 import SearchHistory from "../models/SearchHistory.js";
 
 dotenv.config();
@@ -22,12 +23,14 @@ const clearListings = async () => {
 
   await connectDB();
 
-  const [reviews, bookings, offline, properties, searches] = await Promise.all([
+  const [reviews, bookings, offline, properties, searches, views] =
+    await Promise.all([
     Review.deleteMany({}),
     Booking.deleteMany({}),
     OfflineRequest.deleteMany({}),
     Property.deleteMany({}),
     SearchHistory.deleteMany({}),
+    PropertyView.deleteMany({}),
   ]);
 
   console.log(`  Deleted ${properties.deletedCount} properties`);
@@ -35,6 +38,7 @@ const clearListings = async () => {
   console.log(`  Deleted ${bookings.deletedCount} bookings`);
   console.log(`  Deleted ${offline.deletedCount} offline requests`);
   console.log(`  Deleted ${searches.deletedCount} search history entries`);
+  console.log(`  Deleted ${views.deletedCount} property view entries`);
   console.log("\nUsers were kept (login accounts unchanged).");
   console.log("Done.\n");
 

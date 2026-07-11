@@ -77,13 +77,15 @@ const usePropertySearch = ({ syncUrl = true } = {}) => {
   const recommendationContext = useMemo(
     () => ({
       city: formValues.city,
+      minPrice: formValues.minPrice,
+      maxPrice: formValues.maxPrice,
       price: formValues.maxPrice || formValues.minPrice,
       availabilityDate: formValues.availabilityDate,
     }),
     [
       formValues.city,
-      formValues.maxPrice,
       formValues.minPrice,
+      formValues.maxPrice,
       formValues.availabilityDate,
     ],
   );

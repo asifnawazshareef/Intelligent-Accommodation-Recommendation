@@ -10,7 +10,7 @@ import ActionLink from "@/components/ui/action-link";
 
 import EmptyState from "@/components/ui/EmptyState";
 
-const DISPLAY_LIMIT = 6;
+const DISPLAY_LIMIT = 24;
 
 const CardSkeleton = () => (
   <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
@@ -24,14 +24,28 @@ const CardSkeleton = () => (
   </div>
 );
 
+const SectionSkeleton = () => (
+  <div className="space-y-4">
+    <Skeleton className="h-7 w-64" />
+    <div className="property-grid">
+      {[1, 2, 3, 4].map((item) => (
+        <CardSkeleton key={item} />
+      ))}
+    </div>
+  </div>
+);
+
 const RecommendedProperties = ({
   city = "",
+  minPrice = "",
+  maxPrice = "",
   price = "",
   availabilityDate = "",
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [items, setItems] = useState([]);
+  const [sections, setSections] = useState([]);
   const [personalized, setPersonalized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,13 +58,19 @@ const RecommendedProperties = ({
       try {
         const params = { limit: DISPLAY_LIMIT };
         if (city?.trim()) params.city = city.trim();
+        if (minPrice) params.minPrice = minPrice;
+        if (maxPrice) params.maxPrice = maxPrice;
         if (price) params.price = price;
         if (availabilityDate?.trim()) {
           params.availabilityDate = availabilityDate.trim();
         }
 
         const response = await getRecommendations(params);
-        setItems((response.data.data || []).slice(0, DISPLAY_LIMIT));
+        const responseSections = response.data.sections || [];
+        const responseItems = (response.data.data || []).slice(0, DISPLAY_LIMIT);
+
+        setSections(responseSections);
+        setItems(responseItems);
         setPersonalized(Boolean(response.data.profileSignals?.personalized));
       } catch (err) {
         setError(
@@ -62,11 +82,11 @@ const RecommendedProperties = ({
     };
 
     fetchRecommendations();
-  }, [city, price, availabilityDate, t, user?._id]);
+  }, [city, minPrice, maxPrice, price, availabilityDate, t, user?._id]);
 
   if (loading) {
     return (
-      <section className="space-y-6">
+      <section className="space-y-10">
         <div className="flex items-center gap-3">
           <Skeleton className="size-10 rounded-xl" />
           <div className="space-y-2">
@@ -74,11 +94,8 @@ const RecommendedProperties = ({
             <Skeleton className="h-4 w-72" />
           </div>
         </div>
-        <div className="property-grid">
-          {[1, 2, 3].map((item) => (
-            <CardSkeleton key={item} />
-          ))}
-        </div>
+        <SectionSkeleton />
+        <SectionSkeleton />
       </section>
     );
   }
@@ -91,7 +108,12 @@ const RecommendedProperties = ({
     );
   }
 
-  if (items.length === 0) {
+  const hasSectionedLayout = sections.length > 0;
+  const isEmpty = hasSectionedLayout
+    ? sections.every((section) => !section.items?.length)
+    : items.length === 0;
+
+  if (isEmpty) {
     return (
       <section className="space-y-6">
         <header className="flex items-start gap-3">
@@ -120,10 +142,10 @@ const RecommendedProperties = ({
     ? t("search.recommendedHintGuest")
     : personalized
       ? t("search.recommendedHintPersonalized")
-      : t("search.recommendedHint");
+      : t("search.recommendedHintColdStart");
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-10">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -151,11 +173,31 @@ const RecommendedProperties = ({
         ) : null}
       </header>
 
-      <div className="property-grid gap-5">
-        {items.map((property) => (
-          <RecommendedPropertyCard key={property._id} property={property} />
-        ))}
-      </div>
+      {hasSectionedLayout ? (
+        sections.map((section) =>
+          section.items?.length ? (
+            <div key={section.id} className="space-y-5">
+              <h3 className="text-lg font-semibold tracking-tight sm:text-xl">
+                {t(section.titleKey)}
+              </h3>
+              <div className="property-grid gap-5">
+                {section.items.map((property) => (
+                  <RecommendedPropertyCard
+                    key={property._id}
+                    property={property}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null,
+        )
+      ) : (
+        <div className="property-grid gap-5">
+          {items.map((property) => (
+            <RecommendedPropertyCard key={property._id} property={property} />
+          ))}
+        </div>
+      )}
     </section>
   );
 };

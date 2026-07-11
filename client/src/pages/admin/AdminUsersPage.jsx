@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Loader2,
   Mail,
-  Phone,
   ShieldCheck,
   ShieldOff,
   UserRound,
@@ -19,7 +18,6 @@ import PageHeader from "@/components/ui/PageHeader";
 import RefreshButton from "@/components/ui/RefreshButton";
 import {
   getAllUsers,
-  updateUserRole,
   updateUserVerification,
 } from "@/services/userManagementService";
 import { Button } from "@/components/ui/button";
@@ -35,13 +33,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -53,7 +44,6 @@ import { formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 const ROLE_FILTERS = ["all", "guest", "owner", "admin"];
-const ROLES = ["guest", "owner", "admin"];
 
 const TableSkeleton = () => (
   <div className="space-y-2">
@@ -86,24 +76,16 @@ const VerificationBadge = ({ isVerified }) => {
   );
 };
 
-const UserActions = ({
-  user,
-  currentUserId,
-  busyAction,
-  onVerify,
-  onRoleChange,
-}) => {
+const UserActions = ({ user, busyAction, onVerify }) => {
   const { t } = useTranslation();
-  const isSelf = user._id === currentUserId;
   const verifyBusy = busyAction === `${user._id}-verify`;
-  const roleBusy = busyAction === `${user._id}-role`;
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
       <Button
         size="sm"
         variant={user.isVerified ? "outline" : "default"}
-        disabled={verifyBusy || roleBusy}
+        disabled={verifyBusy}
         className="w-full whitespace-normal sm:w-auto"
         onClick={() => onVerify(user)}
       >
@@ -118,32 +100,6 @@ const UserActions = ({
           ? t("userManagement.unverify")
           : t("userManagement.verify")}
       </Button>
-
-      <Select
-        value={user.role}
-        disabled={isSelf || roleBusy || verifyBusy}
-        onValueChange={(value) => onRoleChange(user._id, value)}
-      >
-        <SelectTrigger
-          className="w-full sm:w-[140px]"
-          aria-label={t("userManagement.changeRole")}
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {ROLES.map((role) => (
-            <SelectItem key={role} value={role}>
-              {t(`auth.${role}`)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {isSelf && (
-        <span className="text-xs text-muted-foreground sm:max-w-[120px] sm:text-end">
-          {t("userManagement.cannotChangeOwnRole")}
-        </span>
-      )}
     </div>
   );
 };
@@ -220,26 +176,6 @@ const AdminUsersPage = () => {
     }
   };
 
-  const handleRoleChange = async (userId, role) => {
-    setBusyAction(`${userId}-role`);
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await updateUserRole(userId, role);
-      const updated = response.data.data;
-
-      setUsers((prev) =>
-        prev.map((item) => (item._id === updated._id ? updated : item)),
-      );
-      setSuccess(t("userManagement.roleSuccess"));
-    } catch (err) {
-      setError(err.response?.data?.message || t("userManagement.actionError"));
-    } finally {
-      setBusyAction("");
-    }
-  };
-
   return (
     <DashboardLayout>
       <div className="dashboard-page">
@@ -302,7 +238,6 @@ const AdminUsersPage = () => {
                     <TableRow>
                       <TableHead>{t("userManagement.user")}</TableHead>
                       <TableHead>{t("auth.email")}</TableHead>
-                      <TableHead>{t("auth.phone")}</TableHead>
                       <TableHead>{t("auth.role")}</TableHead>
                       <TableHead>{t("userManagement.status")}</TableHead>
                       <TableHead>{t("userManagement.joined")}</TableHead>
@@ -334,9 +269,6 @@ const AdminUsersPage = () => {
                             {user.email}
                           </span>
                         </TableCell>
-                        <TableCell dir="ltr">
-                          {user.phone || t("common.notProvided")}
-                        </TableCell>
                         <TableCell>
                           <UserRoleBadge role={user.role} />
                         </TableCell>
@@ -347,10 +279,8 @@ const AdminUsersPage = () => {
                         <TableCell>
                           <UserActions
                             user={user}
-                            currentUserId={currentUser?._id}
                             busyAction={busyAction}
                             onVerify={handleVerify}
-                            onRoleChange={handleRoleChange}
                           />
                         </TableCell>
                       </TableRow>
@@ -388,12 +318,6 @@ const AdminUsersPage = () => {
                       <Mail className="size-4 shrink-0" />
                       <span dir="ltr">{user.email}</span>
                     </p>
-                    <p className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="size-4 shrink-0" />
-                      <span dir="ltr">
-                        {user.phone || t("common.notProvided")}
-                      </span>
-                    </p>
                     <p className="text-xs text-muted-foreground">
                       {t("userManagement.joined")}: {formatDate(user.createdAt, i18n.language)}
                     </p>
@@ -402,10 +326,8 @@ const AdminUsersPage = () => {
                   <CardFooter className="border-t border-border/60">
                     <UserActions
                       user={user}
-                      currentUserId={currentUser?._id}
                       busyAction={busyAction}
                       onVerify={handleVerify}
-                      onRoleChange={handleRoleChange}
                     />
                   </CardFooter>
                 </Card>

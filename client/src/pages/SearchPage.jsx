@@ -63,6 +63,8 @@ const SearchPage = () => {
 
       <RecommendedProperties
         city={recommendationContext.city}
+        minPrice={recommendationContext.minPrice}
+        maxPrice={recommendationContext.maxPrice}
         price={recommendationContext.price}
         availabilityDate={recommendationContext.availabilityDate}
       />

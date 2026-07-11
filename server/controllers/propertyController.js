@@ -1,4 +1,5 @@
 import Property from "../models/Property.js";
+import PropertyView from "../models/PropertyView.js";
 import {
   MAX_IMAGES_PER_PROPERTY,
   buildVerifiedImagesFromFiles,
@@ -389,6 +390,54 @@ export const moderateProperty = async (req, res, next) => {
       message: `Property ${status} successfully`,
       data: updatedProperty,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const MAX_PROPERTY_VIEWS_PER_USER = 50;
+
+export const trackPropertyView = async (req, res, next) => {
+  try {
+    const propertyId = req.params.id;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      res.status(401);
+      throw new Error("Login required to track property views");
+    }
+
+    const property = await Property.findOne({
+      _id: propertyId,
+      status: "approved",
+    }).select("_id");
+
+    if (!property) {
+      res.status(404);
+      throw new Error("Property not found");
+    }
+
+    await PropertyView.findOneAndUpdate(
+      { user: userId, property: propertyId },
+      { viewedAt: new Date() },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+
+    const totalViews = await PropertyView.countDocuments({ user: userId });
+
+    if (totalViews > MAX_PROPERTY_VIEWS_PER_USER) {
+      const excess = totalViews - MAX_PROPERTY_VIEWS_PER_USER;
+      const oldestViews = await PropertyView.find({ user: userId })
+        .sort({ viewedAt: 1 })
+        .limit(excess)
+        .select("_id");
+
+      await PropertyView.deleteMany({
+        _id: { $in: oldestViews.map((entry) => entry._id) },
+      });
+    }
+
+    res.json({ success: true, message: "Property view recorded" });
   } catch (error) {
     next(error);
   }

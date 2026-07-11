@@ -6,6 +6,7 @@ import {
   getPropertyById,
   updateProperty,
   moderateProperty,
+  trackPropertyView,
 } from "../controllers/propertyController.js";
 import { protect, optionalProtect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
@@ -45,6 +46,12 @@ router.put(
   protect,
   authorize("admin"),
   moderateProperty,
+);
+router.post(
+  "/:id/view",
+  protect,
+  authorize("guest"),
+  trackPropertyView,
 );
 
 // Dynamic routes last

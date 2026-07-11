@@ -7,6 +7,8 @@ export const getMyProperties = () =>
 
 export const getPropertyById = (id) => api.get(`/properties/${id}`);
 
+export const trackPropertyView = (id) => api.post(`/properties/${id}/view`);
+
 export const createProperty = (formData) => api.post("/properties", formData);
 
 export const updateProperty = (id, formData) =>
