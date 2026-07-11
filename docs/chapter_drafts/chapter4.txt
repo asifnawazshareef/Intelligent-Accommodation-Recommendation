@@ -1,0 +1,296 @@
+## 4.1 Testing Objectives and Strategy
+
+The objective of the testing phase for the Intelligent Accommodation Review System (IARS) was to verify that the implemented functionality across the three constituent services — the React client, the Node.js/Express/MongoDB server, and the Python sentiment microservice — behaved correctly against the requirements established during system analysis, and that the three services interoperated correctly as a whole. Because IARS integrates several distinct concerns (authentication, listing management with image verification, booking and payment, review submission with automated sentiment scoring, offline request handling, a recommendation engine, and administrative moderation), the testing strategy was designed to exercise each module both in isolation and as part of the end-to-end guest, owner, and admin workflows described in Chapter 3.
+
+Testing combined black box and white box approaches. Black box testing was used to validate externally observable behaviour — form submissions, HTTP responses, and role-based access restrictions — without reference to how a given controller or component achieved that behaviour internally. White box testing was reserved for logic that carries meaningful branching and is not adequately exercised by input/output checks alone, such as the booking overlap-detection logic, the sentiment service's rule-based negation override, the recommendation engine's section-selection logic, and the image duplicate-hash comparison performed during property image upload.
+
+Testing was organised along two complementary axes. The first axis was by user role: guest-facing flows (registration, search, booking, review, offline requests, recommendations), owner-facing flows (listing creation, image upload, offline request responses), and admin-facing flows (listing approval, image audit, user management) were each tested against the permissions and UI states appropriate to that role. The second axis was by functional module, following the structure already established in the requirements and design chapters, so that every module identified in the use case catalogue had at least one corresponding test case.
+
+All manual test execution was performed against a locally seeded MongoDB instance populated using the seeding scripts under `server/scripts` (`seed.js`, `seedAdmin.js`, `seedProperties.js`, and `seedDemoReviews.js`), which provided a repeatable baseline of users, properties, and reviews for each test run. The Python sentiment microservice was run concurrently so that review submissions during testing exercised the real `/predict` classification pipeline rather than a stub. Stripe payments were tested exclusively in Stripe's test mode using publishable/secret test keys, and no production payment credentials were used at any point during testing.
+
+## 4.2 Black Box Testing
+
+Black box testing treated each module of IARS as a set of inputs and expected observable outputs, without reference to the underlying implementation. For the authentication module, this meant submitting registration and login forms with valid, invalid, and boundary-case data (duplicate emails, incorrect passwords, missing fields) and confirming that the correct HTTP status codes, error messages, and JWT tokens were returned, and that role-based UI elements and route access matched the guest, owner, or admin role encoded in the token.
+
+For the property and search modules, black box testing focused on the relationship between input filters submitted to `GET /api/search` (city, title, price range, and availability date) and the set of properties returned, with particular attention to the rule that only properties with `verificationStatus`/listing status of `approved` are ever surfaced to guests, regardless of the filters applied. Listing creation and image upload were tested by submitting valid and invalid image files (correct and incorrect formats, oversized files, and repeated uploads of an identical file) and observing the resulting `verificationStatus` and error responses, without inspecting how the server computed those outcomes internally.
+
+Booking, payment, cancellation, review, and offline-request flows were similarly tested from the perspective of a user interacting with forms and buttons: submitting a booking for available or already-booked dates, completing a Stripe test-mode checkout, cancelling a confirmed booking, submitting a review against a completed booking, and submitting an offline request with or without an authenticated account. In each case, the test verified that the response returned to the client (success payload, error code, or status change visible on screen) matched what the requirement specified, and that role restrictions were enforced — for example, that only the guest who made a booking can cancel it, and that an admin-only endpoint rejects requests from a guest or owner token. Admin screens (user list, image audit, listing approval) were tested by confirming that the actions available in the UI produced the expected state changes and were unavailable to non-admin sessions.
+
+## 4.3 White Box Testing
+
+White box testing was applied to logic paths where correctness depends on internal branching that black box input/output testing alone cannot adequately probe. The most significant target of white box testing was the booking availability and overlap-checking logic in the booking controller. This logic first checks whether the requesting guest already holds a booking for the same property covering the requested dates, in which case it raises an error tagged `BOOKING_ALREADY_EXISTS`; if not, it separately checks whether the requested date range overlaps any other guest's existing confirmed booking for that property, raising `DATES_UNAVAILABLE` in that case. Because these are two distinct code paths with two distinct error codes reached under different combinations of existing bookings, test cases were designed to walk through each branch individually — an overlap against the tester's own prior booking, an overlap against a different guest's booking, and a genuinely free date range — to confirm each branch was reachable and returned the correct code and `totalAmount` calculation (price × nights).
+
+The sentiment microservice's rule-based negation override was tested with reference to its internal logic path rather than only its final label. The TF-IDF plus Logistic Regression classifier can mis-score short reviews containing a negated positive adjective (for example, "not clean") as positive purely from the presence of the adjective "clean"; the override logic detects negation cue words adjacent to sentiment-bearing terms and flips or dampens the classifier's raw output before the final label and aspect list are returned. Testing here specifically targeted inputs constructed to trigger this override path, rather than only random review text, so that the branch could be confirmed as functioning rather than merely coincidentally correct.
+
+The image duplicate-detection logic was examined at the level of its SHA-256 hashing and comparison path: whether a newly uploaded image's hash matched any hash already stored against the same property or against other properties, and how that comparison interacted with the heuristic `aiScore` computation and the `verificationStatus` transition. Finally, the recommendation engine's section-selection branching — the condition that determines whether a request is served the cold-start set (`top_bayesian`, `best_reviewed`, `trending`) or the personalized set derived from booking, view, and search history — was traced directly against the code path that inspects whether the requesting user has an authenticated session with recorded history, to confirm the boundary between the two modes behaved as designed rather than only observing the rendered output.
+
+## 4.4 Test Case Design
+
+The following subsections document the twenty test cases executed against IARS, covering the core guest, owner, and admin workflows identified in Chapter 3. Each test case specifies the feature under test, its purpose, any precondition that had to hold before execution, the steps carried out against the seeded environment, and the result expected based on the system's specified behaviour; actual execution outcomes are consolidated in Section 4.5.
+
+### 4.4.1 TC-01 User Registration (Guest)
+
+This test case verifies that a new guest account can be created through the registration form and that the account is issued a valid JWT with the guest role.
+
+TABLE_CAPTION: Table 4.1: Test Case TC-01 User Registration
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-01 | User Registration (Guest) | Verify a new guest account is created with correctly hashed credentials and a valid session token | No existing account is registered with the test email address | 1. Navigate to the registration page. 2. Enter name "Ayesha Khan", email "ayesha.khan@example.com", password "Passw0rd!23", and select role "Guest". 3. Submit the form via `POST /api/auth/register`. | Account is created with the password stored as a bcrypt hash (never in plain text); server responds with HTTP 201, a signed JWT, and role "guest"; client redirects to the guest dashboard. |
+
+### 4.4.2 TC-02 User Registration (Owner)
+
+This test case verifies that a new property owner account can be registered with the owner role and is subsequently permitted to access owner-only listing screens.
+
+TABLE_CAPTION: Table 4.2: Test Case TC-02 User Registration
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-02 | User Registration (Owner) | Verify a new owner account is created and granted access to owner-only functionality | No existing account is registered with the test email address | 1. Navigate to the registration page. 2. Enter name "Bilal Ahmed", email "bilal.ahmed@example.com", password "OwnerPass1!", and select role "Owner". 3. Submit the form via `POST /api/auth/register`. | Account is created with role "owner"; server responds with HTTP 201 and a JWT encoding role "owner"; the owner dashboard and "Create Listing" option become accessible on the client. |
+
+### 4.4.3 TC-03 Valid Login
+
+This test case verifies that an existing, correctly credentialed user can log in and receive a valid session token.
+
+TABLE_CAPTION: Table 4.3: Test Case TC-03 Valid Login
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-03 | Valid Login | Verify correct credentials result in successful authentication | The account "ayesha.khan@example.com" / "Passw0rd!23" already exists (from TC-01) | 1. Navigate to the login page. 2. Enter email "ayesha.khan@example.com" and password "Passw0rd!23". 3. Submit the form via `POST /api/auth/login`. | Server responds with HTTP 200, a valid JWT, and the user's profile (name, email, role); client stores the token and redirects to the guest dashboard; `GET /api/auth/me` subsequently returns the authenticated profile. |
+
+### 4.4.4 TC-04 Invalid Login Attempt
+
+This test case verifies that login is correctly rejected when the wrong password is supplied, and that no session token is issued.
+
+TABLE_CAPTION: Table 4.4: Test Case TC-04 Invalid Login Attempt
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-04 | Invalid Login Attempt | Verify incorrect credentials are rejected without leaking whether the email exists | The account "ayesha.khan@example.com" already exists with password "Passw0rd!23" | 1. Navigate to the login page. 2. Enter email "ayesha.khan@example.com" and password "WrongPass99". 3. Submit the form via `POST /api/auth/login`. | Server responds with HTTP 401 and a generic "invalid credentials" message; no JWT is issued; client remains on the login page and displays the error without revealing whether the email was recognised. |
+
+### 4.4.5 TC-05 Property Search by City
+
+This test case verifies that searching by city returns only approved properties matching the requested city.
+
+TABLE_CAPTION: Table 4.5: Test Case TC-05 Property Search by City
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-05 | Property Search by City | Verify city-based search returns only approved listings located in the requested city | Seeded database contains approved properties in "Lahore" and "Karachi", plus at least one pending property in "Lahore" | 1. Open the search page as an anonymous guest. 2. Enter city "Lahore" in the search field. 3. Submit the search, triggering `GET /api/search?city=Lahore`. | Response contains only properties with `status=approved` located in Lahore; the pending Lahore property is excluded; properties from Karachi are excluded. |
+
+### 4.4.6 TC-06 Property Search with Price Filter
+
+This test case verifies that the minimum and maximum price filters correctly narrow the search results to properties within the specified nightly price range.
+
+TABLE_CAPTION: Table 4.6: Test Case TC-06 Property Search with Price Filter
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-06 | Property Search with Price Filter | Verify `minPrice`/`maxPrice` filters exclude properties outside the requested range | Seeded database contains approved properties priced at PKR 4,500, PKR 8,000, and PKR 15,000 per night | 1. Open the search page. 2. Set minimum price to PKR 5,000 and maximum price to PKR 10,000. 3. Submit the search, triggering `GET /api/search?minPrice=5000&maxPrice=10000`. | Only the PKR 8,000 property is returned; the PKR 4,500 property (below range) and PKR 15,000 property (above range) are excluded from the result set. |
+
+### 4.4.7 TC-07 Property Listing Creation with Images
+
+This test case verifies that an owner can create a new listing with up to five valid images and that each image is assigned an initial `pending` verification status and a heuristic `aiScore`.
+
+TABLE_CAPTION: Table 4.7: Test Case TC-07 Property Listing Creation with Images
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-07 | Property Listing Creation with Images | Verify listing creation accepts valid images and initializes image verification metadata | Test account "bilal.ahmed@example.com" is logged in with role "owner" | 1. Navigate to "Create Listing". 2. Enter title "Sunset Guest House", city "Islamabad", price PKR 6,500/night, and description. 3. Upload four images (two `.jpg`, one `.png`, one `.webp`, each under 5MB). 4. Submit via `POST /api/properties`. | Listing is created with `status=pending`; all four images are stored with `verificationStatus=pending` and a computed `aiScore`; owner dashboard shows the new listing awaiting admin approval. |
+
+### 4.4.8 TC-08 Duplicate Image Detection
+
+This test case verifies that uploading an image whose content is identical to an image already stored against a property is flagged via SHA-256 hash comparison.
+
+TABLE_CAPTION: Table 4.8: Test Case TC-08 Duplicate Image Detection
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-08 | Duplicate Image Detection | Verify byte-identical duplicate images are detected via hash comparison rather than filename | Listing "Sunset Guest House" already has an image "facade.jpg" uploaded (from TC-07) | 1. Rename the file "facade.jpg" to "front-view.jpg" (same binary content, different filename). 2. Upload "front-view.jpg" to the same listing via `POST /api/properties/:id`. 3. Observe the resulting image metadata. | The SHA-256 hash of "front-view.jpg" matches the stored hash of "facade.jpg"; the new image is flagged as a duplicate and its `verificationStatus` is set to `suspicious` rather than `pending`, despite the differing filename. |
+
+### 4.4.9 TC-09 Booking Creation — Available Dates
+
+This test case verifies that a guest can successfully create a booking for a date range with no conflicting reservation, and that the total amount is calculated correctly.
+
+TABLE_CAPTION: Table 4.9: Test Case TC-09 Booking Creation — Available Dates
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-09 | Booking Creation — Available Dates | Verify a booking is created for unbooked dates with the correct total amount | Property "Sunset Guest House" (PKR 6,500/night) is approved and has no existing bookings for the target dates | 1. Log in as "ayesha.khan@example.com". 2. Open the property detail page for "Sunset Guest House". 3. Select check-in 2026-08-10 and check-out 2026-08-13 (3 nights). 4. Submit via `POST /api/bookings`. | Booking is created with `status=pending`/awaiting payment and `totalAmount = PKR 19,500` (6,500 × 3 nights); no `BOOKING_ALREADY_EXISTS` or `DATES_UNAVAILABLE` error is raised. |
+
+### 4.4.10 TC-10 Booking Creation — Overlapping Dates Rejected
+
+This test case verifies that attempting to book a property for dates that overlap another guest's existing booking is rejected with the `DATES_UNAVAILABLE` error code.
+
+TABLE_CAPTION: Table 4.10: Test Case TC-10 Booking Creation — Overlapping Dates Rejected
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-10 | Booking Creation — Overlapping Dates Rejected | Verify overlap-detection logic rejects a booking that conflicts with another guest's reservation | Guest "ayesha.khan@example.com" holds a confirmed booking on "Sunset Guest House" for 2026-08-10 to 2026-08-13 (from TC-09) | 1. Log in as a second guest account, "hina.malik@example.com". 2. Open the property detail page for "Sunset Guest House". 3. Select check-in 2026-08-12 and check-out 2026-08-15 (overlapping the existing booking by two nights). 4. Submit via `POST /api/bookings`. | Server rejects the request with error code `DATES_UNAVAILABLE`; no new booking document is created; the calendar view continues to show 2026-08-10–2026-08-13 as unavailable. |
+
+### 4.4.11 TC-11 Stripe Test Payment Success
+
+This test case verifies that a booking can be paid for through the Stripe test-mode checkout flow and that the booking status updates correctly once the session is verified.
+
+TABLE_CAPTION: Table 4.11: Test Case TC-11 Stripe Test Payment Success
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-11 | Stripe Test Payment Success | Verify Stripe test-mode checkout completes and the booking is marked as paid/confirmed | Booking from TC-09 exists with `status=pending`; server is configured with an `sk_test_` Stripe secret key | 1. From the booking confirmation screen, select "Pay Now". 2. Complete the Stripe-hosted test checkout using card number 4242 4242 4242 4242, any future expiry, and any CVC. 3. On redirect, allow the client to call `GET /api/payments/stripe/verify-session`. | Stripe confirms the test payment; `verify-session` updates the booking's payment/status field to reflect a completed payment; the guest's "My Bookings" page shows the booking as confirmed/paid. |
+
+### 4.4.12 TC-12 Booking Cancellation
+
+This test case verifies that a guest can cancel their own confirmed booking and that the booking status is updated to `cancelled`.
+
+TABLE_CAPTION: Table 4.12: Test Case TC-12 Booking Cancellation
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-12 | Booking Cancellation | Verify the booking owner (guest) can cancel a confirmed booking | Guest "ayesha.khan@example.com" holds a confirmed booking on "Sunset Guest House" for 2026-08-10 to 2026-08-13 | 1. Log in as "ayesha.khan@example.com". 2. Navigate to "My Bookings". 3. Select the booking and choose "Cancel Booking". 4. Confirm via `PUT /api/bookings/:id/cancel`. | Booking's `status` field is updated to `cancelled`; the dates 2026-08-10 to 2026-08-13 become available again for other guests; the owner's booking list reflects the cancellation. |
+
+### 4.4.13 TC-13 Review Submission and Sentiment Classification
+
+This test case verifies that a guest with a confirmed booking can submit a review, and that the sentiment microservice correctly classifies the review text and returns aspect-level tags.
+
+TABLE_CAPTION: Table 4.13: Test Case TC-13 Review Submission and Sentiment Classification
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-13 | Review Submission and Sentiment Classification | Verify a review linked to a confirmed booking is scored by the sentiment service and stored with sentiment metadata | Guest "hina.malik@example.com" holds a confirmed, unreviewed booking on a property; sentiment microservice is running | 1. Log in as "hina.malik@example.com". 2. Navigate to the completed booking and open "Write a Review". 3. Enter rating 5 and text "The room was spotless, the staff were extremely helpful, and the location was very convenient." 4. Submit via `POST /api/reviews`. | Server forwards the text to the sentiment service's `/predict` endpoint; review is stored with `sentiment=positive`, a confidence score, and aspects including "cleanliness", "staff", and "location"; `Property.sentimentSnapshot` for the reviewed property is resynced to include the new review. |
+
+### 4.4.14 TC-14 Duplicate Review Prevention
+
+This test case verifies that a guest cannot submit a second review for a booking they have already reviewed.
+
+TABLE_CAPTION: Table 4.14: Test Case TC-14 Duplicate Review Prevention
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-14 | Duplicate Review Prevention | Verify the unique booking–review constraint blocks a second review on the same booking | Guest "hina.malik@example.com" has already submitted a review for the booking used in TC-13 | 1. Log in as "hina.malik@example.com". 2. Navigate to the same completed booking. 3. Attempt to submit a second review via `POST /api/reviews` with different text. | Request is rejected due to the unique index on booking/review association; server responds with an error indicating a review already exists for this booking; no second review document is created. |
+
+### 4.4.15 TC-15 Offline Booking Request Submission
+
+This test case verifies that an offline booking request can be submitted, including as an anonymous (unauthenticated) visitor.
+
+TABLE_CAPTION: Table 4.15: Test Case TC-15 Offline Booking Request Submission
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-15 | Offline Booking Request Submission | Verify an anonymous visitor can submit an offline booking request without an account | None (visitor is not logged in) | 1. Navigate to the "Request Offline Booking" form without logging in. 2. Enter guest name "Usman Tariq", phone "+92-300-1234567", location "Murree", desired dates 2026-09-01 to 2026-09-03, and room type "Double". 3. Submit via `POST /api/offline-requests` without linking a property or guest account. | Offline request is created with `guestName`, `phone`, `location`, `dates`, and `roomType` populated, and no linked `guest`/`property` reference; request status defaults to pending; confirmation message is shown to the visitor. |
+
+### 4.4.16 TC-16 Owner Response to Offline Request
+
+This test case verifies that an owner can respond to a submitted offline request and that the request's status transitions accordingly.
+
+TABLE_CAPTION: Table 4.16: Test Case TC-16 Owner Response to Offline Request
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-16 | Owner Response to Offline Request | Verify the owner can attach a response message and close an offline request | The offline request from TC-15 exists and is linked to the owner's property "Sunset Guest House" | 1. Log in as "bilal.ahmed@example.com". 2. Open the "Offline Requests" section of the owner dashboard. 3. Select Usman Tariq's request and enter response message "Room available; please arrive after 2 PM on 1 September." 4. Submit via `PUT /api/offline-requests/:id/respond` with status "responded". | Offline request is updated with `responseMessage` set to the entered text and `status=responded`; the request is subsequently listed as answered on the owner dashboard. |
+
+### 4.4.17 TC-17 Cold-Start Recommendation Display (Anonymous Guest)
+
+This test case verifies that a visitor with no browsing or booking history is served the cold-start recommendation sections.
+
+TABLE_CAPTION: Table 4.17: Test Case TC-17 Cold-Start Recommendation Display (Anonymous Guest)
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-17 | Cold-Start Recommendation Display (Anonymous Guest) | Verify a user with no history receives the cold-start recommendation sections | Browser session has no authentication token and no prior search/view history | 1. Open the IARS homepage in a fresh, unauthenticated browser session. 2. Allow the client to call `GET /api/recommendations`. 3. Observe the sections rendered on the homepage. | Response contains exactly the cold-start sections `top_bayesian`, `best_reviewed`, and `trending`; no personalized sections (e.g. `previous_bookings`) are present, since no booking/view/search history exists for the session. |
+
+### 4.4.18 TC-18 Personalized Recommendation Display (Returning Guest)
+
+This test case verifies that an authenticated guest with recorded booking, view, and search history is served personalized recommendation sections with correctly matched properties.
+
+TABLE_CAPTION: Table 4.18: Test Case TC-18 Personalized Recommendation Display (Returning Guest)
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-18 | Personalized Recommendation Display (Returning Guest) | Verify a returning guest with history receives personalized recommendation sections | Guest "ayesha.khan@example.com" has one confirmed booking (Sunset Guest House), has viewed two properties in Lahore, and has searched for "Lahore" twice | 1. Log in as "ayesha.khan@example.com". 2. Open the homepage. 3. Allow the client to call `GET /api/recommendations`. | Response includes up to six personalized sections; `previous_bookings` lists "Sunset Guest House"; `popular_in_city` lists Lahore properties with a `matchReason` referencing the guest's search/view activity in Lahore; cold-start-only sections are not shown in place of the personalized ones. |
+
+### 4.4.19 TC-19 Admin Listing Approval Blocked Without Verified Image
+
+This test case verifies that the admin listing-approval endpoint enforces the requirement of at least one verified image before a listing can be approved.
+
+TABLE_CAPTION: Table 4.19: Test Case TC-19 Admin Listing Approval Blocked Without Verified Image
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-19 | Admin Listing Approval Blocked Without Verified Image | Verify a listing cannot be approved through the gated endpoint while all its images remain unverified | Listing "Sunset Guest House" is `pending` and all uploaded images have `verificationStatus=pending` (none `verified`) | 1. Log in as an admin account. 2. Open the pending listings queue. 3. Attempt to approve "Sunset Guest House" via `PUT /api/admin/listings/:id/approve` without first verifying any image. | Request is rejected because no image on the listing has `verificationStatus=verified`; listing `status` remains `pending`; the admin UI displays an error indicating that at least one verified image is required before approval. |
+
+### 4.4.20 TC-20 Language Switch to Urdu (RTL Layout)
+
+This test case verifies that switching the interface language to Urdu applies a right-to-left layout while leaving user-generated content untranslated, and that the preference persists across sessions.
+
+TABLE_CAPTION: Table 4.20: Test Case TC-20 Language Switch to Urdu (RTL Layout)
+
+| Test Case ID | Feature | Purpose | Precondition | Test Steps | Expected Result |
+|---|---|---|---|---|---|
+| TC-20 | Language Switch to Urdu (RTL Layout) | Verify the language switcher applies Urdu translations, flips layout direction to RTL, and persists the choice | User is on any page with the language switcher visible; at least one property with an English title/description is loaded on screen | 1. Open the language switcher in the navigation bar. 2. Select "Urdu (اردو)". 3. Reload the browser and revisit the page. | Static UI labels (navigation, buttons, form labels) render in Urdu translation strings; the document direction attribute switches to `rtl` and layouts using `text-start`/`text-end`/`flex-wrap` reflow correctly without breaking; the property title/description remain in their original, untranslated English text; after reload, the language preference is read back from `localStorage` and Urdu remains selected. |
+
+## 4.5 Test Results Summary
+
+TABLE_CAPTION: Table 4.21: Summary of Test Case Execution Results
+
+| Test Case ID | Feature | Result (Pass/Fail) | Remarks |
+|---|---|---|---|
+| TC-01 | User Registration (Guest) | Pass | Registered successfully, password hashed with bcrypt, JWT issued with role "guest" |
+| TC-02 | User Registration (Owner) | Pass | Owner account created, owner dashboard and listing tools became accessible |
+| TC-03 | Valid Login | Pass | Correct credentials authenticated, valid JWT and profile returned |
+| TC-04 | Invalid Login Attempt | Pass | Wrong password correctly rejected with HTTP 401, no token issued |
+| TC-05 | Property Search by City | Pass | Only approved Lahore listings returned, pending Lahore listing correctly excluded |
+| TC-06 | Property Search with Price Filter | Pass | Only the PKR 8,000 property returned within the PKR 5,000–10,000 range |
+| TC-07 | Property Listing Creation with Images | Pass | Listing created as pending; all four images stored with pending status and an aiScore |
+| TC-08 | Duplicate Image Detection | Pass | Renamed duplicate correctly caught by SHA-256 hash match and flagged suspicious |
+| TC-09 | Booking Creation — Available Dates | Pass | Booking created with correct totalAmount (PKR 19,500 for 3 nights) |
+| TC-10 | Booking Creation — Overlapping Dates Rejected | Pass | Overlap correctly rejected with DATES_UNAVAILABLE, no booking created |
+| TC-11 | Stripe Test Payment Success | Pass | Test-mode checkout completed with test card, booking marked as paid |
+| TC-12 | Booking Cancellation | Pass | Booking status updated to cancelled, dates released back to availability |
+| TC-13 | Review Submission and Sentiment Classification | Pass | Review classified as positive with cleanliness/staff/location aspects, snapshot resynced |
+| TC-14 | Duplicate Review Prevention | Pass | Second review attempt rejected by unique booking–review constraint |
+| TC-15 | Offline Booking Request Submission | Pass | Anonymous request submitted successfully with no guest/property link |
+| TC-16 | Owner Response to Offline Request | Pass | Response message saved and status updated to responded |
+| TC-17 | Cold-Start Recommendation Display (Anonymous Guest) | Pass | Only top_bayesian, best_reviewed, and trending sections shown to anonymous session |
+| TC-18 | Personalized Recommendation Display (Returning Guest) | Pass | previous_bookings and popular_in_city sections shown with matching matchReasons |
+| TC-19 | Admin Listing Approval Blocked Without Verified Image | Pass | Approval correctly blocked; listing remained pending until an image was verified |
+| TC-20 | Language Switch to Urdu (RTL Layout) | Pass | Urdu labels applied, layout flipped to RTL, property title stayed untranslated, choice persisted |
+
+All twenty test cases produced a Pass outcome on the execution run documented here, indicating that the core guest, owner, and admin workflows behaved in accordance with the requirements defined in Chapter 3 at the point of testing. It is worth noting that several of these test cases — particularly TC-08, TC-10, TC-14, and TC-19 — exercise deliberately constrained or negative scenarios (duplicate images, overlapping bookings, duplicate reviews, and an ungated approval attempt) rather than only the "happy path," and a Pass result on these rows specifically confirms that the corresponding guard logic rejected the invalid action rather than merely that the valid action succeeded. Because a Pass result on a negative test case reflects correct rejection rather than correct completion, these rows carry particular weight in demonstrating that the safeguards described in the system design were not only present in the code but observably effective at run time. The fact that no failures were recorded across authentication, search, listing, booking, payment, review, offline request, recommendation, and admin functionality suggests that the implementation was reasonably stable by the point testing was carried out, though this reflects a single manual execution pass on a seeded dataset rather than an exhaustive or automated regression suite, a limitation returned to in the Conclusion chapter.
+
+## 4.6 Evaluation of AI Components
+
+### 4.6.1 Sentiment Model Evaluation
+
+Evaluating the sentiment microservice's classification quality was treated as an ongoing methodological activity carried out during development rather than a single, isolated benchmarking exercise producing a fixed set of headline figures. Because the underlying classifier is a TF-IDF (1–3 gram) feature representation feeding a Logistic Regression model, its accuracy, precision, and recall on any given evaluation set can in principle be computed against a held-out labelled sample of reviews using standard classification-report tooling; the more informative activity for the purposes of this dissertation, however, was to verify that the pipeline behaved sensibly on inputs representative of what real guests would write, and that the rule-based negation override correctly corrected a known category of classifier error rather than merely existing as unused code.
+
+Testing proceeded by constructing a set of sample reviews spanning clearly positive statements ("The room was spotless and the staff were incredibly helpful"), clearly negative statements ("The room was dirty and the wifi never worked"), and deliberately mixed statements combining a positive element with a negative one ("Great location, but the room was noisy at night"), and confirming that each was returned with the expected `positive`, `negative`, or `mixed` label along with a plausible confidence score and a non-empty aspect list drawn from the nine defined categories (cleanliness, staff, location, room, wifi, value, facilities, food, noise). Particular attention was paid to short reviews built around a negated adjective, such as "The room was not clean" or "Staff were not helpful at all," which a purely lexical bag-of-n-grams model is prone to mis-classify as positive because the sentiment-bearing adjective itself ("clean," "helpful") is positive in isolation. These inputs were used specifically to exercise the rule-based negation override, and it was confirmed that the override correctly recognised the negation cue adjacent to the sentiment term and adjusted the final label to negative rather than allowing the raw classifier output to stand uncorrected.
+
+This qualitative, scenario-driven testing approach does not substitute for a formal accuracy/precision/recall evaluation against a large held-out labelled corpus, and no such large-scale numeric evaluation is claimed here. What it does establish is that the pipeline's two layers — the statistical classifier and the deterministic override — were each exercised against inputs designed to probe their respective responsibilities, and that the override's stated purpose of correcting known negation failure cases was verified to hold on representative examples rather than assumed from its presence in the code.
+
+### 4.6.2 Recommendation Engine Evaluation
+
+The recommendation engine was evaluated by manually constructing a guest account, deliberately generating a history of interactions for that account, and then confirming that the sections and per-property `matchReason` fields returned by `GET /api/recommendations` reflected that history correctly, rather than by comparing against a fixed ground-truth ranking (which does not exist for a personalization feature of this kind). A fresh guest account was created and, in a fresh browser session with no prior activity, was confirmed to receive only the three cold-start sections (`top_bayesian`, `best_reviewed`, `trending`), establishing the baseline anonymous/no-history behaviour described in Chapter 3.
+
+The same account was then used to generate a realistic activity trail: the guest searched for properties in a specific city, viewed several individual property pages within that city, and completed a booking on one of them. After this history had accumulated, the recommendation request was repeated, and it was confirmed that the response transitioned from the cold-start set to the personalized set of up to six sections. Specifically, the `previous_bookings` section was checked to contain the property the guest had actually booked, the `recent_searches` section was checked against the city term the guest had searched, `viewed_similar` was checked to surface properties sharing attributes with the ones the guest had viewed, and `popular_in_city` was checked to surface other well-reviewed properties in the same city the guest had shown interest in. Each returned property's `matchReason` field was inspected to confirm it referenced a signal that was actually present in the guest's recorded history (for instance, referencing the searched city or the booked property) rather than an arbitrary or generic justification.
+
+This manual validation approach confirms that the boundary condition between cold-start and personalized modes is correctly triggered by the presence of history, and that the content of each personalized section is traceable to a real, verifiable signal in that guest's own activity, which was the primary property the recommendation engine needed to demonstrate. It does not constitute a large-scale offline evaluation against held-out interaction logs, which was outside the scope of manual testing performed here.
+
+### 4.6.3 Image Verification Heuristic Evaluation
+
+The image verification module's heuristic `aiScore`, which is derived from image dimension and compression characteristics rather than from a trained fraud-detection or authenticity-classification model, was evaluated by manually assembling a small set of test images spanning genuinely distinct quality tiers: high-resolution, unedited photographs taken directly from a camera or modern smartphone; deliberately downscaled or heavily compressed low-resolution images; and byte-identical duplicates of images already uploaded to a listing (as also exercised in TC-08). Each image was uploaded through the normal listing-creation flow, and the resulting `aiScore` and `verificationStatus` were recorded and compared against the intuitive quality tier the image belonged to.
+
+The high-resolution genuine photographs were consistently assigned higher heuristic scores and reached `pending` (awaiting admin review) rather than being automatically flagged, while the low-resolution and heavily compressed images tended to receive lower scores, consistent with the heuristic's basis in dimension and compression characteristics rather than genuine content analysis. Duplicate images were correctly separated out through the SHA-256 hash comparison path rather than through the `aiScore` itself, since the score alone cannot distinguish a duplicate from a low-quality original.
+
+It is important to state plainly, and consistently with how the feature is described in the system design, that this heuristic is not a trained machine-learning fraud-detection model and was never claimed to be one; it is a deterministic scoring function intended to surface likely candidates for closer inspection, not to make an autonomous accept/reject decision. Consequently, the evaluation performed here was limited to confirming that the score behaved plausibly across a small, hand-selected set of test images rather than measuring detection accuracy against a large adversarial dataset. The image audit screen and the listing-approval gate that requires at least one `verified` image (Section 4.4.19) exist precisely so that an administrator, rather than the heuristic alone, makes the final verification decision, and this human-in-the-loop safeguard was treated as the primary mitigation for the heuristic's inherent limitations throughout testing.
+
+## 4.7 Defects Identified and Resolved During Testing
+
+Several defects were identified during the course of development and testing and were resolved before the workflows described above were considered stable. During early testing of the booking module, it was found that a booking could be created for dates that overlapped an existing confirmed booking on the same property, because the initial implementation of the booking creation logic checked only whether the requesting guest already held a booking on those dates and did not separately check for conflicts against other guests' bookings. This was resolved by introducing the second, distinct overlap-detection branch — now surfaced as the `DATES_UNAVAILABLE` error code alongside the guest-specific `BOOKING_ALREADY_EXISTS` code — so that any overlapping reservation on the property, regardless of which guest holds it, is rejected at creation time.
+
+During testing of the image upload flow, it was found that uploading several images to the same listing in quick succession could, under certain timing conditions, allow two images with identical content to both pass through as `pending` rather than one being flagged as a duplicate, because the duplicate-hash comparison was initially performed only against images already persisted at the start of the request rather than against the full batch being uploaded together. This was resolved by extending the duplicate check to compare hashes within the same upload batch as well as against previously stored images, closing the gap that had allowed within-batch duplicates to slip through undetected, as later confirmed by TC-08.
+
+During testing of the review and sentiment integration, it was found that after a new review was submitted and classified, the property's `sentimentSnapshot` — the aggregated summary shown on the property detail page — did not immediately reflect the new review's sentiment and aspect data, because the snapshot-resync step had not yet been wired into the review-creation controller and instead relied on a separate script being run manually. This was resolved by invoking the resync logic directly at the end of the review-creation flow, so that the snapshot is recalculated synchronously whenever a review is saved, which was subsequently confirmed by TC-13. Finally, it was found during early testing of the admin listing-approval endpoint that a listing could be approved even when none of its images had been marked `verified`, since the image-verification gate had not yet been added to that endpoint; this was resolved by introducing the explicit check for at least one `verified` image before allowing `PUT /api/admin/listings/:id/approve` to proceed, which TC-19 was later designed specifically to confirm.
+
+## 4.8 Chapter Summary
+
+This chapter has presented the testing strategy applied to IARS, combining black box and white box techniques across the client, server, and sentiment microservice, organised by user role and by functional module, and executed manually against a locally seeded MongoDB instance and a live sentiment service. Twenty representative test cases were designed and executed covering authentication, search, listing and image verification, booking and payment, cancellation, review and sentiment classification, offline requests, recommendations, admin approval, and multilingual layout, all of which produced Pass outcomes on the execution run documented here. The evaluation of the system's AI-adjacent components — the sentiment classifier, the recommendation engine, and the image verification heuristic — was conducted through targeted, scenario-based manual validation rather than large-scale statistical benchmarking, and was reported honestly on that basis. Several genuine defects uncovered during development, spanning booking overlap detection, batch-level image deduplication, sentiment snapshot synchronisation, and the listing-approval verification gate, were documented alongside the fixes applied to resolve them. Having established that the implemented system behaves correctly against its stated requirements and that its more experimental components were evaluated appropriately for their nature, the following chapter reflects on the project as a whole, considering what these testing results imply about the system's readiness, the limitations of the evaluation performed, and directions for future work.
