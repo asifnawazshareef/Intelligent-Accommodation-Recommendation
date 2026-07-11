@@ -4,10 +4,20 @@ import PropertyView from "../models/PropertyView.js";
 import Review from "../models/Review.js";
 import SearchHistory from "../models/SearchHistory.js";
 import User from "../models/User.js";
+import { getGlobalAveragePrice } from "./bayesianRanking.js";
+import { PROFILE_DEFAULTS } from "./recommendationWeights.js";
 import {
   extractAmenitySet,
   inferPropertyType,
 } from "./propertySimilarity.js";
+
+const marketPreferredPrice = () => getGlobalAveragePrice();
+const budgetMin = (price) => price * PROFILE_DEFAULTS.budgetMinFactor;
+const budgetMax = (price) => price * PROFILE_DEFAULTS.budgetMaxFactor;
+const bookedBudgetMin = (price) =>
+  Math.round(price * PROFILE_DEFAULTS.bookedBudgetMinFactor);
+const bookedBudgetMax = (price) =>
+  Math.round(price * PROFILE_DEFAULTS.bookedBudgetMaxFactor);
 
 const RECENCY_DECAY = [1, 0.72, 0.52, 0.38, 0.28];
 const parseNumber = (value) => {
@@ -157,53 +167,57 @@ const buildPreferredAmenities = (properties = []) => {
  * Cold-start / anonymous profile.
  * Used when there is no authenticated user_id, so personalization cannot run.
  */
-const emptyGuestProfile = (queryCity, queryPrice) => ({
-  preferredCities: queryCity ? [queryCity] : [],
-  preferredPrice: queryPrice ?? 15000,
-  priceMin: queryPrice ? queryPrice * 0.8 : null,
-  priceMax: queryPrice ? queryPrice * 1.2 : null,
-  bookedCities: [],
-  bookedAvgPrice: 0,
-  averageBookingPrice: 0,
-  bookedCount: 0,
-  bookingFrequency: 0,
-  reviewCount: 0,
-  viewedCount: 0,
-  avgRatingGiven: 0,
-  preferredSentiment: "neutral",
-  sentimentPreference: "neutral",
-  languagePref: "en",
-  excludePropertyIds: [],
-  viewedPropertyIds: [],
-  bookedPropertyIds: [],
-  likedPropertyIds: [],
-  interactions: [],
-  recentSearches: [],
-  recentViews: [],
-  mostViewedPropertyIds: [],
-  mostBookedCities: [],
-  recentSearchCities: [],
-  searchesMatchingLatestBook: [],
-  latestBookedCity: "",
-  latestSearchCity: queryCity || "",
-  latestActivityCity: queryCity || "",
-  latestActivitySource: queryCity ? "search" : "",
-  latestBudgetMin: queryPrice ? queryPrice * 0.8 : null,
-  latestBudgetMax: queryPrice ? queryPrice * 1.2 : null,
-  preferredCity: queryCity || "",
-  preferredBudget: {
-    min: queryPrice ? queryPrice * 0.8 : null,
-    max: queryPrice ? queryPrice * 1.2 : null,
-    preferred: queryPrice ?? 15000,
-  },
-  frequentlyViewedCities: queryCity ? [queryCity] : [],
-  frequentlyBookedCities: [],
-  preferredPropertyTypes: [],
-  preferredAmenities: [],
-  favouritePropertyIds: [],
-  userId: "",
-  hasSufficientHistory: false,
-});
+const emptyGuestProfile = (queryCity, queryPrice) => {
+  const preferredPrice = queryPrice ?? marketPreferredPrice();
+
+  return {
+    preferredCities: queryCity ? [queryCity] : [],
+    preferredPrice,
+    priceMin: queryPrice ? budgetMin(queryPrice) : null,
+    priceMax: queryPrice ? budgetMax(queryPrice) : null,
+    bookedCities: [],
+    bookedAvgPrice: 0,
+    averageBookingPrice: 0,
+    bookedCount: 0,
+    bookingFrequency: 0,
+    reviewCount: 0,
+    viewedCount: 0,
+    avgRatingGiven: 0,
+    preferredSentiment: "neutral",
+    sentimentPreference: "neutral",
+    languagePref: "en",
+    excludePropertyIds: [],
+    viewedPropertyIds: [],
+    bookedPropertyIds: [],
+    likedPropertyIds: [],
+    interactions: [],
+    recentSearches: [],
+    recentViews: [],
+    mostViewedPropertyIds: [],
+    mostBookedCities: [],
+    recentSearchCities: [],
+    searchesMatchingLatestBook: [],
+    latestBookedCity: "",
+    latestSearchCity: queryCity || "",
+    latestActivityCity: queryCity || "",
+    latestActivitySource: queryCity ? "search" : "",
+    latestBudgetMin: queryPrice ? budgetMin(queryPrice) : null,
+    latestBudgetMax: queryPrice ? budgetMax(queryPrice) : null,
+    preferredCity: queryCity || "",
+    preferredBudget: {
+      min: queryPrice ? budgetMin(queryPrice) : null,
+      max: queryPrice ? budgetMax(queryPrice) : null,
+      preferred: preferredPrice,
+    },
+    frequentlyViewedCities: queryCity ? [queryCity] : [],
+    frequentlyBookedCities: [],
+    preferredPropertyTypes: [],
+    preferredAmenities: [],
+    favouritePropertyIds: [],
+    userId: "",
+    hasSufficientHistory: false,
+  };
+};
 
 /**
  * Summarises the guest's review-writing behaviour into a sentiment preference.
@@ -429,13 +443,17 @@ export const buildUserRecommendationProfile = async (
       ? bookedAvgPrice
       : searchPrices.length
         ? average(searchPrices)
-        : 15000);
+        : marketPreferredPrice());
 
   if (queryPrice) {
     priceMin =
-      priceMin === null ? queryPrice * 0.8 : Math.min(priceMin, queryPrice * 0.8);
+      priceMin === null
+        ? budgetMin(queryPrice)
+        : Math.min(priceMin, budgetMin(queryPrice));
     priceMax =
-      priceMax === null ? queryPrice * 1.2 : Math.max(priceMax, queryPrice * 1.2);
+      priceMax === null
+        ? budgetMax(queryPrice)
+        : Math.max(priceMax, budgetMax(queryPrice));
   }
 
   if (queryMinPrice !== null) {
@@ -495,16 +513,18 @@ export const buildUserRecommendationProfile = async (
     latestBudgetMin =
       parseNumber(latestSearchWithPrice.minPrice) ??
       (parseNumber(latestSearchWithPrice.maxPrice)
-        ? parseNumber(latestSearchWithPrice.maxPrice) * 0.75
+        ? parseNumber(latestSearchWithPrice.maxPrice) *
+          PROFILE_DEFAULTS.bookedBudgetMinFactor
         : null);
     latestBudgetMax =
       parseNumber(latestSearchWithPrice.maxPrice) ??
       (parseNumber(latestSearchWithPrice.minPrice)
-        ? parseNumber(latestSearchWithPrice.minPrice) * 1.25
+        ? parseNumber(latestSearchWithPrice.minPrice) *
+          PROFILE_DEFAULTS.bookedBudgetMaxFactor
         : null);
   } else if (latestBookedPrice) {
-    latestBudgetMin = Math.round(latestBookedPrice * 0.75);
-    latestBudgetMax = Math.round(latestBookedPrice * 1.25);
+    latestBudgetMin = bookedBudgetMin(latestBookedPrice);
+    latestBudgetMax = bookedBudgetMax(latestBookedPrice);
   }
 
   const preferredCity =

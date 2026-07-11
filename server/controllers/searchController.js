@@ -16,6 +16,7 @@ import {
   finalizePersonalizedRecommendations,
   RECOMMENDATION_TOTAL,
 } from "../utils/personalizedRecommendationEngine.js";
+import { refreshRecommendationMarketStats } from "../utils/bayesianRanking.js";
 import { filterGuestImages } from "../utils/imageVerification.js";
 
 const parseNumber = (value) => {
@@ -180,6 +181,9 @@ const finalizeRecommendations = finalizePersonalizedRecommendations;
 
 export const getRecommendations = async (req, res, next) => {
   try {
+    // Keep Bayesian prior mean + market average price caches fresh (non-blocking).
+    refreshRecommendationMarketStats().catch(() => {});
+
     const queryCity = req.query.city?.trim();
     const queryMinPrice = parseNumber(req.query.minPrice);
     const queryMaxPrice = parseNumber(req.query.maxPrice);

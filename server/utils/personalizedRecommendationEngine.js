@@ -16,6 +16,10 @@ import {
   computeReviewAnalysisScore,
   MIN_REVIEW_ANALYSIS_SCORE,
 } from "./reviewSentimentRecommendation.js";
+import {
+  HYBRID_SCORE_WEIGHTS,
+  TRUST_FLOOR,
+} from "./recommendationWeights.js";
 
 /**
  * =============================================================================
@@ -32,11 +36,8 @@ import {
  *   2. BayesianQuality       ← rating / credibility trust signal
  *   3. PersonalizationScore  ← user_id history layer (when available)
  *
- * Personalized formula:
- *   Score = (ReviewAnalysis × 0.42) + (Bayesian × 0.28) + (Personalization × 0.30)
- *
- * Cold-start formula:
- *   Score = (ReviewAnalysis × 0.55) + (Bayesian × 0.45)
+ * Weights live in recommendationWeights.js (HYBRID_SCORE_WEIGHTS).
+ * Market fallbacks (prior mean, average price) are dynamic caches.
  * =============================================================================
  */
 
@@ -48,13 +49,32 @@ export const SECTION_LIMIT = 4;
  * sentiment analyzer. It is weighted highly because review text quality is
  * central to this FYP, but ranking decisions are made only by this engine.
  */
-export const REVIEW_ANALYSIS_WEIGHT = 0.42;
-export const QUALITY_WEIGHT = 0.28;
-export const PERSONALIZATION_WEIGHT = 0.3;
+export const REVIEW_ANALYSIS_WEIGHT =
+  HYBRID_SCORE_WEIGHTS.personalized.reviewAnalysis;
+export const QUALITY_WEIGHT = HYBRID_SCORE_WEIGHTS.personalized.bayesianQuality;
+export const PERSONALIZATION_WEIGHT =
+  HYBRID_SCORE_WEIGHTS.personalized.personalization;
 
 /** Cold-start weights when personalization is unavailable. */
-export const COLD_START_REVIEW_ANALYSIS_WEIGHT = 0.55;
-export const COLD_START_QUALITY_WEIGHT = 0.45;
+export const COLD_START_REVIEW_ANALYSIS_WEIGHT =
+  HYBRID_SCORE_WEIGHTS.coldStart.reviewAnalysis;
+export const COLD_START_QUALITY_WEIGHT =
+  HYBRID_SCORE_WEIGHTS.coldStart.bayesianQuality;
+
+const formatHybridFormulaDescription = (isColdStart) => {
+  if (isColdStart) {
+    return (
+      `Cold start: RecommendationScore = (ReviewAnalysis × ${COLD_START_REVIEW_ANALYSIS_WEIGHT}) ` +
+      `+ (BayesianQuality × ${COLD_START_QUALITY_WEIGHT})`
+    );
+  }
+
+  return (
+    `RecommendationScore = (ReviewAnalysis × ${REVIEW_ANALYSIS_WEIGHT}) ` +
+    `+ (BayesianQuality × ${QUALITY_WEIGHT}) ` +
+    `+ (Personalization × ${PERSONALIZATION_WEIGHT})`
+  );
+};
 
 export const SECTION_IDS = {
   RECENT_SEARCHES: "recent_searches",
@@ -250,7 +270,10 @@ const computeCombinedQualityScore = (property, context) => {
   const bayesianQuality = computeBayesianQualityScore(property, context);
   const { reviewAnalysisScore } = computeReviewAnalysisScore(property);
   // Combined trust score: review analysis is the dominant half.
-  return clampScore(reviewAnalysisScore * 0.58 + bayesianQuality * 0.42);
+  return clampScore(
+    reviewAnalysisScore * HYBRID_SCORE_WEIGHTS.combinedQuality.reviewAnalysis +
+      bayesianQuality * HYBRID_SCORE_WEIGHTS.combinedQuality.bayesianQuality,
+  );
 };
 
 const meetsQualityTrustFloor = (
@@ -261,7 +284,7 @@ const meetsQualityTrustFloor = (
 ) => {
   const bayesianOk =
     combinedQuality >= MIN_QUALITY_SCORE &&
-    bayesianQuality >= MIN_QUALITY_SCORE * 0.88;
+    bayesianQuality >= MIN_QUALITY_SCORE * TRUST_FLOOR.bayesianFloorFactor;
 
   // When sentiment analysis exists for the property, it must also pass the
   // review-analysis floor. Negative analyzed sentiment blocks ranking.
@@ -727,7 +750,8 @@ export const scoreAllEligibleProperties = ({
             passesTrustFloor,
           })
         : clampScore(
-            reviewAnalysisScore * 0.55 + bayesianQuality * 0.3,
+            reviewAnalysisScore * COLD_START_REVIEW_ANALYSIS_WEIGHT +
+              bayesianQuality * COLD_START_QUALITY_WEIGHT,
           );
     } else {
       // Cold start: review analysis + Bayesian quality (no personalization).
@@ -807,7 +831,8 @@ const passesQualityFloor = (property) => {
   return (
     property.passesTrustFloor !== false &&
     property.combinedQuality >= MIN_QUALITY_SCORE &&
-    property.bayesianQuality >= MIN_QUALITY_SCORE * 0.88 &&
+    property.bayesianQuality >=
+      MIN_QUALITY_SCORE * TRUST_FLOOR.bayesianFloorFactor &&
     reviewOk
   );
 };
@@ -1434,11 +1459,10 @@ export const buildRecommendationMode = (userProfile, isAuthenticated) => {
       bookedCount: 0,
       avgRatingGiven: null,
       formula: {
-        reviewAnalysisWeight: REVIEW_ANALYSIS_WEIGHT,
-        qualityWeight: QUALITY_WEIGHT,
-        personalizationWeight: PERSONALIZATION_WEIGHT,
-        description:
-          "Cold start: RecommendationScore = (ReviewAnalysis × 0.55) + (BayesianQuality × 0.45)",
+        reviewAnalysisWeight: COLD_START_REVIEW_ANALYSIS_WEIGHT,
+        qualityWeight: COLD_START_QUALITY_WEIGHT,
+        personalizationWeight: 0,
+        description: formatHybridFormulaDescription(true),
       },
     };
   }
@@ -1484,12 +1508,14 @@ export const buildRecommendationMode = (userProfile, isAuthenticated) => {
       qualityFloor: "review_analysis_and_bayesian",
     },
     formula: {
-      reviewAnalysisWeight: REVIEW_ANALYSIS_WEIGHT,
-      qualityWeight: QUALITY_WEIGHT,
-      personalizationWeight: PERSONALIZATION_WEIGHT,
-      description: personalized
-        ? "RecommendationScore = (ReviewAnalysis × 0.42) + (BayesianQuality × 0.28) + (Personalization × 0.30)"
-        : "Cold start: RecommendationScore = (ReviewAnalysis × 0.55) + (BayesianQuality × 0.45)",
+      reviewAnalysisWeight: personalized
+        ? REVIEW_ANALYSIS_WEIGHT
+        : COLD_START_REVIEW_ANALYSIS_WEIGHT,
+      qualityWeight: personalized
+        ? QUALITY_WEIGHT
+        : COLD_START_QUALITY_WEIGHT,
+      personalizationWeight: personalized ? PERSONALIZATION_WEIGHT : 0,
+      description: formatHybridFormulaDescription(!personalized),
     },
   };
 };

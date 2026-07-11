@@ -17,6 +17,10 @@
  */
 
 import { computeAspectSatisfaction } from "./propertySignals.js";
+import {
+  REVIEW_ANALYSIS_FEATURE_WEIGHTS as W,
+  TRUST_FLOOR,
+} from "./recommendationWeights.js";
 
 const clampScore = (value) => Math.max(0, Math.min(1, value));
 
@@ -64,12 +68,12 @@ export const getReviewAnalysisInput = (property = {}) => {
  *
  * This is feature extraction, not recommendation.
  *
- * Feature composition:
- *   - Overall polarity (positivePercent)        45%
- *   - Aspect-level praise vs concern balance    25%
- *   - Insight type (praised / mixed / concerns) 15%
- *   - Review-volume credibility                 15%
- *   - Negative-share penalty                    embedded
+ * Feature composition (weights from REVIEW_ANALYSIS_FEATURE_WEIGHTS):
+ *   - Overall polarity (positivePercent)
+ *   - Aspect-level praise vs concern balance
+ *   - Insight type (praised / mixed / concerns)
+ *   - Review-volume credibility
+ *   - Negative-share penalty
  */
 export const computeReviewAnalysisScore = (property = {}) => {
   const analysis = getReviewAnalysisInput(property);
@@ -86,13 +90,13 @@ export const computeReviewAnalysisScore = (property = {}) => {
   // No analyzed reviews yet: neutral midpoint feature value.
   if (!totalReviews) {
     return {
-      reviewAnalysisScore: 0.45,
+      reviewAnalysisScore: W.noReviewNeutralScore,
       hasReviewAnalysis: false,
       analysis,
       breakdown: {
-        polarityScore: 0.45,
+        polarityScore: W.noReviewNeutralScore,
         aspectScore: 0.5,
-        insightScore: 0.45,
+        insightScore: W.noReviewNeutralScore,
         credibilityScore: 0,
       },
     };
@@ -106,30 +110,36 @@ export const computeReviewAnalysisScore = (property = {}) => {
     }),
   );
 
-  let insightScore = 0.5;
+  let insightScore = W.insightNeutral;
   if (insightType === "praised" || (praisedAspects?.length || 0) > 0) {
-    insightScore = 0.85;
+    insightScore = W.insightPraised;
   } else if (insightType === "mixed") {
-    insightScore = 0.55;
+    insightScore = W.insightMixed;
   } else if (insightType === "concerns" || (concernAspects?.length || 0) > 0) {
-    insightScore = 0.25;
+    insightScore = W.insightConcerns;
   }
 
   const credibilityScore = logNorm(totalReviews);
 
   let reviewAnalysisScore =
-    polarityScore * 0.45 +
-    aspectScore * 0.25 +
-    insightScore * 0.15 +
-    credibilityScore * 0.15 -
-    negativeShare * 0.28;
+    polarityScore * W.polarity +
+    aspectScore * W.aspect +
+    insightScore * W.insight +
+    credibilityScore * W.credibility -
+    negativeShare * W.negativePenalty;
 
-  if (positivePercent < 40 && negativeShare >= 0.35) {
-    reviewAnalysisScore -= 0.12;
+  if (
+    positivePercent < W.weakPolarityPercentThreshold &&
+    negativeShare >= W.highNegativeShareThreshold
+  ) {
+    reviewAnalysisScore -= W.weakPolarityPenalty;
   }
 
-  if (positivePercent >= 70 && aspectScore >= 0.65) {
-    reviewAnalysisScore += 0.06;
+  if (
+    positivePercent >= W.strongPositivePercentThreshold &&
+    aspectScore >= W.strongAspectThreshold
+  ) {
+    reviewAnalysisScore += W.strongPositiveBoost;
   }
 
   return {
@@ -150,4 +160,4 @@ export const computeReviewAnalysisScore = (property = {}) => {
  * Soft floor for the review-analysis feature when reviews exist.
  * Used by the recommendation engine as a trust gate, not as a recommender.
  */
-export const MIN_REVIEW_ANALYSIS_SCORE = 0.32;
+export const MIN_REVIEW_ANALYSIS_SCORE = TRUST_FLOOR.minimumReviewAnalysisScore;
