@@ -1,6 +1,7 @@
 import Review from "../models/Review.js";
 import {
   aggregateAspectSentiments,
+  buildAspectBreakdown,
   buildPropertyInsight,
 } from "./sentimentAggregation.js";
 import { snapshotToSummary } from "./propertySentimentStore.js";
@@ -21,10 +22,15 @@ export const buildSentimentSummaryForReviews = (reviews = []) => {
       totalReviews: 0,
       positiveCount: 0,
       negativeCount: 0,
+      neutralCount: 0,
+      mixedCount: 0,
       positivePercent: 0,
       averageRating: null,
       topPraisedAspect: null,
       insightType: "none",
+      aspectBreakdown: [],
+      praisedAspects: [],
+      concernAspects: [],
     };
   }
 
@@ -33,6 +39,12 @@ export const buildSentimentSummaryForReviews = (reviews = []) => {
   ).length;
   const negativeCount = reviews.filter(
     (review) => review.sentiment === "negative",
+  ).length;
+  const neutralCount = reviews.filter(
+    (review) => review.sentiment === "neutral",
+  ).length;
+  const mixedCount = reviews.filter(
+    (review) => review.sentiment === "mixed",
   ).length;
   const averageRating = Number(
     (
@@ -49,10 +61,15 @@ export const buildSentimentSummaryForReviews = (reviews = []) => {
     totalReviews: reviews.length,
     positiveCount,
     negativeCount,
+    neutralCount,
+    mixedCount,
     positivePercent: Math.round((positiveCount / reviews.length) * 100),
     averageRating,
     topPraisedAspect,
     insightType: insight.insightType,
+    aspectBreakdown: buildAspectBreakdown(aspectMap),
+    praisedAspects: insight.praisedAspects,
+    concernAspects: insight.concernAspects,
   };
 };
 

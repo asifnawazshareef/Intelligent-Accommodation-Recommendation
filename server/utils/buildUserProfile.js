@@ -153,16 +153,25 @@ const buildPreferredAmenities = (properties = []) => {
     .map(([amenity]) => amenity);
 };
 
-const emptyGuestProfile = (queryCity, queryPrice) => ({  preferredCities: queryCity ? [queryCity] : [],
+/**
+ * Cold-start / anonymous profile.
+ * Used when there is no authenticated user_id, so personalization cannot run.
+ */
+const emptyGuestProfile = (queryCity, queryPrice) => ({
+  preferredCities: queryCity ? [queryCity] : [],
   preferredPrice: queryPrice ?? 15000,
   priceMin: queryPrice ? queryPrice * 0.8 : null,
   priceMax: queryPrice ? queryPrice * 1.2 : null,
   bookedCities: [],
   bookedAvgPrice: 0,
+  averageBookingPrice: 0,
   bookedCount: 0,
+  bookingFrequency: 0,
   reviewCount: 0,
   viewedCount: 0,
   avgRatingGiven: 0,
+  preferredSentiment: "neutral",
+  sentimentPreference: "neutral",
   languagePref: "en",
   excludePropertyIds: [],
   viewedPropertyIds: [],
@@ -171,6 +180,8 @@ const emptyGuestProfile = (queryCity, queryPrice) => ({  preferredCities: queryC
   interactions: [],
   recentSearches: [],
   recentViews: [],
+  mostViewedPropertyIds: [],
+  mostBookedCities: [],
   recentSearchCities: [],
   searchesMatchingLatestBook: [],
   latestBookedCity: "",
@@ -180,14 +191,80 @@ const emptyGuestProfile = (queryCity, queryPrice) => ({  preferredCities: queryC
   latestBudgetMin: queryPrice ? queryPrice * 0.8 : null,
   latestBudgetMax: queryPrice ? queryPrice * 1.2 : null,
   preferredCity: queryCity || "",
+  preferredBudget: {
+    min: queryPrice ? queryPrice * 0.8 : null,
+    max: queryPrice ? queryPrice * 1.2 : null,
+    preferred: queryPrice ?? 15000,
+  },
   frequentlyViewedCities: queryCity ? [queryCity] : [],
   frequentlyBookedCities: [],
   preferredPropertyTypes: [],
   preferredAmenities: [],
   favouritePropertyIds: [],
   userId: "",
+  hasSufficientHistory: false,
 });
 
+/**
+ * Summarises the guest's review-writing behaviour into a sentiment preference.
+ * Positive writers tend to leave high ratings / positive classified reviews.
+ */
+const deriveSentimentPreference = (reviews = []) => {
+  if (!reviews.length) {
+    return "neutral";
+  }
+
+  const counts = { positive: 0, negative: 0, neutral: 0, mixed: 0 };
+  reviews.forEach((review) => {
+    const key = review.sentiment || "neutral";
+    if (counts[key] !== undefined) {
+      counts[key] += 1;
+    }
+  });
+
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (ranked[0][1] === 0) {
+    const avgRating = average(reviews.map((r) => r.rating).filter(Boolean));
+    if (avgRating >= 4) return "positive";
+    if (avgRating <= 2.5) return "negative";
+    return "neutral";
+  }
+
+  return ranked[0][0];
+};
+
+/**
+ * Bookings per month over the guest's observed booking window.
+ * Returns 0 when there is no history (cold start).
+ */
+const deriveBookingFrequency = (bookings = []) => {
+  if (!bookings.length) {
+    return 0;
+  }
+
+  const timestamps = bookings
+    .map((booking) => new Date(booking.createdAt).getTime())
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (timestamps.length === 1) {
+    return 1;
+  }
+
+  const spanMs = Math.max(timestamps[timestamps.length - 1] - timestamps[0], 1);
+  const spanMonths = Math.max(spanMs / (1000 * 60 * 60 * 24 * 30), 1);
+  return Number((bookings.length / spanMonths).toFixed(2));
+};
+
+/**
+ * Builds a reusable, user_id-scoped recommendation profile.
+ *
+ * This is the research contribution's personalization input: every authenticated
+ * guest's searches, views, bookings, ratings, and reviews are linked through
+ * user_id and summarised into preferences that the Personalized Recommendation
+ * Layer consumes. Guests with insufficient history receive hasSufficientHistory=false
+ * so the engine falls back to Bayesian cold-start ranking.
+ */
 export const buildUserRecommendationProfile = async (
   userId,
   queryOverrides = {},
@@ -219,7 +296,7 @@ export const buildUserRecommendationProfile = async (
         select: "title description location price sentimentSnapshot",
       })
       .lean(),
-    Review.find({ guest: userId }).select("property rating").lean(),
+    Review.find({ guest: userId }).select("property rating sentiment").lean(),
     PropertyView.find({ user: userId })
       .sort({ viewedAt: -1 })
       .limit(5)
@@ -333,6 +410,9 @@ export const buildUserRecommendationProfile = async (
   const preferredPropertyTypes = buildPreferredPropertyTypes(interactionProperties);
   const preferredAmenities = buildPreferredAmenities(interactionProperties);
   const favouritePropertyIds = [...new Set(likedPropertyIds)];
+  const preferredSentiment = deriveSentimentPreference(reviews);
+  const bookingFrequency = deriveBookingFrequency(bookings);
+  const bookedAvgPrice = average(bookedPrices);
 
   const dedupedInteractions = buildInteractionEntries(
     propertyMap,
@@ -346,7 +426,7 @@ export const buildUserRecommendationProfile = async (
   const preferredPrice =
     queryPrice ??
     (bookedPrices.length
-      ? average(bookedPrices)
+      ? bookedAvgPrice
       : searchPrices.length
         ? average(searchPrices)
         : 15000);
@@ -438,17 +518,39 @@ export const buildUserRecommendationProfile = async (
     queryCity ||
     "";
 
+  /**
+   * Sufficient history gate for the Personalized Recommendation Layer.
+   *
+   * Cold start (Bayesian-only) applies until the guest has at least one strong
+   * signal (booking / high rating / city search) OR two weaker view signals.
+   * This prevents noisy personalization from a single accidental click.
+   */
+  const hasSufficientHistory =
+    bookings.length > 0 ||
+    likedPropertyIds.length > 0 ||
+    recentSearchCities.length > 0 ||
+    views.length >= 2;
+
   return {
     preferredCities,
     preferredPrice,
     priceMin,
     priceMax,
+    preferredBudget: {
+      min: latestBudgetMin,
+      max: latestBudgetMax,
+      preferred: preferredPrice,
+    },
     bookedCities,
-    bookedAvgPrice: average(bookedPrices),
+    bookedAvgPrice,
+    averageBookingPrice: bookedAvgPrice,
     bookedCount: bookings.length,
+    bookingFrequency,
     reviewCount: reviews.length,
     viewedCount: views.length,
     avgRatingGiven: average(reviewRatings),
+    preferredSentiment,
+    sentimentPreference: preferredSentiment,
     languagePref: user?.languagePref || "en",
     userId: userId?.toString() || "",
     excludePropertyIds,
@@ -461,6 +563,8 @@ export const buildUserRecommendationProfile = async (
       propertyId: view.property?.toString(),
       viewedAt: view.viewedAt,
     })),
+    mostViewedPropertyIds: viewedPropertyIds.slice(0, 5),
+    mostBookedCities: frequentlyBookedCities.slice(0, 5),
     recentSearchCities,
     searchesMatchingLatestBook: searchesMatchingLatestBook.slice(0, 5),
     latestBookedCity,
@@ -475,6 +579,7 @@ export const buildUserRecommendationProfile = async (
     preferredPropertyTypes,
     preferredAmenities,
     favouritePropertyIds,
+    hasSufficientHistory,
   };
 };
 

@@ -238,7 +238,9 @@ export const getRecommendations = async (req, res, next) => {
       const structured = buildStructuredRecommendations(engineContext);
       sections = structured.sections.map((section) => ({
         ...section,
-        items: finalizeRecommendations(section.items).map((property) => ({
+        items: finalizeRecommendations(section.items, {
+          isColdStart: false,
+        }).map((property) => ({
           ...property,
           images: filterGuestImages(property.images || []),
         })),
@@ -248,7 +250,9 @@ export const getRecommendations = async (req, res, next) => {
       const coldStart = buildColdStartRecommendations(engineContext);
       sections = coldStart.sections.map((section) => ({
         ...section,
-        items: finalizeRecommendations(section.items).map((property) => ({
+        items: finalizeRecommendations(section.items, {
+          isColdStart: true,
+        }).map((property) => ({
           ...property,
           images: filterGuestImages(property.images || []),
         })),
@@ -266,7 +270,24 @@ export const getRecommendations = async (req, res, next) => {
         : "bayesian-sentiment-cold-start",
       layout: profileSignals.personalized ? "personalized" : "cold_start",
       personalized: profileSignals.personalized,
+      isColdStart: profileSignals.isColdStart,
+      userId: profileSignals.userId,
       profileSignals,
+      userProfileSummary: {
+        userId: userProfile.userId || null,
+        preferredCities: userProfile.preferredCities?.slice(0, 5) || [],
+        preferredCity: userProfile.preferredCity || "",
+        preferredBudget: userProfile.preferredBudget || null,
+        preferredAmenities: userProfile.preferredAmenities || [],
+        preferredPropertyTypes: userProfile.preferredPropertyTypes || [],
+        favouritePropertyIds: userProfile.favouritePropertyIds || [],
+        mostViewedPropertyIds: userProfile.mostViewedPropertyIds || [],
+        mostBookedCities: userProfile.mostBookedCities || [],
+        averageBookingPrice: userProfile.averageBookingPrice || 0,
+        bookingFrequency: userProfile.bookingFrequency || 0,
+        preferredSentiment: userProfile.preferredSentiment || "neutral",
+        hasSufficientHistory: Boolean(userProfile.hasSufficientHistory),
+      },
       context,
       sections,
       data,

@@ -11,9 +11,50 @@ import {
   inferPropertyType,
 } from "./propertySimilarity.js";
 import { enrichMatchReasons } from "./recommendationEnrichment.js";
+import { attachRecommendationTransparency } from "./recommendationTransparency.js";
+import {
+  computeReviewAnalysisScore,
+  MIN_REVIEW_ANALYSIS_SCORE,
+} from "./reviewSentimentRecommendation.js";
+
+/**
+ * =============================================================================
+ * Recommendation Engine + Sentiment Feature Integration
+ * =============================================================================
+ *
+ * Key idea:
+ *   The sentiment analyzer does NOT recommend properties.
+ *   It converts unstructured review text into a structured numerical feature
+ *   (ReviewAnalysisScore). That feature becomes ONE input of this engine.
+ *
+ * Inputs used by the recommendation engine:
+ *   1. ReviewAnalysisScore   ← feature from sentiment analyzer output
+ *   2. BayesianQuality       ← rating / credibility trust signal
+ *   3. PersonalizationScore  ← user_id history layer (when available)
+ *
+ * Personalized formula:
+ *   Score = (ReviewAnalysis × 0.42) + (Bayesian × 0.28) + (Personalization × 0.30)
+ *
+ * Cold-start formula:
+ *   Score = (ReviewAnalysis × 0.55) + (Bayesian × 0.45)
+ * =============================================================================
+ */
 
 export const RECOMMENDATION_TOTAL = 24;
 export const SECTION_LIMIT = 4;
+
+/**
+ * Review analysis is one structured numerical FEATURE derived from the
+ * sentiment analyzer. It is weighted highly because review text quality is
+ * central to this FYP, but ranking decisions are made only by this engine.
+ */
+export const REVIEW_ANALYSIS_WEIGHT = 0.42;
+export const QUALITY_WEIGHT = 0.28;
+export const PERSONALIZATION_WEIGHT = 0.3;
+
+/** Cold-start weights when personalization is unavailable. */
+export const COLD_START_REVIEW_ANALYSIS_WEIGHT = 0.55;
+export const COLD_START_QUALITY_WEIGHT = 0.45;
 
 export const SECTION_IDS = {
   RECENT_SEARCHES: "recent_searches",
@@ -33,6 +74,37 @@ export const COLD_START_SECTION_IDS = {
 const RECENCY_DECAY = [1, 0.72, 0.52, 0.38, 0.28];
 
 const clampScore = (value) => Math.max(0, Math.min(1, value));
+
+/**
+ * Computes the hybrid recommendation score from multiple independent inputs.
+ *
+ * ReviewAnalysisScore is a feature extracted from sentiment analysis —
+ * not a recommendation by itself.
+ */
+export const computeHybridRecommendationScore = ({
+  reviewAnalysisScore,
+  bayesianQuality,
+  personalizationScore = 0,
+  isColdStart = false,
+  passesTrustFloor = true,
+}) => {
+  if (!passesTrustFloor) {
+    return 0;
+  }
+
+  if (isColdStart) {
+    return clampScore(
+      reviewAnalysisScore * COLD_START_REVIEW_ANALYSIS_WEIGHT +
+        bayesianQuality * COLD_START_QUALITY_WEIGHT,
+    );
+  }
+
+  return clampScore(
+    reviewAnalysisScore * REVIEW_ANALYSIS_WEIGHT +
+      bayesianQuality * QUALITY_WEIGHT +
+      personalizationScore * PERSONALIZATION_WEIGHT,
+  );
+};
 
 const normalizeCity = (city = "") => city.trim().toLowerCase();
 
@@ -176,8 +248,28 @@ const computeSearchFilterMatchScore = (property, userProfile) => {
 
 const computeCombinedQualityScore = (property, context) => {
   const bayesianQuality = computeBayesianQualityScore(property, context);
-  const sentimentQuality = computeSentimentQualityScore(property);
-  return clampScore(bayesianQuality * 0.58 + sentimentQuality * 0.42);
+  const { reviewAnalysisScore } = computeReviewAnalysisScore(property);
+  // Combined trust score: review analysis is the dominant half.
+  return clampScore(reviewAnalysisScore * 0.58 + bayesianQuality * 0.42);
+};
+
+const meetsQualityTrustFloor = (
+  combinedQuality,
+  bayesianQuality,
+  reviewAnalysisScore,
+  hasReviewAnalysis,
+) => {
+  const bayesianOk =
+    combinedQuality >= MIN_QUALITY_SCORE &&
+    bayesianQuality >= MIN_QUALITY_SCORE * 0.88;
+
+  // When sentiment analysis exists for the property, it must also pass the
+  // review-analysis floor. Negative analyzed sentiment blocks ranking.
+  if (hasReviewAnalysis) {
+    return bayesianOk && reviewAnalysisScore >= MIN_REVIEW_ANALYSIS_SCORE;
+  }
+
+  return bayesianOk;
 };
 
 const computeRecencyCityScore = (property, cities = []) => {
@@ -303,10 +395,6 @@ const computeGuestRelevanceScore = (
   };
 };
 
-const meetsQualityTrustFloor = (combinedQuality, bayesianQuality) =>
-  combinedQuality >= MIN_QUALITY_SCORE &&
-  bayesianQuality >= MIN_QUALITY_SCORE * 0.88;
-
 const computeHybridPersonalizationScore = (
   property,
   userProfile,
@@ -407,10 +495,23 @@ const buildHybridMatchReasons = ({
   combinedQuality,
   personalizationScore,
   bayesianQuality,
+  reviewAnalysisScore = 0,
+  hasReviewAnalysis = false,
 }) => {
   const reasons = [];
   const summary = property.sentimentSummary || {};
   const avgRating = property.avgRating || summary.averageRating || 0;
+
+  // Review-analysis reasons first — sentiment analyzer is the primary signal.
+  if (hasReviewAnalysis && reviewAnalysisScore >= 0.7) {
+    reasons.push("positive_reviews");
+  } else if ((summary.positivePercent || 0) >= 60) {
+    reasons.push("positive_reviews");
+  }
+
+  if (summary.topPraisedAspect || summary.insightType === "praised") {
+    reasons.push("praised_sentiment");
+  }
 
   if (matchesCity(property, userProfile.latestBookedCity)) {
     reasons.push("matches_preferred_city");
@@ -470,10 +571,6 @@ const buildHybridMatchReasons = ({
     reasons.push("liked_by_similar_guests");
   }
 
-  if ((summary.positivePercent || 0) >= 60) {
-    reasons.push("positive_reviews");
-  }
-
   if (avgRating >= 4 && (summary.positivePercent ?? 100) >= 50) {
     reasons.push("highly_rated");
   }
@@ -490,23 +587,41 @@ const buildHybridMatchReasons = ({
     reasons.push("highly_rated");
   }
 
-  return [...new Set(reasons)].slice(0, 3);
+  return [...new Set(reasons)].slice(0, 4);
 };
 
+/**
+ * Determines whether the Personalized Recommendation Layer should activate.
+ *
+ * Requires an authenticated user_id AND sufficient interaction history.
+ * Without that relationship the engine cannot personalize and must fall
+ * back to Bayesian cold-start ranking (important dissertation design choice).
+ */
 const hasPersonalHistory = (userProfile, isPersonalized) =>
   Boolean(
     isPersonalized &&
       userProfile.userId &&
+      (userProfile.hasSufficientHistory !== false) &&
       ((userProfile.interactions?.length || 0) > 0 ||
         (userProfile.recentSearchCities?.length || 0) > 0 ||
         userProfile.latestBookedCity ||
-        (userProfile.favouritePropertyIds?.length || 0) > 0),
+        (userProfile.favouritePropertyIds?.length || 0) > 0 ||
+        (userProfile.viewedCount || 0) >= 2),
   );
 
 const sortRecommendations = (items) =>
   [...items].sort((a, b) => {
     if (b.recommendationScore !== a.recommendationScore) {
       return b.recommendationScore - a.recommendationScore;
+    }
+
+    // Tie-break on review analysis first — sentiment is the primary quality signal.
+    if ((b.reviewAnalysisScore || 0) !== (a.reviewAnalysisScore || 0)) {
+      return (b.reviewAnalysisScore || 0) - (a.reviewAnalysisScore || 0);
+    }
+
+    if (b.bayesianQuality !== a.bayesianQuality) {
+      return b.bayesianQuality - a.bayesianQuality;
     }
 
     if (b.combinedQuality !== a.combinedQuality) {
@@ -523,6 +638,14 @@ const sortRecommendations = (items) =>
     return (b.reviewCount || 0) - (a.reviewCount || 0);
   });
 
+/**
+ * Scores every eligible approved property for a specific guest (user_id).
+ *
+ * Pipeline per property:
+ *   1. Bayesian quality (trust floor / existing engine)
+ *   2. Personalized layer (content + collaborative + preference matching)
+ *   3. Hybrid score using QUALITY_WEIGHT + PERSONALIZATION_WEIGHT
+ */
 export const scoreAllEligibleProperties = ({
   properties,
   userProfile,
@@ -541,6 +664,7 @@ export const scoreAllEligibleProperties = ({
   }
 
   const personalized = hasPersonalHistory(userProfile, isPersonalized);
+  const isColdStart = !personalized;
   const hasQueryContext = Boolean(
     context.cityFromQuery ||
       context.priceFromQuery ||
@@ -548,9 +672,20 @@ export const scoreAllEligibleProperties = ({
   );
 
   return eligible.map((property) => {
+    // Feature extraction only: sentiment analyzer output → numerical feature.
+    // This does not recommend properties by itself.
+    const {
+      reviewAnalysisScore,
+      hasReviewAnalysis,
+      analysis: reviewAnalysis,
+      breakdown: reviewAnalysisBreakdown,
+    } = computeReviewAnalysisScore(property);
+
+    // Supporting trust signal: Bayesian rating quality.
     const bayesianQuality = computeBayesianQualityScore(property, context);
     const combinedQuality = computeCombinedQualityScore(property, context);
 
+    // Personalized layer from user_id interaction history (when available).
     const {
       guestRelevanceScore,
       contentRelevance,
@@ -567,22 +702,42 @@ export const scoreAllEligibleProperties = ({
     const passesTrustFloor = meetsQualityTrustFloor(
       combinedQuality,
       bayesianQuality,
+      reviewAnalysisScore,
+      hasReviewAnalysis,
     );
 
     let recommendationScore;
 
     if (personalized) {
-      // Quality × relevance: personalization never overrides trust/quality floor.
-      recommendationScore = passesTrustFloor
-        ? clampScore(combinedQuality * (0.4 + guestRelevanceScore * 0.6))
-        : 0;
+      recommendationScore = computeHybridRecommendationScore({
+        reviewAnalysisScore,
+        bayesianQuality,
+        personalizationScore,
+        isColdStart: false,
+        passesTrustFloor,
+      });
     } else if (isAuthenticated && hasQueryContext) {
+      // Soft personalization from the current search query only (still gated).
       recommendationScore = passesTrustFloor
-        ? clampScore(combinedQuality * (0.46 + guestRelevanceScore * 0.54))
-        : clampScore(combinedQuality * 0.85);
+        ? computeHybridRecommendationScore({
+            reviewAnalysisScore,
+            bayesianQuality,
+            personalizationScore: Math.max(personalizationScore, 0.2),
+            isColdStart: false,
+            passesTrustFloor,
+          })
+        : clampScore(
+            reviewAnalysisScore * 0.55 + bayesianQuality * 0.3,
+          );
     } else {
-      // Cold start: existing Bayesian + sentiment ranking only.
-      recommendationScore = combinedQuality;
+      // Cold start: review analysis + Bayesian quality (no personalization).
+      recommendationScore = computeHybridRecommendationScore({
+        reviewAnalysisScore,
+        bayesianQuality,
+        personalizationScore: 0,
+        isColdStart: true,
+        passesTrustFloor: true,
+      });
     }
 
     const matchReasons = buildHybridMatchReasons({
@@ -595,11 +750,28 @@ export const scoreAllEligibleProperties = ({
       combinedQuality,
       personalizationScore,
       bayesianQuality,
+      reviewAnalysisScore,
+      hasReviewAnalysis,
     });
+
+    // Extra lift when guest prefers positive sentiment and property analysis agrees.
+    if (
+      personalized &&
+      userProfile.preferredSentiment === "positive" &&
+      (reviewAnalysis.positivePercent || 0) >= 60
+    ) {
+      recommendationScore = clampScore(recommendationScore + 0.04);
+      if (!matchReasons.includes("positive_reviews")) {
+        matchReasons.push("positive_reviews");
+      }
+    }
 
     return {
       ...property,
       recommendationScore: Number(recommendationScore.toFixed(4)),
+      reviewAnalysisScore: Number(reviewAnalysisScore.toFixed(4)),
+      hasReviewAnalysis,
+      reviewAnalysisBreakdown,
       bayesianQuality: Number(bayesianQuality.toFixed(4)),
       combinedQuality: Number(combinedQuality.toFixed(4)),
       personalizationScore: Number(personalizationScore.toFixed(4)),
@@ -608,6 +780,7 @@ export const scoreAllEligibleProperties = ({
       collaborativeRelevance: Number(collaborativeRelevance.toFixed(4)),
       preferenceRelevance: Number(preferenceRelevance.toFixed(4)),
       passesTrustFloor,
+      isColdStart,
       matchReasons,
     };
   });
@@ -626,10 +799,18 @@ const isPropertyAvailable = (property, context) => {
   return score >= 0.55;
 };
 
-const passesQualityFloor = (property) =>
-  property.passesTrustFloor !== false &&
-  property.combinedQuality >= MIN_QUALITY_SCORE &&
-  property.bayesianQuality >= MIN_QUALITY_SCORE * 0.88;
+const passesQualityFloor = (property) => {
+  const reviewOk =
+    !property.hasReviewAnalysis ||
+    (property.reviewAnalysisScore || 0) >= MIN_REVIEW_ANALYSIS_SCORE;
+
+  return (
+    property.passesTrustFloor !== false &&
+    property.combinedQuality >= MIN_QUALITY_SCORE &&
+    property.bayesianQuality >= MIN_QUALITY_SCORE * 0.88 &&
+    reviewOk
+  );
+};
 
 const mergeSectionReasons = (property, sectionReasons = []) => {
   const merged = [...new Set([...sectionReasons, ...(property.matchReasons || [])])];
@@ -1056,14 +1237,17 @@ export const buildColdStartRecommendations = ({
   const sections = [];
 
   const bayesianPool = [...rankingPool].sort(
-    (a, b) => b.bayesianQuality - a.bayesianQuality || b.combinedQuality - a.combinedQuality,
+    (a, b) =>
+      (b.reviewAnalysisScore || 0) - (a.reviewAnalysisScore || 0) ||
+      b.bayesianQuality - a.bayesianQuality ||
+      b.combinedQuality - a.combinedQuality,
   );
 
   const bayesianItems = pickSectionItems(
     bayesianPool,
     SECTION_LIMIT,
     usedIds,
-    ["high_bayesian_quality"],
+    ["positive_reviews", "high_bayesian_quality"],
   );
 
   if (bayesianItems.length) {
@@ -1190,29 +1374,52 @@ export const rankPersonalizedRecommendations = ({
   return ranked;
 };
 
-export const finalizePersonalizedRecommendations = (recommendations) =>
-  recommendations.map((property) => ({
-    ...property,
-    matchReasons: enrichMatchReasons(property, property.matchReasons || []),
-  }));
+/**
+ * Finalizes recommendations for API responses.
+ * Enriches matchReasons (backward compatible) and attaches transparency
+ * metadata required by the research contribution.
+ */
+export const finalizePersonalizedRecommendations = (
+  recommendations,
+  { isColdStart = false } = {},
+) =>
+  recommendations.map((property) => {
+    const withReasons = {
+      ...property,
+      matchReasons: enrichMatchReasons(property, property.matchReasons || []),
+    };
 
+    return attachRecommendationTransparency(withReasons, {
+      isColdStart: Boolean(property.isColdStart ?? isColdStart),
+    });
+  });
+
+/**
+ * Decides personalized vs cold-start mode for a specific user_id.
+ *
+ * Cold start is intentional: guests without sufficient interaction history
+ * receive the existing Bayesian ranking so personalization is never forced
+ * on empty profiles.
+ */
 export const buildRecommendationMode = (userProfile, isAuthenticated) => {
   const hasViews = (userProfile.viewedCount || 0) > 0;
   const hasBookings = (userProfile.bookedCount || 0) > 0;
   const hasReviews = (userProfile.reviewCount || 0) > 0;
   const hasSearchHistory = (userProfile.recentSearchCities?.length || 0) > 0;
   const hasInteractions = (userProfile.interactions?.length || 0) > 0;
-  const hasPersonalData =
-    hasViews ||
+  const hasSufficientHistory =
+    userProfile.hasSufficientHistory === true ||
     hasBookings ||
     hasReviews ||
     hasSearchHistory ||
+    (userProfile.viewedCount || 0) >= 2 ||
     (userProfile.favouritePropertyIds?.length || 0) > 0;
 
   if (!isAuthenticated) {
     return {
       personalized: false,
       mode: "bayesian_sentiment_cold_start",
+      isColdStart: true,
       trackingEnabled: false,
       userId: null,
       hasSearchHistory: false,
@@ -1222,27 +1429,42 @@ export const buildRecommendationMode = (userProfile, isAuthenticated) => {
       interactionCount: 0,
       preferredCity: "",
       preferredPrice: null,
+      preferredSentiment: "neutral",
+      bookingFrequency: 0,
       bookedCount: 0,
       avgRatingGiven: null,
+      formula: {
+        reviewAnalysisWeight: REVIEW_ANALYSIS_WEIGHT,
+        qualityWeight: QUALITY_WEIGHT,
+        personalizationWeight: PERSONALIZATION_WEIGHT,
+        description:
+          "Cold start: RecommendationScore = (ReviewAnalysis × 0.55) + (BayesianQuality × 0.45)",
+      },
     };
   }
 
+  const personalized = hasSufficientHistory;
+
   return {
-    personalized: hasPersonalData,
-    mode: hasPersonalData
+    personalized,
+    mode: personalized
       ? "hybrid_personalized"
       : "bayesian_sentiment_cold_start",
+    isColdStart: !personalized,
     trackingEnabled: true,
     userId: userProfile.userId || null,
     hasSearchHistory,
     hasBookings,
     hasReviews,
     hasViews,
+    hasSufficientHistory,
     interactionCount: userProfile.interactions?.length || 0,
     preferredCity: userProfile.preferredCity || "",
     preferredPrice: userProfile.preferredPrice
       ? Math.round(userProfile.preferredPrice)
       : null,
+    preferredSentiment: userProfile.preferredSentiment || "neutral",
+    bookingFrequency: userProfile.bookingFrequency || 0,
     bookedCount: userProfile.bookedCount || 0,
     viewedCount: userProfile.viewedCount || 0,
     reviewCount: userProfile.reviewCount || 0,
@@ -1250,9 +1472,24 @@ export const buildRecommendationMode = (userProfile, isAuthenticated) => {
       ? Number(userProfile.avgRatingGiven.toFixed(1))
       : null,
     relevanceSignals: {
+      reviewAnalysisPrimary: true,
+      sentimentAnalyzerInput: true,
       contentBased: true,
       collaborativeFiltering: true,
-      qualityFloor: "bayesian_sentiment",
+      userPreferenceMatching: true,
+      interactionHistoryMatching: true,
+      searchHistoryMatching: true,
+      bookingHistoryMatching: true,
+      viewHistoryMatching: true,
+      qualityFloor: "review_analysis_and_bayesian",
+    },
+    formula: {
+      reviewAnalysisWeight: REVIEW_ANALYSIS_WEIGHT,
+      qualityWeight: QUALITY_WEIGHT,
+      personalizationWeight: PERSONALIZATION_WEIGHT,
+      description: personalized
+        ? "RecommendationScore = (ReviewAnalysis × 0.42) + (BayesianQuality × 0.28) + (Personalization × 0.30)"
+        : "Cold start: RecommendationScore = (ReviewAnalysis × 0.55) + (BayesianQuality × 0.45)",
     },
   };
 };

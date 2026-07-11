@@ -70,13 +70,21 @@ export const snapshotToSummary = (snapshot) => {
     return null;
   }
 
+  // Sentiment analyzer output is forwarded as structured fields so the
+  // recommendation engine can convert them into one numerical feature.
+  // Sentiment analysis itself does not recommend properties.
   return {
     totalReviews: snapshot.totalReviews,
-    positiveCount: snapshot.positiveCount,
-    negativeCount: snapshot.negativeCount,
-    positivePercent: snapshot.positivePercent,
-    averageRating: snapshot.averageRating,
-    topPraisedAspect: snapshot.topPraisedAspect,
-    insightType: snapshot.insightType,
+    positiveCount: snapshot.positiveCount || 0,
+    negativeCount: snapshot.negativeCount || 0,
+    neutralCount: snapshot.neutralCount || 0,
+    mixedCount: snapshot.mixedCount || 0,
+    positivePercent: snapshot.positivePercent ?? 0,
+    averageRating: snapshot.averageRating ?? 0,
+    topPraisedAspect: snapshot.topPraisedAspect || null,
+    insightType: snapshot.insightType || "none",
+    aspectBreakdown: snapshot.aspectBreakdown || [],
+    praisedAspects: snapshot.praisedAspects || [],
+    concernAspects: snapshot.concernAspects || [],
   };
 };

@@ -24,6 +24,11 @@ export const computeBayesianRating = (avgRating = 0, reviewCount = 0) => {
 /**
  * Global trust/quality score used as the primary ranking signal and quality floor.
  * Combines Bayesian-smoothed star rating with sentiment and review credibility.
+ *
+ * Research role: this score is NOT replaced by personalization. The Personalized
+ * Recommendation Layer only reorders among properties that pass this quality floor.
+ * Poor-quality listings must never rank highly merely because they match a guest
+ * preference profile.
  */
 export const computeBayesianQualityScore = (property, context = {}) => {
   const sentiment = property.sentimentSummary || {};
