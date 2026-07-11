@@ -6,48 +6,26 @@ const Footer = () => {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
 
-  const links = [
-    { to: "/", label: t("nav.home") },
-    { to: "/search", label: t("nav.search") },
-    { to: "/login", label: t("nav.login") },
-    { to: "/register", label: t("nav.register") },
-  ];
-
   return (
     <footer className="mt-auto border-t border-border/60 bg-muted/30">
-      <div className="site-container py-10">
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          <div className="flex items-start gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Building2 className="size-4" />
-            </span>
-            <div>
-              <p className="font-semibold">{t("common.appName")}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("common.appTagline")}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-3 text-sm font-medium">{t("footer.quickLinks")}</p>
-            <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-              {links.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="w-fit transition-colors hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2 text-sm text-muted-foreground md:col-span-2 lg:col-span-1">
-            <p>{t("footer.tagline")}</p>
-            <p>{t("footer.copyright", { year })}</p>
-          </div>
+      <div className="site-container flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Building2 className="size-4 text-primary" />
+          <p className="text-sm font-medium">
+            {t("common.appName")} · {t("footer.tagline")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+          <Link to="/" className="hover:text-foreground">
+            {t("nav.home")}
+          </Link>
+          <Link to="/search" className="hover:text-foreground">
+            {t("nav.search")}
+          </Link>
+          <Link to="/login" className="hover:text-foreground">
+            {t("nav.login")}
+          </Link>
+          <span>{t("footer.copyright", { year })}</span>
         </div>
       </div>
     </footer>

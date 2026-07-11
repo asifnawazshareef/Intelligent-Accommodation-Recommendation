@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Sparkles } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -61,7 +61,7 @@ const SentimentSummary = ({ summary }) => {
     <Card className="glass-card border-border/60">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-5 text-primary" />
+          <MessageSquare className="size-5 text-primary" />
           {t("review.sentimentSummary")}
         </CardTitle>
       </CardHeader>

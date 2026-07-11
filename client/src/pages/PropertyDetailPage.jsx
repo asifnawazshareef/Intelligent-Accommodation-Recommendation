@@ -6,17 +6,14 @@ import {
   CalendarRange,
   MapPin,
   MessageSquare,
-  Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import PageLoader from "@/components/layout/PageLoader";
 import ActionLink from "@/components/ui/action-link";
 import PropertyBookingPanel from "@/components/properties/PropertyBookingPanel";
-import PropertyFypWorkflow from "@/components/properties/PropertyFypWorkflow";
 import PropertyImageGallery from "@/components/properties/PropertyImageGallery";
 import PropertySentimentSnapshot from "@/components/properties/PropertySentimentSnapshot";
-import PropertyTrustStrip from "@/components/properties/PropertyTrustStrip";
 import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewsList from "@/components/reviews/ReviewsList";
 import SentimentSummary from "@/components/reviews/SentimentSummary";
@@ -206,10 +203,6 @@ const PropertyDetailPage = () => {
           <ArrowLeft className="size-4 shrink-0" />
           {t("propertyDetail.backToSearch")}
         </Link>
-        <PropertyTrustStrip
-          property={property}
-          reviewCount={summary?.totalReviews || 0}
-        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-8">
@@ -259,7 +252,6 @@ const PropertyDetailPage = () => {
                 <p className="leading-relaxed text-muted-foreground">
                   {property.description || t("propertyDetail.noDescription")}
                 </p>
-                <PropertyFypWorkflow />
               </CardContent>
             </Card>
           </section>
@@ -312,8 +304,7 @@ const PropertyDetailPage = () => {
                 {t("review.reviews")}
               </h2>
               {summary?.totalReviews > 0 && (
-                <Badge variant="secondary" className="gap-1">
-                  <Sparkles className="size-3.5" />
+                <Badge variant="secondary">
                   {t("propertyDetail.sentimentPowered")}
                 </Badge>
               )}

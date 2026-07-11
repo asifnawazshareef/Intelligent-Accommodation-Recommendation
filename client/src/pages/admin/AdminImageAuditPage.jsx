@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  ExternalLink,
-  ShieldCheck,
-} from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import ActionLink from "@/components/ui/action-link";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import RefreshButton from "@/components/ui/RefreshButton";
@@ -24,38 +19,6 @@ const PRESETS = {
   verify: { verificationStatus: "verified", aiScore: "0.95" },
   suspicious: { verificationStatus: "suspicious", aiScore: "0.45" },
   reject: { verificationStatus: "rejected", aiScore: "0" },
-  pending: { verificationStatus: "pending" },
-};
-
-const buildDraft = (item) => ({
-  verificationStatus: item.verificationStatus,
-  aiScore: item.aiScore?.toString() ?? "0",
-});
-
-const parseAiScore = (value) => {
-  if (value === "" || value === null || value === undefined) {
-    return undefined;
-  }
-
-  const score = Number(value);
-  if (Number.isNaN(score)) {
-    return null;
-  }
-
-  return score;
-};
-
-const isDraftDirty = (item, draft) => {
-  if (!draft) return false;
-
-  const statusChanged = draft.verificationStatus !== item.verificationStatus;
-  const parsedScore = parseAiScore(draft.aiScore);
-  const savedScore = item.aiScore ?? 0;
-  const scoreChanged =
-    parsedScore !== undefined &&
-    Math.abs(parsedScore - savedScore) > 0.0001;
-
-  return statusChanged || scoreChanged;
 };
 
 const GroupSkeleton = () => (
@@ -75,7 +38,6 @@ const AdminImageAuditPage = () => {
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-  const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState("");
   const [savedIds, setSavedIds] = useState({});
 
@@ -84,14 +46,7 @@ const AdminImageAuditPage = () => {
 
     try {
       const response = await getImageAuditList();
-      const data = response.data.data || [];
-      setAllItems(data);
-
-      const nextDrafts = {};
-      data.forEach((item) => {
-        nextDrafts[item.id] = buildDraft(item);
-      });
-      setDrafts(nextDrafts);
+      setAllItems(response.data.data || []);
       setSavedIds({});
     } catch (err) {
       notify.error(err.response?.data?.message || t("imageAudit.loadError"));
@@ -139,7 +94,6 @@ const AdminImageAuditPage = () => {
           propertyTitle: item.propertyTitle,
           propertyStatus: item.propertyStatus,
           ownerName: item.ownerName,
-          ownerEmail: item.ownerEmail,
           images: [],
         });
       }
@@ -148,8 +102,12 @@ const AdminImageAuditPage = () => {
     });
 
     return Array.from(groups.values()).sort((a, b) => {
-      const aPending = a.images.filter((img) => img.verificationStatus === "pending").length;
-      const bPending = b.images.filter((img) => img.verificationStatus === "pending").length;
+      const aPending = a.images.filter(
+        (img) => img.verificationStatus === "pending",
+      ).length;
+      const bPending = b.images.filter(
+        (img) => img.verificationStatus === "pending",
+      ).length;
 
       if (aPending !== bPending) {
         return bPending - aPending;
@@ -159,48 +117,9 @@ const AdminImageAuditPage = () => {
     });
   }, [items]);
 
-  const updateDraft = (id, field, value) => {
-    setSavedIds((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    setDrafts((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [field]: value,
-      },
-    }));
-  };
-
-  const persistItem = async (item, draftValues) => {
-    const draft = draftValues || drafts[item.id];
-    if (!draft) return false;
-
-    const hasScoreField = Object.prototype.hasOwnProperty.call(draft, "aiScore");
-    const parsedScore = hasScoreField ? parseAiScore(draft.aiScore) : undefined;
-
-    if (parsedScore === null) {
-      notify.error(t("imageAudit.invalidScore"));
-      return false;
-    }
-
-    if (
-      parsedScore !== undefined &&
-      (parsedScore < 0 || parsedScore > 1)
-    ) {
-      notify.error(t("imageAudit.invalidScore"));
-      return false;
-    }
-
-    const payload = {
-      verificationStatus: draft.verificationStatus,
-    };
-
-    if (parsedScore !== undefined) {
-      payload.aiScore = parsedScore;
-    }
+  const applyQuickAction = async (item, action) => {
+    const preset = PRESETS[action];
+    if (!preset) return;
 
     setSavingId(item.id);
 
@@ -210,7 +129,10 @@ const AdminImageAuditPage = () => {
           propertyId: item.propertyId,
           imageId: item.imageId,
         },
-        payload,
+        {
+          verificationStatus: preset.verificationStatus,
+          aiScore: Number(preset.aiScore),
+        },
       );
 
       const updated = response.data.data;
@@ -227,44 +149,17 @@ const AdminImageAuditPage = () => {
         ),
       );
 
-      setDrafts((prev) => ({
-        ...prev,
-        [item.id]: {
-          verificationStatus: updated.verificationStatus,
-          aiScore: updated.aiScore?.toString() ?? "0",
-        },
-      }));
-
       setSavedIds((prev) => ({ ...prev, [item.id]: true }));
       notify.success(
         t("imageAudit.saveSuccess", {
           property: item.propertyTitle,
         }),
       );
-
-      return true;
     } catch (err) {
       notify.error(err.response?.data?.message || t("imageAudit.saveError"));
-      return false;
     } finally {
       setSavingId("");
     }
-  };
-
-  const applyQuickAction = async (item, action) => {
-    const preset = PRESETS[action];
-    if (!preset) return;
-
-    setDrafts((prev) => ({
-      ...prev,
-      [item.id]: { ...prev[item.id], ...preset },
-    }));
-
-    await persistItem(item, preset);
-  };
-
-  const saveItem = async (item) => {
-    await persistItem(item);
   };
 
   const filterLabel = (value) => {
@@ -278,22 +173,6 @@ const AdminImageAuditPage = () => {
         <PageHeader
           title={t("admin.imageAudit")}
           description={t("imageAudit.pageHint")}
-          meta={
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/15 p-3 text-sm">
-              <ShieldCheck className="size-4 shrink-0 text-primary" />
-              <span className="text-muted-foreground">{t("imageAudit.workflowStep1")}</span>
-              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-muted-foreground">{t("imageAudit.workflowStep2")}</span>
-              <ActionLink
-                to="/admin/listings"
-                variant="link"
-                className="ms-auto h-auto p-0 text-sm"
-              >
-                {t("imageAudit.goToModeration")}
-                <ExternalLink className="size-3.5" />
-              </ActionLink>
-            </div>
-          }
           actions={
             <RefreshButton
               onClick={fetchItems}
@@ -344,14 +223,9 @@ const AdminImageAuditPage = () => {
               <ImageAuditPropertyGroup
                 key={group.propertyId}
                 group={group}
-                drafts={drafts}
                 savingId={savingId}
                 savedIds={savedIds}
-                isDraftDirty={isDraftDirty}
-                buildDraft={buildDraft}
-                onDraftChange={updateDraft}
                 onQuickAction={applyQuickAction}
-                onSave={saveItem}
               />
             ))}
           </div>

@@ -123,12 +123,12 @@ const DashboardLayout = ({ children }) => {
   const SidebarContent = () => (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-sidebar-border px-4 py-5">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
           <Building2 className="size-5" />
         </span>
-        <div className="min-w-0">
-          <p className="font-semibold">{t("common.appName")}</p>
-          <p className="truncate text-xs text-muted-foreground">
+        <div className="min-w-0 leading-tight">
+          <p className="font-bold tracking-tight">{t("common.appName")}</p>
+          <p className="truncate text-[11px] text-muted-foreground">
             {config.label} {t("dashboard.panel")}
           </p>
         </div>
@@ -222,8 +222,8 @@ const DashboardLayout = ({ children }) => {
       )}
 
       <div className="flex min-h-screen min-w-0 flex-col lg:ps-64">
-        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
-          <div className="site-container flex h-16 items-center justify-between gap-3">
+        <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 shadow-sm backdrop-blur-md">
+          <div className="site-container flex h-[4.25rem] items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="outline"
@@ -233,20 +233,20 @@ const DashboardLayout = ({ children }) => {
             >
               <Menu className="size-4" />
             </Button>
-            <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">
-                {t("dashboard.welcomeBack")}
-              </p>
+            <div className="min-w-0 leading-tight">
               <p className="truncate font-semibold">{user?.name}</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {config.label} {t("dashboard.panel")}
+              </p>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
             <LanguageSwitcher compact />
-            <Badge variant="secondary" className="whitespace-normal">
+            <ThemeToggle />
+            <Badge variant="secondary" className="hidden whitespace-normal sm:inline-flex">
               {config.label}
             </Badge>
-            <ThemeToggle />
           </div>
           </div>
         </header>

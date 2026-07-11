@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -56,25 +55,7 @@ const OwnerDashboard = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <DashboardShell role="owner" user={user}>
-          <p>{t("dashboard.ownerInfo1")}</p>
-          <p className="pt-2">{t("dashboard.ownerInfo2")}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/owner/properties">
-              <Button size="sm">{t("property.properties")}</Button>
-            </Link>
-            <Link to="/owner/offline-requests">
-              <Button size="sm" variant="outline" className="whitespace-normal">
-                {t("offlinePage.ownerTitle")}
-                {pendingCount > 0 && (
-                  <Badge className="ms-1 bg-amber-500/15 text-amber-800 dark:text-amber-300">
-                    {pendingCount}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-          </div>
-        </DashboardShell>
+        <DashboardShell role="owner" user={user} />
 
         <Card className="glass-card border-border/60">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

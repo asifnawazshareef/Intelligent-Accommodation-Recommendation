@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { buttonVariants, Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -49,12 +48,6 @@ const GuestDashboard = () => {
     fetchOfflineRequests();
   }, [fetchOfflineRequests]);
 
-  const respondedCount = offlineRequests.filter(
-    (request) =>
-      request.status === "responded" &&
-      request.responseMessage?.trim(),
-  ).length;
-
   const pendingCount = offlineRequests.filter(
     (request) => request.status === "pending",
   ).length;
@@ -64,30 +57,7 @@ const GuestDashboard = () => {
   return (
     <DashboardLayout>
       <div className="dashboard-page">
-        <DashboardShell role="guest" user={user}>
-          <p>{t("dashboard.guestInfo1")}</p>
-          <p className="pt-2">{t("dashboard.guestInfo2")}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/search">
-              <Button size="sm">{t("nav.search")}</Button>
-            </Link>
-            <Link to="/guest/bookings">
-              <Button size="sm" variant="outline">
-                {t("booking.myBookings")}
-              </Button>
-            </Link>
-            <Link to="/guest/offline-requests">
-              <Button size="sm" variant="outline" className="whitespace-normal">
-                {t("offlinePage.guestTitle")}
-                {respondedCount > 0 && (
-                  <Badge className="ms-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                    {respondedCount}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-          </div>
-        </DashboardShell>
+        <DashboardShell role="guest" user={user} />
 
         <Card className="glass-card border-border/60">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

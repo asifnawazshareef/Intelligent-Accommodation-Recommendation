@@ -50,17 +50,24 @@ const Navbar = ({ variant = "public" }) => {
       : location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="site-container grid h-16 grid-cols-[auto_1fr_auto] items-center gap-3">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 shadow-sm backdrop-blur-md">
+      <div className="site-container grid h-[4.25rem] grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-4">
         <Link
           to="/"
-          className="flex shrink-0 items-center gap-2 font-semibold tracking-tight transition-opacity hover:opacity-90"
+          className="flex min-w-0 shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
           onClick={() => setMobileOpen(false)}
         >
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Building2 className="size-5" />
           </span>
-          <span className="hidden sm:inline">{t("common.appName")}</span>
+          <span className="min-w-0 leading-tight">
+            <span className="block text-base font-bold tracking-tight sm:text-lg">
+              {t("common.appName")}
+            </span>
+            <span className="hidden max-w-[14rem] truncate text-[11px] font-medium text-muted-foreground sm:block">
+              {t("common.appTagline")}
+            </span>
+          </span>
         </Link>
 
         <nav className="hidden items-center justify-center gap-1 md:flex">
@@ -69,10 +76,10 @@ const Navbar = ({ variant = "public" }) => {
               key={link.key}
               to={link.to}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted",
+                "rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
                 isActive(link.to)
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground",
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               {link.label}
@@ -82,16 +89,21 @@ const Navbar = ({ variant = "public" }) => {
           {!loading && isAuthenticated && variant === "public" && (
             <Link
               to={dashboardPath}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-muted"
+              className={cn(
+                "rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
+                isActive(dashboardPath)
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
             >
               {t("nav.dashboard")}
             </Link>
           )}
         </nav>
 
-        <div className="flex shrink-0 items-center justify-end gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
           <LanguageSwitcher compact className="hidden sm:flex" />
-          <ThemeToggle className="shrink-0" />
+          <ThemeToggle />
 
           {loading ? (
             <div className="hidden items-center gap-2 sm:flex">
@@ -99,7 +111,7 @@ const Navbar = ({ variant = "public" }) => {
             </div>
           ) : isAuthenticated ? (
             <div className="hidden items-center gap-2 sm:flex">
-              <span className="max-w-[7rem] truncate text-sm text-muted-foreground lg:max-w-[10rem]">
+              <span className="hidden max-w-[8rem] truncate text-sm text-muted-foreground lg:inline xl:max-w-[11rem]">
                 {user?.name}
               </span>
               <Button
@@ -121,7 +133,7 @@ const Navbar = ({ variant = "public" }) => {
               </Link>
               <Link to="/register">
                 <Button size="sm" className="shrink-0 whitespace-nowrap">
-                  {t("common.getStarted")}
+                  {t("nav.register")}
                 </Button>
               </Link>
             </div>
@@ -144,7 +156,6 @@ const Navbar = ({ variant = "public" }) => {
         <div className="border-t border-border/60 bg-background px-4 py-4 md:hidden">
           <div className="mb-4 flex items-center gap-2 sm:hidden">
             <LanguageSwitcher className="flex-1" />
-            <ThemeToggle />
           </div>
 
           <nav className="flex flex-col gap-1">
@@ -159,7 +170,7 @@ const Navbar = ({ variant = "public" }) => {
                   className={cn(
                     "rounded-lg px-3 py-2.5 text-sm font-medium text-start transition-colors",
                     isActive(link.to)
-                      ? "bg-muted text-foreground"
+                      ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted/60",
                   )}
                 >
@@ -195,7 +206,7 @@ const Navbar = ({ variant = "public" }) => {
                   </Button>
                 </Link>
                 <Link to="/register" onClick={() => setMobileOpen(false)}>
-                  <Button className="w-full">{t("common.getStarted")}</Button>
+                  <Button className="w-full">{t("nav.register")}</Button>
                 </Link>
               </div>
             )}

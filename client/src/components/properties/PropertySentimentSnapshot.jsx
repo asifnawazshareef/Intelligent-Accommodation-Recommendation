@@ -1,4 +1,4 @@
-import { Sparkles, Star } from "lucide-react";
+import { MessageSquare, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PropertyInsightStrip from "@/components/properties/PropertyInsightStrip";
 import { cn } from "@/lib/utils";
@@ -69,14 +69,14 @@ const PropertySentimentSnapshot = ({ summary, onViewReviews, className }) => {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/60 bg-gradient-to-br from-muted/30 via-background to-primary/5 p-4 sm:p-5",
+        "rounded-xl border border-border/60 bg-muted/20 p-4 sm:p-5",
         className,
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="size-4 text-primary" />
+            <MessageSquare className="size-4 text-primary" />
             {t("propertyDetail.sentimentSnapshot")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">

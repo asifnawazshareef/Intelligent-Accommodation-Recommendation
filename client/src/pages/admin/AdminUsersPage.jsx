@@ -43,7 +43,7 @@ import {
 import { formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
-const ROLE_FILTERS = ["all", "guest", "owner", "admin"];
+const ROLE_FILTERS = ["all", "guest", "owner"];
 
 const TableSkeleton = () => (
   <div className="space-y-2">
@@ -78,6 +78,15 @@ const VerificationBadge = ({ isVerified }) => {
 
 const UserActions = ({ user, busyAction, onVerify }) => {
   const { t } = useTranslation();
+
+  if (user.role === "admin") {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t("userManagement.adminNoAction")}
+      </span>
+    );
+  }
+
   const verifyBusy = busyAction === `${user._id}-verify`;
 
   return (
@@ -133,22 +142,30 @@ const AdminUsersPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  const manageableUsers = useMemo(
+    () => users.filter((user) => user.role !== "admin"),
+    [users],
+  );
+
   const roleCounts = useMemo(() => {
-    const counts = { all: users.length, guest: 0, owner: 0, admin: 0 };
-    users.forEach((user) => {
+    const counts = { all: manageableUsers.length, guest: 0, owner: 0 };
+    manageableUsers.forEach((user) => {
       if (counts[user.role] !== undefined) {
         counts[user.role] += 1;
       }
     });
     return counts;
-  }, [users]);
+  }, [manageableUsers]);
 
   const filteredUsers = useMemo(() => {
-    if (roleFilter === "all") return users;
-    return users.filter((user) => user.role === roleFilter);
-  }, [users, roleFilter]);
+    if (roleFilter === "all") return manageableUsers;
+    return manageableUsers.filter((user) => user.role === roleFilter);
+  }, [manageableUsers, roleFilter]);
 
   const handleVerify = async (targetUser) => {
+    if (targetUser.role === "admin") {
+      return;
+    }
     setBusyAction(`${targetUser._id}-verify`);
     setError("");
     setSuccess("");

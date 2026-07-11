@@ -9,16 +9,23 @@ const AuthShellLayout = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/90 backdrop-blur-md">
-        <div className="site-container flex h-14 items-center justify-between gap-3">
+      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 shadow-sm backdrop-blur-md">
+        <div className="site-container flex h-[4.25rem] items-center justify-between gap-3">
           <Link
             to="/"
-            className="flex min-w-0 items-center gap-2 font-semibold tracking-tight transition-opacity hover:opacity-90"
+            className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-90"
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Building2 className="size-4" />
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Building2 className="size-5" />
             </span>
-            <span className="truncate">{t("common.appName")}</span>
+            <span className="min-w-0 leading-tight">
+              <span className="block text-base font-bold tracking-tight sm:text-lg">
+                {t("common.appName")}
+              </span>
+              <span className="hidden max-w-[16rem] truncate text-[11px] font-medium text-muted-foreground sm:block">
+                {t("common.appTagline")}
+              </span>
+            </span>
           </Link>
 
           <div className="flex items-center gap-2">

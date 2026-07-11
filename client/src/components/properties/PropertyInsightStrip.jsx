@@ -1,4 +1,4 @@
-import { AlertTriangle, MessageSquareQuote, Sparkles, ThumbsUp } from "lucide-react";
+import { AlertTriangle, MessageSquare, MessageSquareQuote, ThumbsUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   buildPropertyInsightText,
@@ -11,8 +11,8 @@ const toneIcons = {
   positive: ThumbsUp,
   concern: AlertTriangle,
   mixed: MessageSquareQuote,
-  balanced: Sparkles,
-  neutral: Sparkles,
+  balanced: MessageSquare,
+  neutral: MessageSquare,
 };
 
 const PropertyInsightStrip = ({ summary, className, compact = false }) => {
@@ -25,7 +25,7 @@ const PropertyInsightStrip = ({ summary, className, compact = false }) => {
 
   const tone = getInsightTone(summary);
   const styles = insightToneClasses(tone);
-  const Icon = toneIcons[tone] || Sparkles;
+  const Icon = toneIcons[tone] || MessageSquare;
 
   const titleKey = {
     positive: "propertyDetail.insightPositive",
