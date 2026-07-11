@@ -3,3 +3,6 @@
 
 # Documentation
 docs/
+
+# Dependencies
+node_modules/
