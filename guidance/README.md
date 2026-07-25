@@ -44,6 +44,7 @@ This folder documents the **Intelligent Accommodation Review System (IARS)**: ro
 | File | Topic |
 |------|-------|
 | [recommendation-system-complete.md](./recommendation-system-complete.md) | **Full viva guide** — how it works, step-by-step, supervisor Q&A, summary |
+| [recommendation-client-script.md](./recommendation-client-script.md) | **1–5 min client speech** + exact code file references |
 | [recommendations.md](./recommendations.md) | Concise engine map, formulas, file list |
 | [sentiment-model.md](./sentiment-model.md) | FastAPI model + Node bridge + UI |
 | [image-audit.md](./image-audit.md) | Verification, AI score, admin audit gate |

@@ -1,0 +1,396 @@
+## 3.1 System Architecture Overview
+
+IARS is realised as three independently deployable services rather than a single monolithic application, a decision that keeps the machine-learning concerns of sentiment inference isolated from the transactional concerns of booking, user management, and property moderation. The presentation tier, `client/`, is a React 18 [16] single-page application built with Vite and written entirely in JSX, deliberately avoiding TypeScript so that the codebase remains approachable for the project's contributors while still benefiting from component-based structuring. Styling is handled through Tailwind CSS utility classes composed with shadcn/ui primitives, giving the interface a consistent design language without a bespoke component library having to be built from scratch. Client-side routing is handled by `react-router-dom` v6, and all outbound communication with the backend is centralised through an axios instance configured with the base URL `http://localhost:5000/api`; every authenticated request attaches a JWT [20] bearer token that axios reads from `localStorage`. Because IARS is required to support English, Urdu, and Arabic with English as the default and Urdu/Arabic rendered right-to-left, the client also integrates `i18next` and `react-i18next` [17], applying right-to-left structural markup consistent with W3C guidance on bidirectional text [18], with all static interface strings routed through translation keys rather than hardcoded literals, while user-generated content (property titles, descriptions, reviews, names, contact details) is deliberately left untranslated. The client is served in development on port 5173.
+
+The application tier, `server/`, is a Node.js and Express [15] application written using ES module syntax and backed by MongoDB [13] through Mongoose [14]. The entry point, `server/server.js`, follows a deliberate bootstrap order: environment variables are loaded via `dotenv`, the MongoDB connection is established through `connectDB()` in `config/db.js`, and Cross-Origin Resource Sharing is configured with `credentials: true` scoped to the `CLIENT_URL` so that the SPA and API can exchange authenticated requests across their respective ports. A structurally significant detail of this bootstrap sequence is that the Stripe webhook route is registered before the global `express.json()` body-parser middleware. Stripe's webhook signature verification requires access to the raw, unparsed request body; registering the webhook handler ahead of the JSON parser, and mounting it with `express.raw()`, preserves that raw byte stream specifically for the one route that needs it, while every other route in the application continues to receive a parsed JSON body as normal. Once this ordering-sensitive route is in place, the remaining domain routers are mounted, and the request pipeline is closed off with a `notFound` handler for unmatched paths followed by a centralised `errorHandler` middleware that normalises error responses across the API. The Express server listens on port 5000 and is the sole gateway to the system's data: no other component reads from or writes to MongoDB directly.
+
+The third tier, `sentiment-service/`, is a Python FastAPI [19] microservice dedicated exclusively to natural-language inference over guest review text. At process startup it loads a previously trained scikit-learn [4] pipeline from a `joblib`-serialised artefact — a TF-IDF vectoriser configured for unigrams through trigrams feeding a Logistic Regression classifier trained with `class_weight="balanced"` to counteract the class imbalance typical of review sentiment corpora, consistent with established bag-of-n-grams baselines for sentiment classification [5]. The service exposes only two endpoints: `GET /health`, used for liveness checks, and `POST /predict`, which accepts review text and returns a sentiment classification. This service listens on port 8000 and has no knowledge of MongoDB, bookings, users, or any other domain concept in IARS; it is a stateless text-classification endpoint.
+
+Crucially, the client never communicates with the sentiment microservice directly. All sentiment inference is brokered by the Express server through `server/services/sentimentService.js`, which posts a JSON payload of the form `{ review: text }` to `${SENTIMENT_API_URL}/predict` with a fifteen-second request timeout. This mediation serves two purposes: it keeps the sentiment microservice's network surface closed to the public internet, and it allows the server to apply a safe fallback — `{ sentiment: "neutral", confidence: 0, ... }` — whenever the Python service is slow, unreachable, or returns a malformed response, so that a review submission is never blocked or lost purely because the ML component is temporarily unavailable. Payment processing follows an analogous mediation pattern but with a different downstream party: the Express server, through `server/config/stripe.js`, calls the Stripe test-mode Checkout API [12] directly using a key that is validated at startup to begin with the `sk_test_` prefix, ensuring that no live payment credential can accidentally be loaded into the system. The client therefore has exactly one upstream dependency (the Express API), and the Express API has exactly two downstream dependencies (MongoDB and, conditionally, the sentiment microservice and the Stripe API), which keeps the overall call graph shallow and each service's responsibilities clearly bounded.
+
+FIGURE_CAPTION: Figure 3.1: System Architecture Overview
+FIGURE_PLACEHOLDER: arch_overview
+
+## 3.2 Entity Relationship Diagram
+
+The IARS data model is expressed as seven MongoDB collections managed through Mongoose schemas, and the relationships between them are logical associations expressed via `ObjectId` references rather than enforced foreign-key constraints, since MongoDB is a document store with no native referential-integrity mechanism. The `User` collection sits at the centre of the graph: a single user with `role: "owner"` may own many documents in the `Property` collection (a one-to-many relationship carried by the `owner` field on `Property`), a single user with `role: "guest"` may accumulate many `Booking` documents (one-to-many, via the `guest` field on `Booking`), many `Review` documents (one-to-many, via the `guest` field on `Review`), many `OfflineRequest` submissions (one-to-many, and optionally nullable since anonymous submissions are permitted), many `PropertyView` records (one-to-many, capped at fifty per user by application logic), and many `SearchHistory` entries (one-to-many, capped at twenty per user).
+
+`Property` is the second major hub of the schema. Each property belongs to exactly one owning `User` and may be the subject of many `Booking` documents over time, many `Review` documents, many `OfflineRequest` submissions that name it, and many `PropertyView` records logging who has looked at it. Property images are not modelled as a separate collection; instead, each `Property` document embeds an array of `imageMetaSchema` subdocuments directly under `images`, so that a property's photographs, their verification status, their AI heuristic score, and their content hash travel with the property document itself rather than requiring a join. This is a deliberate document-modelling choice appropriate to MongoDB: because images are always read and written in the context of their owning property (during listing creation, image-audit review, and property-detail display), embedding avoids the read amplification that a normalised, separately-collectioned `Image` entity would introduce.
+
+The relationship between `Booking` and `Review` is the one place in the schema where a strict one-to-one cardinality is enforced at the database level rather than merely assumed at the application level: the `Review` schema declares a unique index on its `booking` field, which means MongoDB itself will reject any attempt to insert a second review referencing the same booking. This directly encodes the business rule that a guest may leave exactly one review per completed stay. Both `Booking` and `Review` in turn reference `Property` and `User` (as `guest`), forming a triangle of associations: a booking connects a guest to a property for a date range, and a review — which can only be created once that booking exists — connects the same guest to the same property with an evaluative rating, free-text comment, and derived sentiment. There is no separate "Image" collection and no dedicated "Complaint" entity in the schema; the `OfflineRequest` collection, while primarily a form-based alternative for guests without straightforward access to the online booking flow, is the closest analogue to a complaint/contact workflow, since it is the only collection carrying an owner-authored `responseMessage` field addressed back to a named submitter.
+
+Because none of these associations are enforced by the database engine itself (with the singular exception of the `Review.booking` uniqueness constraint), referential integrity across the remaining relationships — for instance, ensuring a `Booking.property` value actually points at an existing `Property` document — is the responsibility of the Mongoose-layer controllers rather than the storage engine, a distinction that is characteristic of NoSQL data modelling and is called out explicitly here so that the diagram is not misread as a relational schema with foreign-key enforcement.
+
+FIGURE_CAPTION: Figure 3.2: Entity Relationship Diagram
+FIGURE_PLACEHOLDER: erd
+
+## 3.3 Database Schema and Data Dictionary
+
+The following subsections document each of the seven Mongoose collections that constitute the IARS persistence layer, all of which live under `server/models/`. Each subsection lists the collection's fields, their types, and the constraints or notes that govern their use, including default values, enumerations, indexes, and any denormalisation applied for read performance.
+
+### 3.3.1 User Collection
+
+The `User` collection stores the single account record shared by all three roles — guest, owner, and admin — distinguished by a `role` enumeration rather than by separate collections, which keeps authentication and authorisation logic uniform across the system. Passwords are never stored in plaintext: a Mongoose `pre('save')` hook hashes the `password` field with bcrypt using ten salt rounds whenever it is created or modified, and the field is marked `select: false` so that it is excluded from query results unless explicitly requested. Password verification during login is performed by the schema's `matchPassword()` instance method, which wraps `bcrypt.compare()`.
+
+TABLE_CAPTION: Table 3.1: User Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| name | String | Required |
+| email | String | Required, unique, stored lowercase |
+| phone | String | Optional |
+| password | String | Required, minimum length 6, `select: false`, bcrypt-hashed (10 salt rounds) via `pre('save')` hook |
+| role | String (enum) | `guest` \| `owner` \| `admin`; default `guest` |
+| languagePref | String | Default `"en"`; persists the user's last-selected interface language |
+| isVerified | Boolean | Default `false`; toggled by admin via `PUT /api/admin/users/:id/verify` |
+| createdAt / updatedAt | Date | Automatic Mongoose timestamps |
+
+### 3.3.2 Property Collection
+
+The `Property` collection is the largest and most composite of the seven schemas, combining core listing attributes, an embedded array of image metadata, a loosely structured availability calendar, a moderation status, and a materialised `sentimentSnapshot` object. The `sentimentSnapshot` is a cache that is recomputed and overwritten every time a new review is submitted for the property, rather than a value derived on demand; this means that the property-detail page and the recommendation engine can read pre-aggregated sentiment figures — total review count, per-class counts, positive percentage, average rating, aspect-level breakdowns, and a short insight classification — without re-scanning and re-aggregating the full `Review` collection on every read.
+
+TABLE_CAPTION: Table 3.2: Property Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| title | String | Required |
+| description | String | Required |
+| location.address | String | Required (embedded sub-schema) |
+| location.city | String | Required |
+| location.country | String | Required |
+| price | Number | Minimum 0 |
+| owner | ObjectId (ref `User`) | Required |
+| images | Array of `imageMetaSchema` | Embedded subdocuments; see fields below |
+| images[].url | String | Path to the stored upload |
+| images[].verificationStatus | String (enum) | `pending` \| `verified` \| `suspicious` \| `rejected`; default `pending` |
+| images[].aiScore | Number | Range 0-1; default 0; heuristic authenticity score |
+| images[].hash | String | SHA-256 hash of the image file, used for duplicate detection |
+| images[].uploadedAt | Date | Timestamp of upload |
+| availabilityCalendar | Array (Mixed) | List of `{ startDate, endDate }` string pairs |
+| status | String (enum) | `pending` \| `approved` \| `rejected`; default `pending` |
+| sentimentSnapshot.totalReviews | Number | Denormalised count, refreshed on each new review |
+| sentimentSnapshot.positiveCount / negativeCount / neutralCount / mixedCount | Number | Per-class review counts |
+| sentimentSnapshot.positivePercent | Number | Positive review share, used by the recommendation engine |
+| sentimentSnapshot.averageRating | Number | Mean of `Review.rating` for the property |
+| sentimentSnapshot.aspectBreakdown | Array | Per-aspect sentiment tallies |
+| sentimentSnapshot.praisedAspects / concernAspects | Array of String | Aspects most frequently praised/criticised |
+| sentimentSnapshot.insightType | String | Short classification label summarising overall guest sentiment |
+| sentimentSnapshot.topPraisedAspect | String | Single most-praised aspect |
+| sentimentSnapshot.updatedAt | Date | Last time the snapshot was recomputed |
+| createdAt / updatedAt | Date | Automatic Mongoose timestamps |
+
+### 3.3.3 Booking Collection
+
+The `Booking` collection records a guest's reservation of a property for a given date range and tracks both the reservation's lifecycle status and its independent payment status, since a booking can exist in a confirmed reservation state while its payment is still pending reconciliation (as happens between Stripe checkout-session creation and webhook confirmation). Two Stripe-specific identifiers are retained purely for online payments and are left unset for demo-payment bookings.
+
+TABLE_CAPTION: Table 3.3: Booking Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| guest | ObjectId (ref `User`) | Required |
+| property | ObjectId (ref `Property`) | Required |
+| startDate | String | ISO date, format `YYYY-MM-DD` |
+| endDate | String | ISO date, format `YYYY-MM-DD` |
+| guests | Number | Minimum 1 |
+| totalAmount | Number | Minimum 0 |
+| status | String (enum) | `pending` \| `confirmed` \| `cancelled` |
+| paymentStatus | String (enum) | `pending` \| `confirmed` \| `failed` |
+| paymentMethod | String (enum) | `demo` \| `stripe_test` |
+| stripeSessionId | String | Set only for `stripe_test` bookings |
+| stripePaymentIntentId | String | Set only for `stripe_test` bookings once payment intent is created |
+| paymentConfirmedAt | Date | Set when payment status transitions to `confirmed` |
+| createdAt / updatedAt | Date | Automatic Mongoose timestamps |
+
+### 3.3.4 Review Collection
+
+The `Review` collection captures a guest's post-stay evaluation of a property and the results of the sentiment pipeline applied to its free-text content. A unique index on `booking` enforces the one-review-per-booking rule directly at the database layer, and a compound index on `{ property: 1, createdAt: -1 }` supports the common access pattern of listing a property's most recent reviews.
+
+TABLE_CAPTION: Table 3.4: Review Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| guest | ObjectId (ref `User`) | Required |
+| property | ObjectId (ref `Property`) | Required |
+| booking | ObjectId (ref `Booking`) | Required; unique index — enforces one review per booking |
+| rating | Number | Range 1-5 |
+| text | String | Maximum length 1000 characters |
+| sentiment | String (enum) | `positive` \| `negative` \| `neutral` \| `mixed`; default `neutral` |
+| sentimentScore | Number | Stores the ML classifier's confidence value |
+| aspects | Array of String | Aspect categories detected in the review text |
+| aspectInsights | Array of Object | `{ aspect, sentiment, confidence, mentions }` per detected aspect |
+| summary | String | Human-readable summary generated by the sentiment pipeline |
+| createdAt / updatedAt | Date | Automatic Mongoose timestamps; compound index `{ property: 1, createdAt: -1 }` |
+
+### 3.3.5 OfflineRequest Collection
+
+The `OfflineRequest` collection supports a form-based alternative booking channel for guests who are not proceeding through the standard online booking-and-payment flow. Submissions may be linked to a registered guest and/or a specific property, but both associations are nullable so that anonymous, unauthenticated submissions and general (non-property-specific) enquiries are both representable.
+
+TABLE_CAPTION: Table 3.5: OfflineRequest Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| guestName | String | Required |
+| phone | String | Required |
+| location | String | Required |
+| startDate | String | Required |
+| endDate | String | Required |
+| roomType | String | Required |
+| property | ObjectId (ref `Property`) | Nullable |
+| guest | ObjectId (ref `User`) | Nullable — `null` indicates an anonymous submission |
+| responseMessage | String | Default `""`; populated by the owner on response |
+| status | String (enum) | `pending` \| `responded` \| `closed` |
+| createdAt / updatedAt | Date | Automatic Mongoose timestamps |
+
+### 3.3.6 PropertyView Collection
+
+The `PropertyView` collection tracks which properties a given user has viewed and when, forming one of the interaction signals consumed by the recommendation engine's user-profile builder. A unique compound index on `{ user: 1, property: 1 }` means a repeat view of the same property by the same user updates the existing record's `viewedAt` timestamp rather than inserting a duplicate row, and a secondary index on `{ user: 1, viewedAt: -1 }` supports efficient retrieval of a user's most recent views. The collection is additionally capped in application logic at fifty rows per user, with the oldest view deleted whenever an insertion would exceed that cap.
+
+TABLE_CAPTION: Table 3.6: PropertyView Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| user | ObjectId (ref `User`) | Indexed |
+| property | ObjectId (ref `Property`) | Indexed |
+| viewedAt | Date | Updated on re-view |
+| (index) | | Unique compound index `{ user: 1, property: 1 }` |
+| (index) | | Secondary index `{ user: 1, viewedAt: -1 }` for recency queries |
+| (cap) | | Capped at 50 entries per user (application-level; oldest purged on insert past cap) |
+
+### 3.3.7 SearchHistory Collection
+
+The `SearchHistory` collection persists the parameters of a signed-in user's past property searches, which feed both the "recent searches" recommendation section and the guest profile builder. Like `PropertyView`, it is bounded in application code rather than by a database-level constraint.
+
+TABLE_CAPTION: Table 3.7: SearchHistory Collection Schema
+
+| Field | Type | Constraints/Notes |
+|---|---|---|
+| user | ObjectId (ref `User`) | Indexed |
+| city | String | Optional search filter value |
+| title | String | Optional search filter value (keyword/title match) |
+| minPrice | Number | Optional search filter value |
+| maxPrice | Number | Optional search filter value |
+| availabilityDate | String | Optional search filter value |
+| createdAt / updatedAt | Date | Automatic Mongoose timestamps; capped at 20 entries per user, pruned in `searchController.saveSearchHistory` |
+
+## 3.4 Class Diagram
+
+While IARS is implemented in JavaScript's function-and-module style rather than a strictly class-based object model, its logical structure still separates cleanly into persistent-entity classes and service-layer classes, and it is this logical structure — rather than the literal file layout — that the class diagram in Figure 3.3 represents. The seven Mongoose models described in Section 3.3 form the entity layer: `User`, `Property`, `Booking`, `Review`, `OfflineRequest`, `PropertyView`, and `SearchHistory`. Each is modelled as a class carrying its schema fields as attributes and, where applicable, its schema-level behaviour as methods — most notably `User.matchPassword()`, which encapsulates the bcrypt comparison used during authentication, and the pre-save hashing hook that intercepts `password` mutations before persistence. The associations among these entity classes mirror the relationships established in Section 3.2: `User` is associated with `Property` through ownership, with `Booking` and `Review` through guest authorship, and with `OfflineRequest`, `PropertyView`, and `SearchHistory` through the various interaction trails a guest leaves behind; `Property` embeds its `imageMetaSchema` array as a composition relationship rather than an association, since image metadata has no independent lifecycle outside its parent property document.
+
+Layered above the entity classes are five logical service classes that group the request-handling and business-rule logic that Express implements as controller and utility modules. `AuthService` corresponds to the responsibilities of `authController.js` and `authMiddleware.js`: issuing and verifying JWTs, enforcing role-based route access through the `protect` and `authorize()` middleware functions, and delegating credential checks to `User.matchPassword()`. `PropertyService` corresponds to `propertyController.js` together with the image-handling utilities in `server/utils/`: it is responsible for listing creation and update, multipart image ingestion via multer, SHA-256 hashing and heuristic AI-score computation for uploaded images, and moderation-status transitions. `BookingService` corresponds to `bookingController.js`: it validates date-range and guest-count constraints, computes `totalAmount`, and manages the coupled `status`/`paymentStatus` transitions described in Section 3.9, coordinating with the Stripe integration in `server/config/stripe.js` for online payments and with a simpler direct-confirmation path for demo payments. `RecommendationEngine` corresponds to the module cluster in `server/utils/` — `buildUserProfile.js`, `personalizedRecommendationEngine.js`, `bayesianRanking.js`, `propertySimilarity.js`, and `collaborativeFiltering.js` — and is detailed at length in Section 3.6. `SentimentClient` corresponds to `server/services/sentimentService.js` and encapsulates the single external responsibility of posting review text to the FastAPI `/predict` endpoint, applying the fifteen-second timeout, and substituting the neutral-fallback response object on failure so that no other part of the system needs to handle the sentiment microservice's availability directly.
+
+The dependency direction among these service classes flows consistently downward from controller-adjacent services toward the entity classes: `BookingService` depends on `Booking` and `Property`; `RecommendationEngine` depends on `Property`, `Booking`, `Review`, `PropertyView`, and `SearchHistory` as its data sources but does not mutate any of them, since it is a read-only aggregation and ranking layer; and `SentimentClient` is depended upon by the review-submission flow (which persists its output onto `Review.sentiment`, `Review.sentimentScore`, and `Review.aspectInsights`, and triggers a `Property.sentimentSnapshot` resync) without itself depending on any entity class. `AuthService` sits orthogonally to the others as a cross-cutting concern invoked by nearly every protected route rather than being invoked by the other services directly.
+
+FIGURE_CAPTION: Figure 3.3: Class Diagram
+FIGURE_PLACEHOLDER: class_diagram
+
+## 3.5 API Design
+
+The IARS API surface is organised into nine Express router modules under `server/routes/`, each scoped to a distinct area of functionality and each composed with the appropriate combination of authentication middleware (`protect`), role authorisation middleware (`authorize("owner")`, `authorize("admin")`, etc.), an optional-authentication variant (`optionalProtect`) for endpoints that behave differently for signed-in versus anonymous callers, and, where file uploads are involved, multer middleware for multipart parsing. The subsections below document each router in the order it is mounted conceptually within the domain: authentication, property management, administration, search and recommendation, reviews, sentiment, booking, payment, and offline requests.
+
+### 3.5.1 Authentication API (`authRoutes.js`)
+
+The authentication router exposes registration, login, and current-session retrieval. Registration and login are unauthenticated by necessity, while the profile-retrieval endpoint requires a valid JWT.
+
+TABLE_CAPTION: Table 3.8: Authentication API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | /api/auth/register | Public | Create a new guest or owner account |
+| POST | /api/auth/login | Public | Authenticate credentials and issue a JWT |
+| GET | /api/auth/me | Protected (`protect`) | Retrieve the authenticated user's profile |
+
+### 3.5.2 Property API (`propertyRoutes.js`)
+
+The property router serves both the public-facing browsing experience and the owner-facing listing-management workflow. Public listing retrieval is restricted to approved properties only, while creation and update are scoped to the owning user and gated behind multer for image handling.
+
+TABLE_CAPTION: Table 3.9: Property API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | /api/properties | Public | List approved properties |
+| GET | /api/properties/owner/my-properties | Protected, `authorize("owner")` | List the authenticated owner's properties |
+| POST | /api/properties | Protected, `authorize("owner")`, multer multipart | Create a new listing with uploaded images |
+| PUT | /api/properties/:id/moderate | Protected, `authorize("admin")` | Update a property's moderation status |
+| POST | /api/properties/:id/view | Protected, `authorize("guest")` | Record a property view for the recommendation engine |
+| GET | /api/properties/:id | `optionalProtect` | Retrieve property detail (behaviour varies for signed-in guests) |
+| PUT | /api/properties/:id | Protected, `authorize("owner")` | Update an owned listing |
+
+### 3.5.3 Admin API (`adminRoutes.js`)
+
+Every route on the admin router is protected and additionally restricted to the `admin` role via `authorize("admin")`, since this router concentrates the platform's moderation and account-governance capabilities: user verification and role management, the image-audit queue, and listing approval/rejection.
+
+TABLE_CAPTION: Table 3.10: Admin API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | /api/admin/users | Protected, `authorize("admin")` | List all registered users |
+| PUT | /api/admin/users/:id/verify | Protected, `authorize("admin")` | Toggle a user's `isVerified` flag |
+| PUT | /api/admin/users/:id/role | Protected, `authorize("admin")` | Change a user's role |
+| GET | /api/admin/image-audit | Protected, `authorize("admin")` | Retrieve the queue of property images pending audit |
+| PUT | /api/admin/image-audit/:propertyId/:imageId | Protected, `authorize("admin")` | Set the final verification status of a specific image |
+| GET | /api/admin/listings/pending | Protected, `authorize("admin")` | List properties awaiting approval |
+| PUT | /api/admin/listings/:id/approve | Protected, `authorize("admin")` | Approve a pending listing |
+| PUT | /api/admin/listings/:id/reject | Protected, `authorize("admin")` | Reject a pending listing |
+
+### 3.5.4 Search and Recommendation API (`searchRoutes.js`)
+
+This router exposes filtered property search and the personalised/cold-start recommendation feed described in Section 3.6. Both endpoints use `optionalProtect` because search and recommendation behaviour is meaningful for both anonymous visitors and signed-in guests, differing only in whether interaction-history signals are available.
+
+TABLE_CAPTION: Table 3.11: Search and Recommendation API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | /api/search | `optionalProtect` | Search approved properties by city, title, price range, and availability date |
+| GET | /api/recommendations | `optionalProtect` | Retrieve personalised or cold-start recommendation sections |
+
+### 3.5.5 Review API (`reviewRoutes.js`)
+
+The review router allows a guest to submit a review tied to a completed booking, allows anyone to read a property's published reviews, and allows a guest to check which of their bookings remain eligible for review (i.e., have no review yet, satisfying the unique `booking` index on `Review`).
+
+TABLE_CAPTION: Table 3.12: Review API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | /api/reviews | Protected, `authorize("guest")` | Submit a review for a completed booking |
+| GET | /api/reviews/property/:propertyId | Public | Retrieve all reviews for a property |
+| GET | /api/reviews/eligible/:propertyId | Protected, `authorize("guest")` | Retrieve the guest's bookings for the property eligible for review |
+
+### 3.5.6 Sentiment API (`sentimentRoutes.js`)
+
+The sentiment router exposes the aggregated sentiment view for a property rather than direct access to the classifier itself; the underlying inference call to the Python microservice happens internally within the review-submission flow, not through this router.
+
+TABLE_CAPTION: Table 3.13: Sentiment API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | /api/sentiment/property/:propertyId | Public | Retrieve the property's aggregated `sentimentSnapshot` |
+
+### 3.5.7 Booking API (`bookingRoutes.js`)
+
+Every endpoint on the booking router requires authentication, since bookings are always tied to an identified guest or the properties an identified owner manages. The router covers booking creation, retrieval from both the guest and owner perspectives, demo-payment confirmation, and cancellation.
+
+TABLE_CAPTION: Table 3.14: Booking API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | /api/bookings | Protected, `authorize("guest")` | Create a new booking request |
+| GET | /api/bookings/my-bookings | Protected, `authorize("guest")` | List the authenticated guest's bookings |
+| GET | /api/bookings/owner-bookings | Protected, `authorize("owner")` | List bookings across the authenticated owner's properties |
+| PUT | /api/bookings/:id/confirm-demo-payment | Protected, `authorize("guest")` | Confirm payment for a booking via the demo payment path |
+| PUT | /api/bookings/:id/cancel | Protected, `authorize("guest")` | Cancel an existing booking |
+| GET | /api/bookings/:id | Protected | Retrieve a single booking's detail |
+
+### 3.5.8 Stripe Payment API (`stripePaymentRoutes.js`)
+
+The Stripe payment router covers the two guest-facing steps of an online checkout: creating a Stripe Checkout session and verifying its outcome. The Stripe webhook endpoint that ultimately confirms payment server-side is deliberately not part of this router; it is mounted directly in `server/server.js` ahead of the JSON body-parser, using `express.raw()`, so that Stripe's signature verification against the untouched request body succeeds.
+
+TABLE_CAPTION: Table 3.15: Stripe Payment API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | /api/payments/stripe/create-checkout-session | Protected, `authorize("guest")` | Create a Stripe test-mode Checkout session for a booking |
+| GET | /api/payments/stripe/verify-session | Protected, `authorize("guest")` | Verify the outcome of a completed Checkout session |
+| POST | /api/payments/stripe/webhook | Public (Stripe-signed), mounted in `server.js` with `express.raw()` | Receive and verify Stripe webhook events, confirming payment server-side |
+
+### 3.5.9 Offline Request API (`offlineRequestRoutes.js`)
+
+The offline request router supports the form-based alternative booking channel described in Section 3.3.5. Submission uses `optionalProtect` so that both anonymous visitors and signed-in guests can submit a request, while retrieval and response are scoped to the guest who submitted a request and the owner who must act on it, respectively.
+
+TABLE_CAPTION: Table 3.16: Offline Request API Endpoints
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | /api/offline-requests | `optionalProtect` | Submit an offline booking request (guest or anonymous) |
+| GET | /api/offline-requests/guest | Protected, `authorize("guest")` | List the authenticated guest's submitted requests |
+| GET | /api/offline-requests/owner | Protected, `authorize("owner")` | List offline requests directed at the owner's properties |
+| PUT | /api/offline-requests/:id/respond | Protected, `authorize("owner")` | Owner responds to a request, updating its status |
+
+## 3.6 Recommendation Engine Design
+
+Following established practice in the recommender-systems literature, where hybrid combinations of content-based, collaborative, and quality-ranking signals are widely reported to outperform any single technique in isolation [9] [10], the recommendation engine is implemented as a modular pipeline within `server/utils/`, composed of five cooperating scripts — `buildUserProfile.js`, `personalizedRecommendationEngine.js`, `bayesianRanking.js`, `propertySimilarity.js`, and `collaborativeFiltering.js` — that together transform raw interaction history and property data into a set of ranked, sectioned recommendation lists served through `GET /api/recommendations`. The pipeline is best understood as six sequential stages: profile building, candidate retrieval, signal attachment, mode decision, scoring, and sectioning, culminating in the response returned to the client.
+
+The pipeline begins with **profile building**, performed by `buildUserProfile.js`, which constructs a lightweight behavioural profile for the requesting guest by reading, for that user, the most recent five entries from four sources: `SearchHistory` (recent city/price/date filters), `Booking` (properties actually reserved), `Review` where `rating >= 4` (properties the guest rated highly, taken as an explicit positive-preference signal), and `PropertyView` (properties browsed, whether or not they were booked). Because each of these four signal sources is independently bounded to the five most recent entries, the resulting profile stays current with the guest's latest behaviour rather than being dominated by old activity, while remaining cheap to construct on every request.
+
+The second stage, **candidate retrieval**, restricts the universe of properties under consideration to those with `status: "approved"`, so that pending or rejected listings — which have not cleared the admin moderation and image-verification gate described in Section 3.8 — can never surface in a recommendation feed regardless of how well they might otherwise score.
+
+The third stage, **signal attachment**, enriches each candidate property with the review statistics and sentiment figures it needs for scoring, drawing on the same `sentimentSnapshot` cache described in Section 3.3.2 rather than recomputing aggregates from the `Review` collection on every recommendation request.
+
+The fourth stage, **mode decision**, is handled by `buildRecommendationMode()` inside `personalizedRecommendationEngine.js`. A personalised recommendation mode is only selected when two conditions both hold: the requesting user is authenticated, and their profile (from stage one) contains at least one interaction signal — a past search, booking, qualifying review, or view. If either condition fails — the caller is anonymous, or is a brand-new authenticated user with no recorded activity yet — the engine falls back to a cold-start mode, ensuring that every caller, regardless of history, receives a populated recommendation feed rather than an empty one.
+
+In **cold-start mode**, `buildColdStartRecommendations()` produces exactly three sections that require no personal history at all: `top_bayesian` (properties ranked purely by the Bayesian-smoothed quality score described below), `best_reviewed` (properties ranked by sentiment-positive share and review volume), and `trending` (properties with recent view/booking momentum). In **personalised mode**, `buildStructuredRecommendations()` produces up to six sections, each populated only when the underlying signal is available and each capped at four items so that no single section dominates the page: `recent_searches` (properties matching the guest's last search filters), `previous_bookings` (properties similar to ones the guest has already stayed at), `preferred_budget` (properties within the guest's typical price range), `viewed_similar` (properties similar to ones the guest has viewed but not booked), `popular_in_city` (well-regarded properties in cities the guest has shown interest in), and `recommended_for_you` (a general blended-score section combining all available signals).
+
+The **scoring** stage draws on two further modules depending on which section is being computed. `bayesianRanking.js` computes a Bayesian-smoothed rating for every candidate property by blending its raw average rating toward a prior mean of 3.5 with an effective prior weight of 4 — the standard formulation, following the Bayesian aggregate-feedback ranking approach described by Chakrabarti et al. [8], for shrinking small-sample averages toward a global expectation so that a property with only one five-star review is not ranked above a property with fifty consistently four-star reviews. This smoothed rating is then further blended with the property's sentiment-positive percentage (from `sentimentSnapshot.positivePercent`), a review-count credibility term, an availability signal derived from `availabilityCalendar`, and an amenity-keyword score computed from the property description. Any property whose combined quality score falls below the constant `MIN_QUALITY_SCORE = 0.28` is excluded from ranked output entirely, acting as a trust floor that prevents very poorly reviewed or under-evidenced properties from ever being recommended, regardless of how well they might otherwise match a guest's stated preferences. `propertySimilarity.js` computes a separate content-based similarity score used by the `previous_bookings` and `viewed_similar` sections, combining four weighted components: city match (32%), price similarity (28%), amenity Jaccard similarity (22%), and sentiment similarity (18%) — that is, how closely two properties' sentiment profiles resemble one another, on top of the more conventional location, price, and amenity comparisons. `collaborativeFiltering.js` supplies a third, independent scoring signal, in the tradition of item-based collaborative filtering techniques [11], by building a co-occurrence matrix across guest pairs: two properties are considered collaboratively related when the same guests have interacted with both, with booking pairs weighted at 1.0 and view pairs weighted at 0.35, reflecting the stronger preference signal carried by an actual reservation compared with a browsing view.
+
+The final stage, **sectioning**, assembles whichever scored candidates survive the trust floor into the section structure determined during the mode-decision stage, and this sectioned structure — rather than a single flat ranked list — is what is returned as the JSON response from `GET /api/recommendations`.
+
+TABLE_CAPTION: Table 3.17: Recommendation Scoring Signals and Weights
+
+| Signal | Source Module | Weight/Parameter | Description |
+|---|---|---|---|
+| Bayesian-smoothed rating | `bayesianRanking.js` | Prior mean 3.5, prior weight 4 | Shrinks small-sample average ratings toward a global prior to avoid overweighting properties with few reviews |
+| Sentiment positive percentage | `bayesianRanking.js` (reads `Property.sentimentSnapshot.positivePercent`) | Blended component | Incorporates review-sentiment polarity into the overall quality score |
+| Review-count credibility | `bayesianRanking.js` | Blended component | Rewards properties with a larger, more corroborated body of reviews |
+| Availability score | `bayesianRanking.js` | Blended component | Derived from `availabilityCalendar`; penalises properties with no near-term open dates |
+| Amenity-keyword score | `bayesianRanking.js` | Blended component | Rewards descriptions mentioning recognised amenity keywords |
+| Minimum quality trust floor | `bayesianRanking.js` | `MIN_QUALITY_SCORE = 0.28` | Properties scoring below this threshold are excluded from ranked sections entirely |
+| City match | `propertySimilarity.js` | 32% | Content-similarity component comparing property location city |
+| Price similarity | `propertySimilarity.js` | 28% | Content-similarity component comparing listed price |
+| Amenity Jaccard similarity | `propertySimilarity.js` | 22% | Content-similarity component comparing amenity-keyword sets |
+| Sentiment similarity | `propertySimilarity.js` | 18% | Content-similarity component comparing sentiment profiles |
+| Booking co-occurrence | `collaborativeFiltering.js` | Weight 1.0 | Co-occurrence contribution from guest pairs who both booked the same properties |
+| View co-occurrence | `collaborativeFiltering.js` | Weight 0.35 | Co-occurrence contribution from guest pairs who both viewed the same properties |
+
+FIGURE_CAPTION: Figure 3.4: Recommendation Engine Pipeline
+FIGURE_PLACEHOLDER: pipeline_recommend
+
+## 3.7 Sentiment Analysis Pipeline Design
+
+Sentiment analysis in IARS follows the general opinion-mining formulation of classifying text into polarity classes and associated target aspects [6] [7], and is triggered whenever a guest submits a review through `POST /api/reviews`, with the pipeline that processes the review text distributed across both the sentiment microservice and the Express server that calls it. The first stage, clause splitting, occurs before any machine-learning inference takes place: the raw review text is decomposed into sentences and, within those sentences, further split at contrast conjunctions — "but", "however", "although" — so that a single review such as "The room was clean but the staff were rude" is analysed as two semantically distinct clauses rather than as one undifferentiated block of text. This decomposition is what allows the pipeline to later recognise and represent mixed sentiment within a single review, rather than forcing every review into a single overall polarity.
+
+Each resulting clause is then passed independently through the trained classifier: the TF-IDF vectoriser (configured for one-, two-, and three-gram features) transforms the clause into a sparse numeric representation, which the Logistic Regression model — trained with `class_weight="balanced"` to compensate for skewed class frequencies in the training data — classifies with an associated confidence score. This per-clause classification is followed by a rule-based negation override: certain lexical negation patterns that a purely statistical bag-of-n-grams model can misjudge (for instance, negated positive adjectives) are checked explicitly and, where a negation pattern is detected around a polarity-bearing term, the clause's classifier output is overridden to better reflect the negated meaning rather than the surface-level n-gram statistics alone.
+
+Once every clause has been classified, the pipeline performs aspect keyword matching against nine predefined aspect categories (such as cleanliness, staff, location, value, and comparable service-quality dimensions relevant to accommodation reviews), associating each clause with whichever aspect category its vocabulary matches, if any. This produces the `aspectInsights` structure ultimately persisted on the `Review` document — an array of `{ aspect, sentiment, confidence, mentions }` entries, one per aspect category the review actually touches on.
+
+The per-clause and per-aspect results are then aggregated into a single overall sentiment label for the review as a whole. If clauses of only one polarity are present, that polarity becomes the overall `sentiment` value; if both positive and negative clauses are present within the same review — as in the "clean room, rude staff" example — the overall sentiment is classified as `mixed` rather than averaged away into a false neutral. Alongside the aggregated label, the pipeline generates a concise human-readable `summary` string characterising the review's sentiment and dominant aspects in plain language, suitable for display without requiring a reader to inspect the raw aspect breakdown.
+
+This aggregated result — sentiment label, confidence score, aspect list, aspect insights, and summary — is returned across the network boundary from the FastAPI `/predict` endpoint to the Express server's `sentimentService.js`, which is the only component that ever calls the sentiment microservice directly. The `reviewController` persists these fields onto the newly created `Review` document (`sentiment`, `sentimentScore`, `aspects`, `aspectInsights`, `summary`) and, immediately afterward, triggers a resync of the owning property's `sentimentSnapshot`, recomputing the denormalised totals, percentages, and aspect breakdown described in Section 3.3.2 so that every other part of the system — the property-detail page, the sentiment API, and the recommendation engine's quality scoring — reads an up-to-date cached view rather than a stale one. Should the call to the sentiment microservice itself fail or time out (per the fifteen-second timeout configured in `sentimentService.js`), the safe fallback of `{ sentiment: "neutral", confidence: 0 }` is persisted instead, so that a temporary outage of the Python service degrades the richness of the stored sentiment data without ever blocking the review submission itself.
+
+FIGURE_CAPTION: Figure 3.5: Sentiment Analysis Pipeline
+FIGURE_PLACEHOLDER: pipeline_sentiment
+
+## 3.8 Image Verification Workflow Design
+
+The image verification workflow governs every photograph an owner attaches to a property listing and is designed to catch duplicate or low-quality uploads before a listing ever reaches the admin approval stage, without relying on a trained computer-vision model. When an owner submits property images through the multipart `POST /api/properties` endpoint, each uploaded file is first hashed with SHA-256, producing a content fingerprint that is stable across re-uploads of the identical file.
+
+This hash is checked against two scopes in sequence. First, it is checked within the current upload batch itself: if two files in the same submission hash identically, the duplicate is silently discarded rather than being stored twice under the same listing. Second, the hash is checked against the hashes already recorded across the existing `Property.images` data in the database; if a match is found there, the newly uploaded image is not discarded but is instead accepted and flagged immediately as `verificationStatus: "suspicious"` with a fixed `aiScore` of 0.45, since an image identical to one already present elsewhere in the system is a meaningful signal of image reuse or misrepresentation that the admin reviewer should specifically be alerted to, even though it may occasionally have an innocent explanation.
+
+If an uploaded image's hash matches neither of the above, it is treated as genuinely new content and is instead scored by a heuristic function in `server/utils/imageAiScore.js`. It is important to be precise about what this function is: it is not a trained machine-learning model, but a deterministic heuristic that derives an `aiScore` between 0 and 1 from measurable properties of the image file itself — its pixel dimensions, effective resolution, degree of compression, and aspect ratio — on the reasoning that authentic, well-captured property photographs tend to fall within predictable ranges on these dimensions, while very low-resolution, heavily compressed, or unusually proportioned images are more likely to be placeholder content, screenshots, or otherwise unsuitable for a listing. Every image that clears both hash checks and receives a heuristic score is stored with `verificationStatus: "pending"`, deferring the final judgement to a human reviewer rather than allowing the heuristic alone to admit or reject content automatically.
+
+The pending queue produced by this stage is surfaced to administrators through `GET /api/admin/image-audit`, and an admin's decision on each individual image is recorded through `PUT /api/admin/image-audit/:propertyId/:imageId`, which sets the image's final `verificationStatus` to `verified`, `suspicious` (if the admin independently reaches that judgement rather than the hash check having already flagged it), or `rejected`. A rejection additionally forces the image's `aiScore` to 0, so that a rejected image can never be mistaken, by any downstream code inspecting `aiScore` alone, for a legitimately high-scoring photograph. The workflow's final gate is enforced at the listing-approval stage rather than at upload time: a property cannot be approved by an administrator through `PUT /api/admin/listings/:id/approve` unless it has at least one image with `verificationStatus: "verified"`, which means a listing with only pending, suspicious, or rejected images is structurally prevented from reaching the publicly browsable, approved-properties pool described in Section 3.6's candidate-retrieval stage, regardless of how complete the rest of its listing content might be.
+
+FIGURE_CAPTION: Figure 3.6: Image Verification Workflow
+FIGURE_PLACEHOLDER: pipeline_image
+
+## 3.9 State Lifecycle Diagrams and Deployment Architecture
+
+Three entities in IARS carry an explicit status field whose permitted transitions are constrained enough to warrant representation as a formal state machine rather than an unconstrained enumeration: `Booking`, `OfflineRequest`, and the embedded property image metadata.
+
+The booking lifecycle involves two related but independently tracked state variables: `status` and `paymentStatus`. A booking is created in `status: "pending"`. It advances to `status: "confirmed"` through either of two payment paths — a guest-initiated demo-payment confirmation via `PUT /api/bookings/:id/confirm-demo-payment`, or a successful Stripe test-mode payment verified through the webhook-driven flow described in Section 3.5.8 — both of which also drive `paymentStatus` from `pending` to `confirmed`. From either the `pending` or `confirmed` state, a guest may cancel the booking through `PUT /api/bookings/:id/cancel`, moving `status` to `cancelled`; this cancelled state is terminal, meaning a cancelled booking can never be paid for or reconfirmed once it has reached that state. Independently of the `status` transitions, `paymentStatus` has one additional transition not mirrored on `status`: it can move from `pending` directly to `failed` if a Stripe payment verification attempt does not succeed, without necessarily forcing the booking's overall `status` out of `pending`, since a failed payment attempt does not by itself cancel the reservation — the guest retains the option to retry payment or cancel explicitly.
+
+FIGURE_CAPTION: Figure 3.7: Booking Status Lifecycle
+FIGURE_PLACEHOLDER: state_booking
+
+The offline request lifecycle is simpler and entirely owner-controlled from the point of submission onward. A request begins in `status: "pending"` when a guest or anonymous visitor submits it through `POST /api/offline-requests`. An owner, acting through `PUT /api/offline-requests/:id/respond`, may then transition the request to `status: "responded"`, recording a `responseMessage` addressed to the submitter, or may transition it to `status: "closed"` if the request requires no further action. Both `responded` and `closed` are reachable directly from `pending`, and neither transition is available to the guest side of the workflow — the guest can only submit and subsequently view the status of their own request, never alter it.
+
+FIGURE_CAPTION: Figure 3.8: Offline Request Status Lifecycle
+FIGURE_PLACEHOLDER: state_offline
+
+The image verification lifecycle begins the moment an image clears the duplicate-hash checks described in Section 3.8 and is assigned `verificationStatus: "pending"` (or, in the case of a cross-listing duplicate hash match, is assigned `"suspicious"` immediately rather than passing through `"pending"` at all). From `pending`, the lifecycle is entirely admin-controlled: an administrator's decision through `PUT /api/admin/image-audit/:propertyId/:imageId` moves the image to exactly one of three terminal-for-this-image states — `verified`, `suspicious`, or `rejected` — with a `rejected` outcome additionally forcing the image's `aiScore` field to 0 as noted previously. Unlike the booking lifecycle, no further application-level transition out of these three end states is exposed through the current API; correcting an admin decision would require the image to be re-audited through the same endpoint rather than through any guest- or owner-initiated action.
+
+FIGURE_CAPTION: Figure 3.9: Image Verification Status Lifecycle
+FIGURE_PLACEHOLDER: state_image
+
+Turning from behaviour to deployment, IARS is designed to run as three independently startable processes during development, orchestrated through `concurrently`-style npm scripts rather than a single combined runtime. The client is served by the Vite development server on port 5173, compiling and hot-reloading the React SPA. The Express server runs as a standalone Node.js process on port 5000, establishing its own MongoDB connection at startup via the `MONGO_URI` environment variable and serving statically uploaded property images directly from the `server/uploads` directory through Express's static-file middleware, so that image URLs stored in `Property.images[].url` resolve directly against the running Express instance without a separate file-serving component. The sentiment microservice runs as a separate Uvicorn-hosted FastAPI process on port 8000, loading its joblib-serialised classifier pipeline into memory once at startup and serving inference requests from that in-memory model thereafter. All three services are configured exclusively through environment variables rather than hardcoded values — `PORT`, `MONGO_URI`, and `CLIENT_URL` for the Express server's networking and CORS behaviour; `SENTIMENT_API_URL` for locating the Python service; `JWT_SECRET` and `JWT_EXPIRES_IN` for authentication token signing; `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` for the payment integration; and a set of seed credentials used to bootstrap initial accounts — which allows the same codebase to be pointed at different database instances, client origins, or payment/webhook secrets across development and any future deployment target without code changes. Because the three services communicate exclusively over HTTP (the client to the Express API, the Express API to the sentiment microservice and to Stripe), each can, in principle, be relocated to a separate host or container without any change to the others beyond updating the relevant environment variable, even though the current development setup runs all three on a single machine under distinct ports.
+
+FIGURE_CAPTION: Figure 3.10: Deployment Diagram
+FIGURE_PLACEHOLDER: deployment

@@ -466,3 +466,11 @@ Review text → sentiment feature → ReviewAnalysisScore → combine with Bayes
 
 **Key formulas to remember:**  
 Personalized `0.42 / 0.28 / 0.30`, Cold start `0.55 / 0.45`, Bayesian `(avg·n + μ0·C)/(n+C)` with `C=4` and dynamic \(\mu_0\).
+
+---
+
+## 12. Client explanation script (1–5 minutes)
+
+For a spoken client / demo explanation with **exact code file references**, use:
+
+→ [recommendation-client-script.md](./recommendation-client-script.md)
