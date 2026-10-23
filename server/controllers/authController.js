@@ -7,6 +7,7 @@ const formatUser = (user) => ({
   email: user.email,
   phone: user.phone,
   role: user.role,
+  isSuperAdmin: user.role === "admin" && user.isSuperAdmin === true,
   languagePref: user.languagePref,
   isVerified: user.isVerified,
   createdAt: user.createdAt,

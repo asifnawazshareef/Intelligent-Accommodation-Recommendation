@@ -1,0 +1,326 @@
+.seed {
+  --seed-line: color-mix(in srgb, currentColor 16%, transparent);
+  max-width: 1400px;
+  margin: auto;
+  padding: 24px;
+}
+.seed h1 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+.seed h2,
+.seed-modal h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.seed p {
+  line-height: 1.6;
+}
+.seed-toolbar,
+.seed-inline,
+.seed-tabs,
+.seed-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.seed-toolbar {
+  justify-content: space-between;
+  margin: 18px 0;
+}
+.seed-actions {
+  margin-top: 18px;
+}
+.seed-tabs {
+  margin: 20px 0;
+  border-bottom: 1px solid var(--seed-line);
+  padding-bottom: 12px;
+}
+.seed button,
+.seed-modal button,
+.seed select,
+.seed input,
+.seed textarea,
+.seed-modal select,
+.seed-modal input,
+.seed-modal textarea {
+  font: inherit;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: var(--background, white);
+  color: inherit;
+  max-width: 100%;
+}
+.seed button,
+.seed-modal button {
+  cursor: pointer;
+  min-height: 42px;
+  font-weight: 600;
+}
+.seed button:hover,
+.seed-modal button:hover {
+  background: color-mix(in srgb, #168b83 12%, transparent);
+}
+.seed button:disabled,
+.seed-modal button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.seed .seed-primary,
+.seed-modal .seed-primary {
+  background: #116f69;
+  color: white;
+  border-color: #116f69;
+}
+.seed .seed-danger,
+.seed-modal .seed-danger {
+  color: #bd302d;
+  border-color: #d48d8b;
+}
+.seed input[type="checkbox"],
+.seed-modal input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #116f69;
+}
+.seed button:focus-visible,
+.seed-modal button:focus-visible,
+.seed input:focus-visible,
+.seed select:focus-visible,
+.seed-modal input:focus-visible,
+.seed-modal select:focus-visible,
+.seed-modal textarea:focus-visible {
+  outline: 3px solid #26a69a;
+  outline-offset: 2px;
+}
+.seed-card {
+  border: 1px solid var(--seed-line);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 16px 0;
+  background: color-mix(in srgb, var(--background, white) 95%, #168b83);
+}
+.seed-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.seed-stat {
+  border: 1px solid var(--seed-line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.seed-stat strong {
+  display: block;
+  font-size: 1.8rem;
+  color: #168b83;
+}
+.seed-muted {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+.seed-notice {
+  border: 1px solid #dc9c73;
+  background: color-mix(in srgb, #ffb558 15%, transparent);
+  padding: 14px;
+  border-radius: 10px;
+  margin: 12px 0;
+}
+.seed-error {
+  border: 1px solid #d88b8b;
+  background: color-mix(in srgb, #ff5252 12%, transparent);
+  padding: 14px;
+  border-radius: 10px;
+  margin: 12px 0;
+}
+.seed-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--seed-line);
+  border-radius: 12px;
+}
+.seed table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 700px;
+}
+.seed th,
+.seed td {
+  padding: 12px 14px;
+  text-align: start;
+  border-bottom: 1px solid var(--seed-line);
+  max-width: 330px;
+  overflow-wrap: anywhere;
+}
+.seed th {
+  background: color-mix(in srgb, #168b83 7%, transparent);
+  font-size: 0.8rem;
+}
+.seed td small {
+  display: block;
+  opacity: 0.7;
+}
+.seed td button {
+  padding: 5px 9px;
+  min-height: 36px;
+  font-size: 0.8rem;
+}
+.seed-badge {
+  display: inline-block;
+  border-radius: 30px;
+  padding: 3px 9px;
+  background: color-mix(in srgb, #168b83 13%, transparent);
+  font-size: 0.78rem;
+  color: #168b83;
+}
+.seed-modal {
+  color: var(--foreground, #183c3b);
+  background: var(--background, white);
+  border: 1px solid #799d97;
+  border-radius: 18px;
+  padding: 24px;
+  width: min(850px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  margin: auto;
+  box-shadow: 0 20px 100px #0005;
+}
+.seed-modal::backdrop {
+  background: #092d3b88;
+  backdrop-filter: blur(3px);
+}
+.seed-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.seed-modal-head button {
+  font-size: 24px;
+  padding: 0;
+  width: 42px;
+}
+.seed-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.seed-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+.seed-field > label {
+  font-weight: 600;
+}
+.seed-field textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+.seed-span {
+  grid-column: 1/-1;
+}
+.seed-reference {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.seed-modal fieldset {
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  padding: 12px;
+  border-radius: 10px;
+}
+.seed-modal legend {
+  padding: 0 7px;
+  font-weight: 650;
+}
+.seed-modal pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  background: color-mix(in srgb, #168b83 8%, transparent);
+  padding: 15px;
+  border-radius: 10px;
+  margin: 12px 0;
+}
+.seed-job {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--seed-line);
+}
+.seed-job progress {
+  width: 100%;
+  height: 8px;
+  accent-color: #168b83;
+}
+.seed-job-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.seed-modal dl {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 3fr;
+  gap: 12px;
+}
+.seed-modal dd {
+  overflow-wrap: anywhere;
+}
+.seed-modal dt {
+  font-weight: 650;
+}
+@media (max-width: 700px) {
+  .seed {
+    padding: 16px 10px;
+  }
+  .seed-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .seed-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .seed-modal {
+    padding: 17px;
+  }
+  .seed-toolbar {
+    align-items: stretch;
+  }
+  .seed-toolbar > div {
+    width: 100%;
+  }
+  .seed-toolbar select {
+    width: 100%;
+  }
+  .seed-tabs button {
+    flex: 1;
+  }
+  .seed-modal dl {
+    grid-template-columns: 1fr;
+  }
+  .seed-inline > .seed-field {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
+.seed .seed-primary:hover,
+.seed-modal .seed-primary:hover {
+  background: #0c5a55;
+}
+.seed-scroll-hint {
+  display: none;
+}
+@media (max-width: 700px) {
+  .seed-scroll-hint {
+    display: block;
+    margin: 8px 0;
+  }
+}

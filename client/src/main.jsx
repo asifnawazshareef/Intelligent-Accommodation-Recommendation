@@ -24,6 +24,7 @@ import OwnerPropertyEditPage from "./pages/owner/OwnerPropertyEditPage.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminImageAuditPage from "./pages/admin/AdminImageAuditPage.jsx";
 import AdminListingsPage from "./pages/admin/AdminListingsPage.jsx";
+import SeedDashboard from "./pages/admin/seed/SeedDashboard.jsx";
 import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
 import OfflineBookingPage from "./pages/OfflineBookingPage.jsx";
 import OwnerOfflineRequestsPage from "./pages/owner/OwnerOfflineRequestsPage.jsx";
@@ -176,6 +177,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 </RoleBasedRoute>
               }
             />
+            <Route path="/admin/seed" element={<RoleBasedRoute allowedRoles={["admin"]}><SeedDashboard /></RoleBasedRoute>} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

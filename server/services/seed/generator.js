@@ -1,0 +1,166 @@
+import { Faker, en } from "@faker-js/faker";
+import { recipe, stableId } from "./config.js";
+const day = 86400000;
+const date = (base, offset) =>
+  new Date(new Date(base).getTime() + offset * day).toISOString().slice(0, 10);
+const timestamp = (base, offset) =>
+  new Date(new Date(base).getTime() + offset * day);
+const comments = {
+  positive: [
+    "The room was spotless and the staff were helpful.",
+    "The bed was comfortable and the location was convenient.",
+    "Breakfast was fresh and the service was excellent.",
+  ],
+  negative: [
+    "The room was dirty and the staff were unhelpful.",
+    "The room was noisy and the bed was uncomfortable.",
+    "The wifi failed and the service was disappointing.",
+  ],
+  neutral: [
+    "The room was acceptable and the service was ordinary.",
+    "It was a standard stay with basic facilities.",
+    "The location and price were about average.",
+  ],
+  mixed: [
+    "The staff were friendly, but the room was noisy.",
+    "The location was excellent, but the bathroom was dirty.",
+    "The bed was comfortable, but the wifi was unreliable.",
+  ],
+};
+export function fixture(faker, sentiment, nights) {
+  const rating =
+    sentiment === "positive"
+      ? faker.number.int({ min: 4, max: 5 })
+      : sentiment === "negative"
+        ? faker.number.int({ min: 1, max: 2 })
+        : 3;
+  return {
+    rating,
+    text: `${faker.helpers.arrayElement(comments[sentiment])}${nights ? ` We stayed for ${nights} nights.` : ""}`,
+    sentiment,
+    sentimentScore: 0,
+    aspects: [],
+    aspectInsights: [],
+    summary: "Synthetic demo feedback. Not a model prediction.",
+  };
+}
+export function buildDataset(namespace, input, generation = "initial") {
+  const c = recipe(input);
+  const faker = new Faker({ locale: [en] });
+  faker.seed(c.seed);
+  faker.setDefaultRefDate(`${c.referenceDate}T00:00:00.000Z`);
+  const items = [];
+  const owners = [];
+  const guests = [];
+  const properties = [];
+  const approved = Math.floor((c.properties * c.approvedPercent) / 100);
+  const earliest = -(Math.ceil(c.reviews / Math.max(approved, 1)) * 7 + 60);
+  const add = (entity, key, payload, rate) => {
+    const logicalKey = `${generation}:${key}`;
+    const item = {
+      entity,
+      key: logicalKey,
+      payload: { _id: stableId(namespace, logicalKey), ...payload },
+      ...(rate != null && { rate }),
+    };
+    items.push(item);
+    return item.payload;
+  };
+  for (const [role, count, target] of [
+    ["owner", c.owners, owners],
+    ["guest", c.guests, guests],
+  ]) {
+    for (let i = 0; i < count; i++)
+      target.push(
+        add("users", `${role}:${i}`, {
+          name: faker.person.fullName(),
+          email: `${role}.${stableId(namespace, generation, String(i))}@example.test`,
+          role,
+          phone: "",
+          isVerified: true,
+          languagePref: "en",
+          createdAt: timestamp(c.referenceDate, earliest - 30),
+          updatedAt: timestamp(c.referenceDate, earliest - 30),
+        }),
+      );
+  }
+  for (let i = 0; i < c.properties; i++) {
+    const city = faker.helpers.arrayElement(c.cities);
+    properties.push(
+      add("properties", `property:${i}`, {
+        title: `${faker.word.adjective()} ${faker.helpers.arrayElement(["Guest House", "City Apartment", "Family Suite", "Mountain Lodge"])} in ${city}`,
+        description: `${faker.lorem.sentences(2)} Comfortable rooms, parking and wifi. Synthetic FYP listing.`,
+        location: {
+          address: `${faker.location.buildingNumber()} ${faker.location.street()}`,
+          city,
+          country: "Pakistan",
+        },
+        price: faker.number.int({ min: c.minPrice, max: c.maxPrice }),
+        owner: owners[i % owners.length]._id,
+        status: i < approved ? "approved" : i % 2 ? "pending" : "rejected",
+        images: [
+          {
+            url: "/seed/property.svg",
+            verificationStatus: i < approved ? "verified" : "pending",
+            aiScore: 0,
+            uploadedAt: timestamp(c.referenceDate, earliest - 20),
+          },
+        ],
+        availabilityCalendar: [
+          {
+            startDate: date(c.referenceDate, earliest),
+            endDate: date(c.referenceDate, 365),
+          },
+        ],
+        createdAt: timestamp(c.referenceDate, earliest - 20),
+        updatedAt: timestamp(c.referenceDate, earliest - 20),
+      }),
+    );
+  }
+  for (let i = 0; i < c.reviews; i++) {
+    const p = properties[i % approved];
+    const guest = guests[i % guests.length];
+    const offset = -(Math.floor(i / approved) * 7 + 14);
+    const nights = faker.number.int({ min: 1, max: 5 });
+    const booking = add(
+      "bookings",
+      `booking:${i}`,
+      {
+        guest: guest._id,
+        property: p._id,
+        startDate: date(c.referenceDate, offset),
+        endDate: date(c.referenceDate, offset + nights),
+        guests: faker.number.int({ min: 1, max: 4 }),
+        totalAmount: p.price * nights,
+        status: "confirmed",
+        paymentStatus: "confirmed",
+        paymentMethod: "demo",
+        paymentConfirmedAt: timestamp(c.referenceDate, offset - 1),
+        createdAt: timestamp(c.referenceDate, offset - 2),
+        updatedAt: timestamp(c.referenceDate, offset - 1),
+      },
+      p.price,
+    );
+    const roll = faker.number.int({ min: 0, max: 99 });
+    const sentiment =
+      roll < c.positivePercent
+        ? "positive"
+        : roll < c.positivePercent + c.negativePercent
+          ? "negative"
+          : roll < c.positivePercent + c.negativePercent + c.neutralPercent
+            ? "neutral"
+            : "mixed";
+    add("reviews", `review:${i}`, {
+      booking: booking._id,
+      guest: guest._id,
+      property: p._id,
+      ...fixture(faker, sentiment, nights),
+      createdAt: timestamp(c.referenceDate, offset + nights + 1),
+      updatedAt: timestamp(c.referenceDate, offset + nights + 1),
+    });
+  }
+  const order = ["users", "properties", "bookings", "reviews"];
+  return items.sort(
+    (a, b) => order.indexOf(a.entity) - order.indexOf(b.entity),
+  );
+}
