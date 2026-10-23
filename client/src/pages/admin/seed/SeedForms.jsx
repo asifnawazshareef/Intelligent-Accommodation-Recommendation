@@ -435,3 +435,24 @@ export function GenerationFields({ value, onChange }) {
     </div>
   );
 }
+
+export function PresetPicker({ presets, descriptions, onSelect }) {
+  return (
+    <fieldset>
+      <legend>Ready made data</legend>
+      <p>Choose a scenario. Names, emails, dates and relationships are filled automatically.
+        Review sample records in the generation preview.</p>
+      <div className="seed-preset-grid">
+        {Object.entries(presets || {}).map(([key, recipe]) => (
+          <button type="button" key={key} onClick={() => onSelect(recipe, key)}>
+            <strong>{descriptions?.[key] || key}</strong>
+            <span>{recipe.owners} owners · {recipe.guests} guests · {recipe.properties} properties</span>
+            <span>{recipe.reviews} bookings · {recipe.reviews} reviews</span>
+          </button>
+        ))}
+      </div>
+      <p>Review scenarios include the users, properties and historical bookings they need.
+        Generated users are guests or owners.</p>
+    </fieldset>
+  );
+}

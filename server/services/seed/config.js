@@ -19,10 +19,48 @@ export const cities = [
   "Swat",
   "Rawalpindi",
 ];
-export const presets = {
-  small: { owners: 3, guests: 12, properties: 20, reviews: 60 },
-  standard: { owners: 50, guests: 450, properties: 1000, reviews: 5000 },
+// Shared by the dashboard and CLI. Every preset is a complete recipe so
+// switching scenarios cannot retain settings from the previous selection.
+const presetBase = {
+  owners: 3, guests: 12, properties: 20, reviews: 60,
+  seed: 42, cities, minPrice: 4000, maxPrice: 45000,
+  approvedPercent: 90, positivePercent: 55, negativePercent: 15,
+  neutralPercent: 15,
 };
+export const presetDescriptions = {
+  small: "Quick demo",
+  standard: "Large FYP dataset",
+  guests: "Guests only",
+  owners: "Owners only",
+  users: "Guests and owners",
+  listings: "Properties with owners",
+  budget: "Budget accommodation",
+  premium: "Premium accommodation",
+  islamabad: "Islamabad city demo",
+  lahore: "Lahore city demo",
+  mountains: "Mountain destinations",
+  positive: "Positive review examples",
+  negative: "Negative review examples",
+  neutral: "Neutral review examples",
+  mixed: "Mixed review examples",
+};
+export const presets = Object.fromEntries(Object.entries({
+  small: {},
+  standard: { owners: 50, guests: 450, properties: 1000, reviews: 5000 },
+  guests: { owners: 0, guests: 50, properties: 0, reviews: 0 },
+  owners: { owners: 20, guests: 0, properties: 0, reviews: 0 },
+  users: { owners: 10, guests: 50, properties: 0, reviews: 0 },
+  listings: { owners: 10, guests: 0, properties: 50, reviews: 0, approvedPercent: 100 },
+  budget: { minPrice: 1500, maxPrice: 5000, approvedPercent: 100 },
+  premium: { minPrice: 25000, maxPrice: 80000, approvedPercent: 100 },
+  islamabad: { cities: ["Islamabad"], approvedPercent: 100 },
+  lahore: { cities: ["Lahore"], approvedPercent: 100 },
+  mountains: { cities: ["Murree", "Hunza", "Skardu", "Swat"], approvedPercent: 100 },
+  positive: { positivePercent: 100, negativePercent: 0, neutralPercent: 0 },
+  negative: { positivePercent: 0, negativePercent: 100, neutralPercent: 0 },
+  neutral: { positivePercent: 0, negativePercent: 0, neutralPercent: 100 },
+  mixed: { positivePercent: 0, negativePercent: 0, neutralPercent: 0 },
+}).map(([key, values]) => [key, { ...presetBase, ...values }]));
 export const integer = (value, label, min = 0, max = 20000) => {
   const n = Number(value);
   assert(

@@ -9,6 +9,7 @@ import {
   Modal,
   RecordFields,
   GenerationFields,
+  PresetPicker,
   ReferenceSelect,
 } from "./SeedForms";
 import { defaults, editable } from "./seedFormData";
@@ -274,8 +275,8 @@ export default function SeedDashboard() {
             disabled={busy || !cap?.transactions}
             onClick={() => {
               setDraft({
-                name: "",
-                namespace: "",
+                name: "FYP demo",
+                namespace: `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
                 recipe: { ...initialRecipe },
               });
               open("dataset");
@@ -943,26 +944,18 @@ export default function SeedDashboard() {
                     />
                   </Field>
                 </div>
-                <div className="seed-actions">
-                  {["small", "standard"].map((p) => (
-                    <button
-                      type="button"
-                      key={p}
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          recipe: { ...draft.recipe, ...cap.presets[p] },
-                        })
-                      }
-                    >
-                      {tr(p, p)}
-                    </button>
-                  ))}
-                </div>
+                <PresetPicker presets={cap.presets} descriptions={cap.presetDescriptions}
+                  onSelect={(recipe, key) => setDraft({ ...draft,
+                    name: cap.presetDescriptions?.[key] || key,
+                    recipe: { ...recipe, referenceDate: new Date().toISOString().slice(0, 10) },
+                  })} />
+                <details>
+                  <summary>Customize counts and settings (optional)</summary>
                 <GenerationFields
                   value={draft.recipe}
                   onChange={(v) => setDraft({ ...draft, recipe: v })}
                 />
+                </details>
                 <div className="seed-actions">
                   <button className="seed-primary" disabled={busy}>
                     {tr("createDataset", "Create dataset")}
@@ -972,6 +965,13 @@ export default function SeedDashboard() {
             )}
             {modal.type === "generate" && (
               <>
+                {modal.kind === "append" && (
+                  <PresetPicker presets={cap.presets} descriptions={cap.presetDescriptions}
+                    onSelect={(recipe) => {
+                      setDraft({ ...recipe, referenceDate: new Date().toISOString().slice(0, 10) });
+                      setPreview(null);
+                    }} />
+                )}
                 <GenerationFields
                   value={draft}
                   onChange={(v) => {

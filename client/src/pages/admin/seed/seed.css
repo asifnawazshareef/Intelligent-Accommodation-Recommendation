@@ -324,3 +324,7 @@
     margin: 8px 0;
   }
 }
+
+.seed-preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .75rem; }
+.seed-preset-grid button { display: flex; flex-direction: column; gap: .4rem; text-align: start; padding: 1rem; white-space: normal; }
+.seed-preset-grid span { font-size: .85rem; }

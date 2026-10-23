@@ -191,3 +191,33 @@ A CI workflow runs integration tests, client lint, and the production build. The
 Implementation references: [Faker usage](https://fakerjs.dev/guide/usage.html), [Mongoose transactions and AsyncLocalStorage](https://mongoosejs.com/docs/transactions.html).
 
 See [verification results](SEED_VERIFICATION.md) for the checks performed and their limits.
+
+## Ready made scenarios
+
+New dataset now offers 15 presets: Quick demo, Large FYP dataset, Guests only,
+Owners only, Guests and owners, Properties with owners, Budget accommodation,
+Premium accommodation, Islamabad city demo, Lahore city demo, Mountain destinations,
+Positive review examples, Negative review examples, Neutral review examples and
+Mixed review examples.
+
+Open Seed Data, choose New dataset and select a scenario. The name and unique
+namespace are filled automatically. Counts, prices, cities and sentiment settings
+are supplied by the preset. Customize counts and settings is optional. Create the
+dataset, preview the generated samples, then start generation. Keep the worker running.
+The same presets are available under Add more data on an existing dataset.
+
+Each card states exactly how many owners, guests, properties, bookings and reviews
+it creates. Review presets include all required related records. They do not add
+reviews to existing real bookings. Each review includes a historical confirmed demo
+booking. Generated accounts never receive admin or super admin access. All existing
+preview, transaction, provenance, CRUD and bulk protections remain in effect.
+
+CLI example (preview only, no database writes):
+
+```sh
+node scripts/seedFaker.js --preset budget
+```
+
+Valid preset keys: small, standard, guests, owners, users, listings, budget, premium,
+islamabad, lahore, mountains, positive, negative, neutral, mixed. Use only one of
+`--preset`, `--standard`, or `--config`. Existing apply options still apply.

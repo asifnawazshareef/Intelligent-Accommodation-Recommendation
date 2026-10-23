@@ -18,6 +18,7 @@ import {
   integer,
   fingerprint,
   presets,
+  presetDescriptions,
   cities,
 } from "../services/seed/config.js";
 import {
@@ -60,7 +61,7 @@ router.use(protect, async (req, res, next) => {
 router.get(
   "/capabilities",
   handler(async (req, res) =>
-    res.json({ ...(await capabilities()), presets, cities }),
+    res.json({ ...(await capabilities()), presets, presetDescriptions, cities }),
   ),
 );
 router.get(

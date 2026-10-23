@@ -24,6 +24,7 @@ try {
       [
         "--apply",
         "--standard",
+        "--preset",
         "--config",
         "--namespace",
         "--actor",
@@ -32,7 +33,7 @@ try {
       `Unknown argument: ${args[i]}`,
     );
     const key = args[i];
-    if (["--config", "--namespace", "--actor"].includes(key)) {
+    if (["--config", "--namespace", "--actor", "--preset"].includes(key)) {
       assert(
         args[i + 1] && !args[i + 1].startsWith("--"),
         `Supply a value for ${key}.`,
@@ -42,12 +43,16 @@ try {
       options[key] = true;
     }
   }
+  assert(!options["--preset"] || Object.hasOwn(presets, options["--preset"]),
+    `Choose a preset: ${Object.keys(presets).join(", ")}`);
+  assert([options["--preset"], options["--standard"], options["--config"]].filter(Boolean).length <= 1,
+    "Choose only one of --preset, --standard or --config.");
   let config = recipe(
     options["--config"]
       ? JSON.parse(await fs.readFile(options["--config"], "utf8"))
       : options["--standard"]
         ? presets.standard
-        : presets.small,
+        : presets[options["--preset"] || "small"],
   );
   const namespace = options["--namespace"] || "fyp_demo";
   if (!options["--apply"]) {
