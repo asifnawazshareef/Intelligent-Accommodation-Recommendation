@@ -125,6 +125,18 @@ test('retry after pauses the source and retries respect the full requested delay
  assert.equal(calls,2);assert.ok(times[1]-times[0]>=30000);
 });
 
+test('an access restriction also stops requests already waiting in the source queue', async()=>{
+ let clock=0,calls=0,release;
+ const waiting=new Promise(resolve=>{release=resolve;});
+ const client=new PublicClient({intervalMs:1000,now:()=>clock,wait:async ms=>{await waiting;clock+=ms;},fetcher:async()=>{
+   calls++;return{status:403,headers:{},data:Buffer.from('Access denied')};
+ }});
+ const first=client.request(url,{robots:true});
+ const queued=client.request(url,{robots:true});
+ await assert.rejects(()=>first,/restriction/);release();
+ await assert.rejects(()=>queued,/restriction/);assert.equal(calls,1);
+});
+
 
 test('bundled partial collection resumes without fetching saved records and rejects tampered trusted data', {skip:!collectedCatalogStatus().available}, async()=>{
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iars-bootstrap-'));

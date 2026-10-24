@@ -25,6 +25,7 @@ import {
 } from "../services/seed/management.js";
 import { runNextJob, controlJob } from "../services/seed/jobs.js";
 import { SeedRecord } from "../services/seed/models.js";
+import { collectedCatalog } from "../services/seed/pakistanCatalog.js";
 import seedRoutes from "../routes/seedRoutes.js";
 let repl, http, url, admin, ordinary, ds;
 const config = {
@@ -129,6 +130,25 @@ test("API rejects anonymous and ordinary admins", async () => {
   });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).transactions, true);
+});
+test("catalog city counts use the pinned snapshot and setup checks perform no writes", async () => {
+  const headers = { Authorization: `Bearer ${jwt.sign({ id: admin._id }, process.env.JWT_SECRET)}` };
+  const before = await models.users.countDocuments();
+  const setup = await (await fetch(`${url}/capabilities`, { headers })).json();
+  assert.equal(setup.setup.ready, true);
+  assert.equal(await models.users.countDocuments(), before);
+  const snapshot = collectedCatalog();
+  const response = await fetch(`${url}/catalog?source=pakistan_collected_v1&digest=${snapshot.digest}`, { headers });
+  assert.equal(response.status, 200);
+  const summary = await response.json();
+  assert.equal(summary.digest, snapshot.digest);
+  assert.equal(summary.cities.reduce((n, c) => n + c.properties, 0), snapshot.properties.length);
+  assert.equal(summary.sources.reduce((n, c) => n + c.photos, 0), snapshot.properties.reduce((n, p) => n + p.images.length, 0));
+  for (const city of summary.cities) assert.equal(city.properties, snapshot.properties.filter(p => p.city === city.city).length);
+  for (const query of ["source=synthetic", "source=pakistan_collected_v1&digest=../invalid", "source=pakistan_collected_v1"]) {
+    assert.equal((await fetch(`${url}/catalog?${query}`, { headers })).status, 400);
+  }
+  assert.equal((await fetch(`${url}/catalog?source=pakistan_v1`)).status, 401);
 });
 test("generation creates valid relationships and passwords, preserving existing records", async () => {
   const before = await models.users.findById(ordinary._id).lean();

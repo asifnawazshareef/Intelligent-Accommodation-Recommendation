@@ -299,6 +299,19 @@ export default function SeedDashboard() {
             )}
           </div>
         )}
+        {cap?.setup && <details className="seed-card">
+          <summary>Setup checks: {cap.setup.ready ? "ready" : "needs attention"}</summary>
+          <ul>{cap.setup.checks.map(check => <li key={check.code}>
+            <strong>{check.ok ? "Passed" : "Needs attention"}: {{
+              environment: "Demonstration environment", enabled: "Seed dashboard enabled",
+              connection: "Database connection", database: "Permitted database", transactions: "MongoDB transactions",
+              demoPassword: "Demo account password", batchSize: "Worker batch size", superAdmin: "Super admin account",
+            }[check.code] || check.code}</strong>
+            {!check.ok && <p>{check.message}</p>}
+          </li>)}</ul>
+          <p>{cap.setup.worker}</p>
+          <p>For setup problems, run <code>npm.cmd run seed:check</code> in the server folder.</p>
+        </details>}
         <div className="seed-toolbar">
           <Field label={tr("dataset", "Dataset")}>
             <select
@@ -957,6 +970,7 @@ export default function SeedDashboard() {
                 <details>
                   <summary>Customize counts and settings (optional)</summary>
                 <GenerationFields
+                  presets={cap.presets}
                   value={draft.recipe}
                   onChange={(v) => setDraft({ ...draft, recipe: v })}
                 />
@@ -978,6 +992,7 @@ export default function SeedDashboard() {
                     }} />
                 )}
                 <GenerationFields
+                  presets={cap.presets}
                   value={draft}
                   onChange={(v) => {
                     setDraft(v);

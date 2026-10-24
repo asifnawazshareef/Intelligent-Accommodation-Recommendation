@@ -383,7 +383,55 @@ export function RecordFields({ dataset, entity, value, onChange }) {
     </div>
   );
 }
-export function GenerationFields({ value, onChange }) {
+function CatalogCities({ value, onChange }) {
+  const [result, setResult] = useState(null);
+  const [search, setSearch] = useState("");
+  const [retry, setRetry] = useState(0);
+  const source = value.propertySource, digest = value.catalogDigest;
+  const key = `${source}:${digest || ""}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    api.get("/admin/seed/catalog", { params: { source, ...(digest && { digest }) }, signal: controller.signal })
+      .then(r => { if (!controller.signal.aborted) setResult({ key: `${source}:${digest || ""}`, data: r.data }); })
+      .catch(e => { if (!controller.signal.aborted) setResult({ key: `${source}:${digest || ""}`, error: e.response?.data?.message || "Could not load catalog cities." }); });
+    return () => controller.abort();
+  }, [source, digest, retry]);
+  const summary = result?.key === key ? result : null;
+  const folded = text => text.normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase();
+  const all = summary?.data?.cities || [];
+  const selected = new Set(value.cities);
+  const available = all.filter(c => selected.has(c.city)).reduce((n, c) => n + c.properties, 0);
+  const apply = next => {
+    const count = all.filter(c => next.includes(c.city)).reduce((n, c) => n + c.properties, 0);
+    onChange({ ...value, cities: next, properties: count ? Math.min(value.properties || count, count) : 0 });
+  };
+  return <fieldset className="seed-span seed-city-picker">
+    <legend>Catalog cities</legend>
+    {!summary && <p role="status">Checking city availability…</p>}
+    {summary?.error && <><p role="alert">{summary.error}</p><button type="button" onClick={() => setRetry(n => n + 1)}>Retry city lookup</button></>}
+    {summary?.data && <>
+      <Field label="Search catalog cities"><input type="search" value={search} onChange={e => setSearch(e.target.value)} /></Field>
+      <div className="seed-actions">
+        <button type="button" onClick={() => apply(all.map(c => c.city))}>Select all cities</button>
+        <button type="button" onClick={() => apply([])}>Clear cities</button>
+        <button type="button" disabled={!available} onClick={() => onChange({ ...value, properties: available })}>Use all {available} properties</button>
+      </div>
+      <p role="status">{value.cities.length} {value.cities.length === 1 ? "city" : "cities"} selected · {available} properties available · {value.properties} requested</p>
+      {!value.cities.length && <p role="alert">Select at least one city before continuing.</p>}
+      {value.properties > available && <p role="alert">Reduce the property count to {available} or select more cities.</p>}
+      <div className="seed-city-options">
+        {all.filter(c => folded(c.city).includes(folded(search))).map(c => <label key={c.city}>
+          <input type="checkbox" checked={selected.has(c.city)} onChange={e => apply(e.target.checked ? [...value.cities, c.city] : value.cities.filter(city => city !== c.city))} />
+          <span>{c.city} ({c.properties} {c.properties === 1 ? "property" : "properties"})</span>
+        </label>)}
+      </div>
+      {!all.some(c => folded(c.city).includes(folded(search))) && <p>No matching cities.</p>}
+      <p className="seed-muted">City counts use the exact catalog saved in this recipe. Narrowing cities reduces the requested count when necessary.</p>
+    </>}
+  </fieldset>;
+}
+
+export function GenerationFields({ value, onChange, presets = {} }) {
   const { t } = useTranslation();
   const tr = (k, s) => t(`seed.${k}`, s);
   const set = (k, v) => onChange({ ...value, [k]: v });
@@ -391,12 +439,17 @@ export function GenerationFields({ value, onChange }) {
     <div className="seed-form-grid">
       <Field label="Property data source">
         <select value={value.propertySource || "synthetic"}
-          onChange={(e) => set("propertySource", e.target.value)}>
+          onChange={(e) => {
+            const source = e.target.value;
+            const recipe = source === "pakistan_v1" ? presets.pakistan : source === "pakistan_collected_v1" ? presets.pakistanCollected : presets.small;
+            if (recipe) onChange({ ...recipe, propertySource: source, referenceDate: value.referenceDate });
+          }}>
           <option value="synthetic">Generated demo properties</option>
           <option value="pakistan_v1">Real Pakistani property catalog</option>
-          {value.propertySource === "pakistan_collected_v1" && <option value="pakistan_collected_v1">Collected Pakistani properties</option>}
+          {(presets.pakistanCollected || value.propertySource === "pakistan_collected_v1") && <option value="pakistan_collected_v1">Collected Pakistani properties</option>}
         </select>
       </Field>
+      <p className="seed-span seed-muted">Changing the property source loads its preset counts and cities. Review them before continuing.</p>
       {value.propertySource === "pakistan_collected_v1" && <p className="seed-span seed-muted">
         Real property names, locations and 2 to 5 matching photos from source galleries.
         Photos load from their external sources. Prices, owners, bookings and reviews are demo data.
@@ -437,7 +490,7 @@ export function GenerationFields({ value, onChange }) {
           onChange={(e) => set("referenceDate", e.target.value)}
         />
       </Field>
-      <Field label={tr("cities", "Cities, separated by commas")}>
+      {["pakistan_v1", "pakistan_collected_v1"].includes(value.propertySource) ? <CatalogCities value={value} onChange={onChange} /> : <Field label={tr("cities", "Cities, separated by commas")}>
         <input
           required
           value={value.cities.join(", ")}
@@ -448,7 +501,7 @@ export function GenerationFields({ value, onChange }) {
             )
           }
         />
-      </Field>
+      </Field>}
       <p className="seed-muted">
         {tr(
           "bookingHint",
@@ -460,14 +513,23 @@ export function GenerationFields({ value, onChange }) {
 }
 
 export function PresetPicker({ presets, descriptions, onSelect }) {
+  const [expanded, setExpanded] = useState(true);
+  const [search, setSearch] = useState("");
+  const toggle = useRef(null);
+  const id = useId();
+  const options = Object.entries(presets || {}).filter(([key]) => `${key} ${descriptions?.[key] || ""}`.toLowerCase().includes(search.trim().toLowerCase()));
   return (
     <fieldset>
       <legend>Ready made data</legend>
-      <p>Choose a scenario. Names, emails, dates and relationships are filled automatically.
+      <button ref={toggle} type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}>{expanded ? "Hide presets" : "Change preset"}</button>
+      {!expanded && <p role="status">Preset settings loaded. Review the counts and property source below.</p>}
+      <div id={id} hidden={!expanded}>
+        <p>Choose a scenario. Names, emails, dates and relationships are filled automatically.
         Review sample records in the generation preview.</p>
+      <Field label="Find a data preset"><input type="search" value={search} onChange={e => setSearch(e.target.value)} /></Field>
       <div className="seed-preset-grid">
-        {Object.entries(presets || {}).map(([key, recipe]) => (
-          <button type="button" key={key} onClick={() => onSelect(recipe, key)}>
+        {options.map(([key, recipe]) => (
+          <button type="button" key={key} onClick={() => { setExpanded(false); onSelect(recipe, key); toggle.current?.focus(); }}>
             <strong>{descriptions?.[key] || key}</strong>
             <span>{recipe.owners} owners · {recipe.guests} guests · {recipe.properties} properties</span>
             <span>{recipe.reviews} bookings · {recipe.reviews} reviews</span>
@@ -475,8 +537,10 @@ export function PresetPicker({ presets, descriptions, onSelect }) {
           </button>
         ))}
       </div>
+      {!options.length && <p>No matching presets. Try a different search.</p>}
       <p>Review scenarios include the users, properties and historical bookings they need.
         Generated users are guests or owners.</p>
+      </div>
     </fieldset>
   );
 }

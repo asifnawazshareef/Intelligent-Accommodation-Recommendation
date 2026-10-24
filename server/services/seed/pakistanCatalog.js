@@ -39,3 +39,22 @@ export function collectedCatalogStatus() {
       cities: [...new Set(c.properties.map(p => p.city))] };
   } catch { return { available: 0, target: 1500, ready: false, digest: null, sources: [], cities: [], images: 0 }; }
 }
+
+export function catalogSummary(source, digest) {
+  if (!["pakistan_v1", "pakistan_collected_v1"].includes(source)) throw new Error("Unknown property catalog.");
+  const data = source === "pakistan_collected_v1" ? collectedCatalog(digest) : { properties: pakistanCatalog, digest: null };
+  const cities = new Map(), sources = new Map();
+  for (const property of data.properties) {
+    const photos = property.images.length;
+    for (const [map, key] of [[cities, property.city], [sources, new URL(property.sourceUrl).hostname]]) {
+      const counts = map.get(key) || { properties: 0, photos: 0 };
+      counts.properties++; counts.photos += photos; map.set(key, counts);
+    }
+  }
+  return {
+    source, digest: data.digest, available: data.properties.length,
+    photos: data.properties.reduce((n, p) => n + p.images.length, 0),
+    cities: [...cities].map(([city, counts]) => ({ city, ...counts })).sort((a, b) => a.city.localeCompare(b.city)),
+    sources: [...sources].map(([host, counts]) => ({ host, ...counts })),
+  };
+}

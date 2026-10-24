@@ -1,4 +1,5 @@
-import { pakistanCatalogCities, pakistanCatalog, collectedCatalogStatus } from "../services/seed/pakistanCatalog.js";
+import { pakistanCatalogCities, pakistanCatalog, collectedCatalogStatus, catalogSummary } from "../services/seed/pakistanCatalog.js";
+import { checkSeedSetup } from "../services/seed/readiness.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { SeedDataset, SeedJob, SeedAudit } from "../services/seed/models.js";
@@ -62,9 +63,16 @@ router.use(protect, async (req, res, next) => {
 router.get(
   "/capabilities",
   handler(async (req, res) =>
-    res.json({ ...(await capabilities()), presets: getSeedPresets(), presetDescriptions, cities, collectedCatalog: collectedCatalogStatus(), propertyCatalog: { count: pakistanCatalog.length, cities: pakistanCatalogCities } }),
+    res.json({ ...(await capabilities()), setup: await checkSeedSetup(), presets: getSeedPresets(), presetDescriptions, cities, collectedCatalog: collectedCatalogStatus(), propertyCatalog: { count: pakistanCatalog.length, cities: pakistanCatalogCities } }),
   ),
 );
+router.get("/catalog", handler(async (req, res) => {
+  const { source, digest } = req.query;
+  assert(["pakistan_v1", "pakistan_collected_v1"].includes(source), "Choose a valid property catalog.");
+  assert(source !== "pakistan_collected_v1" || typeof digest === "string" && /^[a-f0-9]{64}$/.test(digest), "Choose a valid catalog snapshot.");
+  try { res.json(catalogSummary(source, digest)); }
+  catch { throw new SeedError("The selected catalog is missing or damaged. Restore its snapshot before retrying."); }
+}));
 router.get(
   "/datasets",
   handler(async (req, res) => {

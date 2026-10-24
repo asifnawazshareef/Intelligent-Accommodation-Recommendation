@@ -24,7 +24,8 @@
     "seed:pakistan": "npm run seed:pakistan --prefix server",
     "seed:collect:pakistan": "npm run seed:collect:pakistan --prefix server",
     "seed:pakistan1500": "npm run seed:pakistan1500 --prefix server",
-    "seed:pakistan:collected": "npm run seed:pakistan:collected --prefix server"
+    "seed:pakistan:collected": "npm run seed:pakistan:collected --prefix server",
+    "seed:check": "npm run seed:check --prefix server"
   },
   "keywords": [],
   "author": "",

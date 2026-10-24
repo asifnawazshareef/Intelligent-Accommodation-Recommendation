@@ -59,6 +59,7 @@ export class PublicClient {
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         await this.gate(u.hostname, image, signal);
+        if (this.blocked.has(u.hostname)) throw new Error("Source stopped after an access restriction.");
         const r = await this.fetcher(url, { responseType: "arraybuffer", timeout: image ? 8000 : 20000, maxRedirects: 0, signal,
           maxContentLength: image ? 2_000_000 : 4_000_000,
           headers: { "User-Agent": agent, Accept: image ? "image/*" : "text/html,text/plain" }, validateStatus: () => true });

@@ -112,3 +112,30 @@ checkpoint edits cannot grant trust, new collection work cannot mutate the cache
 trusted snapshot, and new records still require source evidence. Snapshot saves
 now use one consistent view for the checkpoint, report and catalog while requests
 continue in flight.
+
+
+## Setup and city selection enhancements
+
+The regression suite includes authenticated catalog summaries pinned by digest,
+city and source totals checked against the actual snapshot, invalid digest and
+source rejection, and setup checks against the test database. Diagnostic tests
+cover disconnected MongoDB, database mismatches, unsupported transactions, missing
+super admin privileges and invalid demo settings. The Windows CLI test checks its
+exit code and verifies that an invalid connection URI and credentials are absent
+from output. No permissions are granted by diagnostics.
+
+A network regression verifies that source access denial also cancels queued
+requests before another HTTP call. The collection data remains at 1096 properties
+and 2195 photo references; these changes add no unverified records.
+
+
+The latest default seed suite reports 41 tests: 39 pass, zero fail, and the two
+optional database load tests are skipped. The earlier complete 10364 record
+import remains documented above; the enhancements do not change generation or
+stored records. Client build and lint pass with existing unrelated warnings.
+A new browser exercise verifies setup readiness, preset search and collapse,
+source switching followed by successful saved previews for synthetic, six property
+and collected catalogs, accent insensitive city search, city count adjustment and
+the pinned digest. Desktop and 390 pixel mobile layouts pass without horizontal
+overflow or browser errors. The Lahore subset preview contains 79 properties and
+9347 total records with the unchanged preset user and review counts.

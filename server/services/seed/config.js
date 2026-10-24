@@ -163,7 +163,7 @@ export function recipe(input = {}) {
       result.cities.every(
         (c) => typeof c === "string" && c.trim().length > 0 && c.length < 80,
       ),
-    "Choose 1 to 20 cities.",
+    `Choose 1 to ${input.propertySource === "pakistan_collected_v1" ? 300 : 20} cities.`,
   );
   result.cities = [...new Set(result.cities.map((c) => c.trim()))];
   assert(input.propertySource === undefined || ["synthetic", "pakistan_v1", "pakistan_collected_v1"].includes(input.propertySource),

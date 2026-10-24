@@ -379,3 +379,47 @@ npm.cmd run seed:pakistan1500
 
 The preview fails clearly when the 1500 property snapshot is unavailable. The
 original synthetic presets and six property licensed photo catalog remain usable.
+
+
+## Setup check and city selection
+
+From the server folder on Windows, run:
+
+```sh
+npm.cmd run seed:check
+```
+
+This read only command checks the environment opt in, database connection, exact
+permitted database name, transaction support, demo password length, worker batch
+size and presence of a super admin. It prints a structured report and exits with
+code 0 when configuration checks pass, or 1 when something needs attention.
+Connection strings, credentials, passwords and account details are never printed.
+It does not create indexes, insert data, grant permissions or start a worker.
+Keep `npm.cmd run seed:worker` running separately. A ready report verifies setup,
+not a live worker. The dashboard exposes the same checks under **Setup checks**.
+
+For real property catalogs, expand **Customize counts and settings** when creating
+a dataset. Search **Catalog cities**, select cities and see the exact property
+count for each one. Searches ignore accents, so Islamabad also finds accented
+spellings published by source listings. Selecting cities uses their original
+catalog names. City counts are requested using the recipe's pinned snapshot,
+so later collections cannot silently change availability for saved recipes.
+
+Narrowing cities reduces the requested property count if needed. Use **Select all
+cities**, **Clear cities** or **Use all available properties** for quick changes.
+Select at least one city before continuing. The server validates the selected
+cities and count again when creating and previewing a dataset.
+
+Changing **Property data source** loads the full matching preset, including its
+counts and cities. Returning to generated demo properties or the six property
+catalog removes the old collected snapshot digest. The reference date is retained.
+Review settings and preview samples before starting generation.
+
+If a source denies access during collection, requests still waiting for that
+source are stopped before they reach the network. This does not override source
+restrictions or change the current collection count.
+
+
+The preset chooser includes **Find a data preset**. After choosing a preset, the
+list collapses so customization is easier to reach on mobile. **Change preset**
+reopens it. Search and city filtering happen locally without repeated API calls.
