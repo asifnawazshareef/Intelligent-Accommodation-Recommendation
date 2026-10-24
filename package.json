@@ -20,7 +20,8 @@
     "seed:faker": "npm run seed:faker --prefix server --",
     "seed:worker": "npm run seed:worker --prefix server --",
     "seed:grant": "npm run seed:grant --prefix server --",
-    "test:seed": "npm run test:seed --prefix server --"
+    "test:seed": "npm run test:seed --prefix server --",
+    "seed:pakistan": "npm run seed:pakistan --prefix server"
   },
   "keywords": [],
   "author": "",

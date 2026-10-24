@@ -19,7 +19,8 @@
     "seed:faker": "node scripts/seedFaker.js",
     "seed:worker": "node scripts/seedWorker.js",
     "seed:grant": "node scripts/grantSuperAdmin.js",
-    "test:seed": "node --test --test-concurrency=1 tests/seed*.test.js"
+    "test:seed": "node --test --test-concurrency=1 tests/seed*.test.js",
+    "seed:pakistan": "node scripts/seedFaker.js --preset pakistan"
   },
   "keywords": [],
   "author": "",

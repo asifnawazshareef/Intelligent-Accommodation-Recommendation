@@ -1,5 +1,6 @@
 import { Faker, en } from "@faker-js/faker";
 import { recipe, stableId } from "./config.js";
+import { catalogProperties } from "./pakistanCatalog.js";
 const day = 86400000;
 const date = (base, offset) =>
   new Date(new Date(base).getTime() + offset * day).toISOString().slice(0, 10);
@@ -84,7 +85,9 @@ export function buildDataset(namespace, input, generation = "initial") {
         }),
       );
   }
+  const catalog = c.propertySource === "pakistan_v1" ? catalogProperties(c.cities) : null;
   for (let i = 0; i < c.properties; i++) {
+    const real = catalog?.[i];
     const city = faker.helpers.arrayElement(c.cities);
     properties.push(
       add("properties", `property:${i}`, {
@@ -112,6 +115,18 @@ export function buildDataset(namespace, input, generation = "initial") {
             endDate: date(c.referenceDate, 365),
           },
         ],
+        ...(real && {
+          title: real.title,
+          description: `FYP DEMO: Real property reference. Prices, availability, owners, bookings and reviews are synthetic. No affiliation with this hotel. ${real.description}`,
+          location: { address: real.address, city: real.city, country: "Pakistan" },
+          seedCatalog: { id: real.id, sourceUrl: real.sourceUrl, checkedAt: real.checkedAt },
+          images: real.images.map(({ url, caption, credit }) => ({
+            url, caption, credit: structuredClone(credit),
+            verificationStatus: i < approved ? "verified" : "pending",
+            aiScore: 0,
+            uploadedAt: timestamp(c.referenceDate, earliest - 20),
+          })),
+        }),
         createdAt: timestamp(c.referenceDate, earliest - 20),
         updatedAt: timestamp(c.referenceDate, earliest - 20),
       }),
@@ -150,11 +165,13 @@ export function buildDataset(namespace, input, generation = "initial") {
           : roll < c.positivePercent + c.negativePercent + c.neutralPercent
             ? "neutral"
             : "mixed";
+    const feedback = fixture(faker, sentiment, nights);
     add("reviews", `review:${i}`, {
       booking: booking._id,
       guest: guest._id,
       property: p._id,
-      ...fixture(faker, sentiment, nights),
+      ...feedback,
+      ...(catalog && { text: `Demo review, not a real guest experience. ${feedback.text}` }),
       createdAt: timestamp(c.referenceDate, offset + nights + 1),
       updatedAt: timestamp(c.referenceDate, offset + nights + 1),
     });

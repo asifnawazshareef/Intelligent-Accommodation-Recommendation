@@ -1,3 +1,4 @@
+import { catalogProperties } from "./pakistanCatalog.js";
 import mongoose from "mongoose";
 import { Faker, en } from "@faker-js/faker";
 import { analyzeSentiment } from "../sentimentService.js";
@@ -184,9 +185,17 @@ export async function getRecord(ds, entity, id) {
     dependencies: await dependencies(entity, id),
   };
 }
+async function requireUnusedCatalog(ds, config) {
+  if (config.propertySource !== "pakistan_v1") return;
+  const ids = catalogProperties(config.cities).slice(0, config.properties).map(p => p.id);
+  const tracked = await SeedRecord.find({ dataset: ds, entity: "properties", state: "active" }).select("documentId").lean();
+  assert(!await models.properties.exists({ _id: { $in: tracked.map(r => r.documentId) }, "seedCatalog.id": { $in: ids } }),
+    "Some selected real properties already exist in this dataset. Choose other catalog cities or use generated demo properties to add more records.");
+}
 export async function previewGeneration(ds, input, actor) {
   const d = await dataset(ds);
   const config = recipe(input.recipe || d.recipe);
+  if (input.kind === "append") await requireUnusedCatalog(ds, config);
   const items = buildDataset(d.namespace, config);
   return {
     recipe: config,
@@ -242,6 +251,7 @@ export async function startJob(ds, input, actor) {
     let total = 1;
     if (["generate", "append"].includes(input.kind)) {
       const config = recipe(input.recipe || d.recipe);
+      if (input.kind === "append") await requireUnusedCatalog(ds, config);
       assert(
         input.confirmation ===
           digest({ dataset: String(ds), recipe: config, actor: String(actor) }),

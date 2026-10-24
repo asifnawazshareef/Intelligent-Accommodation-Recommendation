@@ -1,3 +1,4 @@
+import { pakistanCatalogCities, pakistanCatalog } from "../services/seed/pakistanCatalog.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { SeedDataset, SeedJob, SeedAudit } from "../services/seed/models.js";
@@ -61,7 +62,7 @@ router.use(protect, async (req, res, next) => {
 router.get(
   "/capabilities",
   handler(async (req, res) =>
-    res.json({ ...(await capabilities()), presets, presetDescriptions, cities }),
+    res.json({ ...(await capabilities()), presets, presetDescriptions, cities, propertyCatalog: { count: pakistanCatalog.length, cities: pakistanCatalogCities } }),
   ),
 );
 router.get(

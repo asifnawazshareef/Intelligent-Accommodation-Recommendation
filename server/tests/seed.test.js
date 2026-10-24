@@ -577,3 +577,33 @@ test("bulk review preview rejects two reviews for the same booking", async () =>
   );
   assert.equal((await validateDataset(ds._id)).valid, true);
 });
+
+test('Pakistani catalog persists credits, supports edits and reruns, and blocks duplicate appends', async () => {
+  const { presets } = await import('../services/seed/config.js');
+  const catalog = await createDataset({ name: 'Real Pakistani demo', namespace: 'pakistan_demo', recipe: presets.pakistan }, admin._id);
+  const preview = await previewGeneration(catalog._id, {}, admin._id);
+  const enqueue = async (kind, confirmation) => startJob(catalog._id, {
+    kind, recipe: preview.recipe, confirmation, requestKey: crypto.randomUUID(),
+  }, admin._id);
+  const job = await enqueue('generate', preview.confirmation);
+  assert.equal((await runNextJob({ jobId: job._id, batchSize: 10 })).state, 'completed');
+  const list = await queryRecords(catalog._id, 'properties', {});
+  assert.equal(list.total, 6);
+  for (const property of list.records) {
+    assert.ok(property.seedCatalog.sourceUrl.startsWith('https://'));
+    assert.ok(property.images.length >= 2 && property.images.length <= 5);
+    assert.ok(property.images.every(image => image.credit.author && image.credit.licenseUrl));
+  }
+  const property = list.records[0];
+  await transaction(() => saveRecord(catalog._id, 'properties', { price: property.price + 100 },
+    { id: property._id, revision: property.seedRevision, actor: admin._id }));
+  assert.equal((await validateDataset(catalog._id)).valid, true);
+  // Initial generation is still idempotent and preserves manual edits.
+  const rerun = await previewGeneration(catalog._id, {}, admin._id);
+  const repeat = await enqueue('generate', rerun.confirmation);
+  assert.equal((await runNextJob({ jobId: repeat._id, batchSize: 10 })).state, 'completed');
+  assert.equal((await models.properties.findById(property._id)).price, property.price + 100);
+  await assert.rejects(() => previewGeneration(catalog._id, { kind: 'append' }, admin._id), /already exist/);
+  // A caller cannot bypass the duplicate check with a preview for initial generation.
+  await assert.rejects(() => enqueue('append', rerun.confirmation), /already exist/);
+});

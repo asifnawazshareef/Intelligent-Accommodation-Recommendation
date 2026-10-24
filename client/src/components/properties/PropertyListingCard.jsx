@@ -83,6 +83,7 @@ const PropertyListingCard = ({ property, variant = "search" }) => {
           >
             {property.title}
           </CardTitle>
+          {property.seedCatalog && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">FYP demo · real property reference</p>}
           <CardDescription
             className={cn(
               isRecommended && "flex items-center gap-1 text-sm text-muted-foreground",

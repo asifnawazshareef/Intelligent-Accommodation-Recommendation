@@ -328,3 +328,10 @@
 .seed-preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .75rem; }
 .seed-preset-grid button { display: flex; flex-direction: column; gap: .4rem; text-align: start; padding: 1rem; white-space: normal; }
 .seed-preset-grid span { font-size: .85rem; }
+
+.seed-photo-preview { display: flex; gap: .5rem; overflow-x: auto; margin-block: .75rem; }
+.seed-photo-preview img { width: 120px; height: 90px; flex-shrink: 0; object-fit: cover; border-radius: .5rem; }
+
+.seed-photo-preview figure { margin: 0; width: 120px; flex-shrink: 0; }
+.seed-photo-preview figcaption { font-size: .75rem; overflow-wrap: anywhere; }
+.seed-photo-preview a { text-decoration: underline; }

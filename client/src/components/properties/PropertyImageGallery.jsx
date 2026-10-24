@@ -32,7 +32,7 @@ const PropertyImageGallery = ({ images = [], title, emptyMessage }) => {
         <PropertyCoverImage
           key={activeImage?.url || activeIndex}
           src={activeImage?.url}
-          alt={title}
+          alt={activeImage?.caption || title}
           className="aspect-[16/10] rounded-none border-0 sm:aspect-[2/1]"
           imageClassName="transition-transform duration-700 group-hover:scale-[1.02]"
         />
@@ -73,6 +73,20 @@ const PropertyImageGallery = ({ images = [], title, emptyMessage }) => {
         )}
       </div>
 
+      {(activeImage?.caption || activeImage?.credit) && (
+        <div className="space-y-1 break-words text-xs text-muted-foreground">
+          {activeImage.caption && <p>{activeImage.caption}</p>}
+          {activeImage.credit && <p>
+            {activeImage.credit.title} © {activeImage.credit.author}.{" "}
+            {/^https:\/\//.test(activeImage.credit.sourceUrl || "") && <a
+              className="underline" href={activeImage.credit.sourceUrl} target="_blank" rel="noopener noreferrer">Photo source</a>}{" · "}
+            {/^https:\/\//.test(activeImage.credit.licenseUrl || "") && <a
+              className="underline" href={activeImage.credit.licenseUrl} target="_blank" rel="noopener noreferrer">{activeImage.credit.license}</a>}
+            {activeImage.credit.capturedAt && <> · Photo date: {activeImage.credit.capturedAt}</>}
+            {activeImage.credit.changes && <> · {activeImage.credit.changes}</>}
+          </p>}
+        </div>
+      )}
       {total > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {images.map((image, index) => (
@@ -89,7 +103,7 @@ const PropertyImageGallery = ({ images = [], title, emptyMessage }) => {
             >
               <img
                 src={resolveImageUrl(image.url)}
-                alt={`${title} ${index + 1}`}
+                alt={image.caption || `${title} ${index + 1}`}
                 className="h-full w-full object-cover"
                 loading="lazy"
               />

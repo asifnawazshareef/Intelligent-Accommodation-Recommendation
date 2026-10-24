@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { pakistanCatalog, pakistanCatalogCities, catalogProperties } from "./pakistanCatalog.js";
 export class SeedError extends Error {
   constructor(message, status = 400) {
     super(message);
@@ -43,8 +44,10 @@ export const presetDescriptions = {
   negative: "Negative review examples",
   neutral: "Neutral review examples",
   mixed: "Mixed review examples",
+  pakistan: "Real Pakistani properties",
 };
 export const presets = Object.fromEntries(Object.entries({
+  pakistan: { propertySource: "pakistan_v1", owners: 3, guests: 12, properties: pakistanCatalog.length, reviews: 24, cities: pakistanCatalogCities, approvedPercent: 100 },
   small: {},
   standard: { owners: 50, guests: 450, properties: 1000, reviews: 5000 },
   guests: { owners: 0, guests: 50, properties: 0, reviews: 0 },
@@ -88,6 +91,7 @@ export function recipe(input = {}) {
     "positivePercent",
     "negativePercent",
     "neutralPercent",
+    "propertySource",
   ];
   assert(
     Object.keys(input).every((k) => allowed.includes(k)),
@@ -147,6 +151,14 @@ export function recipe(input = {}) {
     "Choose 1 to 20 cities.",
   );
   result.cities = [...new Set(result.cities.map((c) => c.trim()))];
+  assert(input.propertySource === undefined || ["synthetic", "pakistan_v1"].includes(input.propertySource),
+    "Choose synthetic properties or the Pakistani catalog.");
+  if (result.propertySource === "pakistan_v1") {
+    const available = catalogProperties(result.cities);
+    assert(result.properties > 0 && result.properties <= available.length,
+      `The selected cities contain ${available.length} catalog properties. Choose 1 to ${available.length} properties. Real hotel names are never repeated within a generation.`);
+  }
+
   result.minPrice = integer(result.minPrice, "Minimum price", 1, 1000000);
   result.maxPrice = integer(
     result.maxPrice,

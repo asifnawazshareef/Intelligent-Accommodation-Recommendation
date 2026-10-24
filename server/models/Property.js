@@ -7,6 +7,19 @@ const imageMetaSchema = new mongoose.Schema(
       required: [true, "Image URL is required"],
       trim: true,
     },
+    caption: { type: String, trim: true, maxlength: 500 },
+    credit: {
+      type: new mongoose.Schema({
+        title: { type: String, maxlength: 500 },
+        author: { type: String, maxlength: 500 },
+        sourceUrl: { type: String, maxlength: 2000 },
+        license: { type: String, maxlength: 100 },
+        licenseUrl: { type: String, maxlength: 2000 },
+        capturedAt: { type: String, maxlength: 200 },
+        changes: { type: String, maxlength: 500 },
+      }, { _id: false }),
+      default: undefined,
+    },
     verificationStatus: {
       type: String,
       enum: ["pending", "verified", "suspicious", "rejected"],
@@ -82,6 +95,14 @@ const propertySchema = new mongoose.Schema(
     images: {
       type: [imageMetaSchema],
       default: [],
+    },
+    seedCatalog: {
+      type: new mongoose.Schema({
+        id: String,
+        sourceUrl: String,
+        checkedAt: String,
+      }, { _id: false }),
+      default: undefined,
     },
     availabilityCalendar: {
       type: [mongoose.Schema.Types.Mixed],

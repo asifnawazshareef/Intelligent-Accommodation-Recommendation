@@ -214,9 +214,15 @@ export function RecordFields({ dataset, entity, value, onChange }) {
                     onChange={(e) =>
                       set(
                         "images",
-                        value.images.map((x, j) =>
-                          j === i ? { ...x, url: e.target.value } : x,
-                        ),
+                        value.images.map((x, j) => {
+                          if (j !== i) return x;
+                          const next = { ...x, url: e.target.value };
+                          if (next.url !== x.url) {
+                            delete next.caption;
+                            delete next.credit;
+                          }
+                          return next;
+                        }),
                       )
                     }
                   />
@@ -383,6 +389,18 @@ export function GenerationFields({ value, onChange }) {
   const set = (k, v) => onChange({ ...value, [k]: v });
   return (
     <div className="seed-form-grid">
+      <Field label="Property data source">
+        <select value={value.propertySource || "synthetic"}
+          onChange={(e) => set("propertySource", e.target.value)}>
+          <option value="synthetic">Generated demo properties</option>
+          <option value="pakistan_v1">Real Pakistani property catalog</option>
+        </select>
+      </Field>
+      {value.propertySource === "pakistan_v1" && <p className="seed-span seed-muted">
+        Six real properties with 2 to 5 credited photos each. Cities: Bhurban, Lahore,
+        Islamabad, Gilgit, Shigar and Khaplu. Choose up to one property per selected city.
+        Prices, availability, owners, bookings and reviews are generated demo data.
+      </p>}
       {[
         ["owners", "Owners"],
         ["guests", "Guests"],
@@ -448,6 +466,7 @@ export function PresetPicker({ presets, descriptions, onSelect }) {
             <strong>{descriptions?.[key] || key}</strong>
             <span>{recipe.owners} owners · {recipe.guests} guests · {recipe.properties} properties</span>
             <span>{recipe.reviews} bookings · {recipe.reviews} reviews</span>
+            {recipe.propertySource === "pakistan_v1" && <span>Real names, locations and 2 to 5 credited photos per property. Demo prices and reviews.</span>}
           </button>
         ))}
       </div>

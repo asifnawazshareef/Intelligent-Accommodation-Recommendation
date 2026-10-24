@@ -234,6 +234,8 @@ export async function validateRecord(
           (k) =>
             ![
               "url",
+              "caption",
+              "credit",
               "verificationStatus",
               "aiScore",
               "hash",
@@ -243,6 +245,21 @@ export async function validateRecord(
         ),
         "Unknown image field.",
       );
+    }
+    for (const image of data.images) {
+      if (image.caption !== undefined)
+        assert(typeof image.caption === "string" && image.caption.length <= 500, "Invalid image caption.");
+      if (image.credit !== undefined) {
+        const credit = image.credit;
+        assert(credit && typeof credit === "object" && !Array.isArray(credit) &&
+          Object.keys(credit).every(k => ["title", "author", "sourceUrl", "license", "licenseUrl", "capturedAt", "changes"].includes(k)),
+          "Invalid photo credit.");
+        for (const key of ["title", "author", "sourceUrl", "license", "licenseUrl"])
+          assert(typeof credit[key] === "string" && credit[key].trim().length > 0 && credit[key].length <= 2000,
+            "Complete photo source, author and license are required.");
+        for (const key of ["sourceUrl", "licenseUrl"])
+          assert(/^https:\/\//.test(credit[key]), "Photo credit links must use HTTPS.");
+      }
     }
     if (data.status === "approved")
       assert(

@@ -194,7 +194,7 @@ See [verification results](SEED_VERIFICATION.md) for the checks performed and th
 
 ## Ready made scenarios
 
-New dataset now offers 15 presets: Quick demo, Large FYP dataset, Guests only,
+New dataset offers 15 synthetic presets: Quick demo, Large FYP dataset, Guests only,
 Owners only, Guests and owners, Properties with owners, Budget accommodation,
 Premium accommodation, Islamabad city demo, Lahore city demo, Mountain destinations,
 Positive review examples, Negative review examples, Neutral review examples and
@@ -221,3 +221,61 @@ node scripts/seedFaker.js --preset budget
 Valid preset keys: small, standard, guests, owners, users, listings, budget, premium,
 islamabad, lahore, mountains, positive, negative, neutral, mixed. Use only one of
 `--preset`, `--standard`, or `--config`. Existing apply options still apply.
+
+
+## Real Pakistani property preset
+
+Choose **Real Pakistani properties** in New dataset. No property details need to
+be typed. The preset creates six properties, three demo owners, twelve demo guests,
+twenty four historical demo bookings and twenty four clearly labeled demo reviews.
+It adds a sixteenth scenario alongside the fifteen synthetic scenarios.
+
+| Property | City | Photos |
+| --- | --- | --- |
+| Pearl Continental Hotel Bhurban | Bhurban | 4 |
+| Faletti's Hotel Lahore | Lahore | 3 |
+| Islamabad Serena Hotel | Islamabad | 2 |
+| Gilgit Serena Hotel | Gilgit | 2 |
+| Serena Shigar Fort | Shigar | 3 |
+| Serena Khaplu Palace | Khaplu | 3 |
+
+Names, addresses and short factual descriptions come from the official property
+sources recorded in `server/public/seed/pakistan/v1/catalog.json`. Photos come
+from individually checked Wikimedia Commons file pages, with original titles,
+authors, dates and Creative Commons licenses. Some photos are historical views,
+corridors, gardens or exterior details. These are accurately captioned, rather
+than presented as current room photos. Official hotel website photos were not copied.
+
+The seventeen JPEGs are bundled with the server, so generation and gallery display
+do not depend on external photo APIs, random image URLs or image hotlinking.
+Full credits are in `server/public/seed/pakistan/v1/CREDITS.md` and displayed in
+the property gallery. Preserve the credits and the individual image licenses when
+redistributing the repository. Images retain their original licenses separately
+from the application code.
+
+Public information was checked on 24 October 2026. Prices and availability are
+generated examples, not live quotes. Owners are synthetic demo accounts, not the
+actual hotel owners. Bookings and reviews are synthetic, with a visible notice on
+each property page and an explicit prefix on each generated review. The project
+has no affiliation with these hotels.
+
+Optional customization: choose `Real Pakistani property catalog` under Property
+data source. Select catalog cities and at most the number of available real
+properties in those cities. Requests exceeding the available catalog fail with a
+clear error, instead of repeating real hotel names. Add more data can add catalog
+properties from other cities, but cannot duplicate properties already in that
+dataset. Rerunning initial generation remains idempotent. For thousands of unique
+fictional listings, use the existing synthetic scenarios.
+
+The versioned catalog is deliberately fixed. Expand it by adding verified property
+facts, at least two relevant licensed photos, source credits and asset checks in a
+new catalog version. Old dataset recipes must keep their original version.
+
+CLI preview from the server folder:
+
+```sh
+npm.cmd run seed:pakistan
+```
+
+This only previews data. Dashboard generation still requires the existing seed
+environment settings, a super admin, MongoDB transactions and the seed worker.

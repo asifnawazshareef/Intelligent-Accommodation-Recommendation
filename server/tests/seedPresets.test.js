@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { presets, presetDescriptions, recipe } from '../services/seed/config.js';
 import { buildDataset } from '../services/seed/generator.js';
 
-test('all 15 presets produce complete deterministic related records', () => {
-  assert.equal(Object.keys(presets).length, 15);
+test('all 16 presets produce complete deterministic related records', () => {
+  assert.equal(Object.keys(presets).length, 16);
   for (const [key, values] of Object.entries(presets)) {
     assert.ok(presetDescriptions[key]);
     const config = recipe({ ...values, referenceDate: '2026-10-01' });
@@ -33,5 +33,46 @@ test('all 15 presets produce complete deterministic related records', () => {
         if (['positive', 'negative', 'neutral', 'mixed'].includes(key)) assert.equal(p.sentiment, key);
       }
     }
+  }
+});
+
+test('real catalog recipes reject invented properties, unavailable cities and unknown sources', () => {
+  assert.throws(() => recipe({ ...presets.pakistan, properties: 7 }), /selected cities/);
+  assert.throws(() => recipe({ ...presets.pakistan, cities: ['Karachi'] }), /selected cities/);
+  assert.throws(() => recipe({ ...presets.pakistan, propertySource: 'random_photos' }), /catalog/);
+  const config = recipe({ ...presets.pakistan, cities: ['Lahore'], properties: 1 });
+  const properties = buildDataset('lahore_catalog', config).filter(i => i.entity === 'properties');
+  assert.equal(properties.length, 1);
+  assert.equal(properties[0].payload.title, "Faletti's Hotel Lahore");
+});
+
+test('every real property has distinct bundled photos, credits and demo labels', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { createHash } = await import('node:crypto');
+  const { pakistanCatalog } = await import('../services/seed/pakistanCatalog.js');
+  const hashes = new Set();
+  const generated = buildDataset('real_catalog', presets.pakistan);
+  for (const p of pakistanCatalog) {
+    assert.ok(p.images.length >= 2 && p.images.length <= 5);
+    assert.ok(p.sourceUrl.startsWith('https://'));
+    for (const image of p.images) {
+      const bytes = await readFile(new URL(`../public${image.url}`, import.meta.url));
+      const hash = createHash('sha256').update(bytes).digest('hex');
+      assert.equal(hash, image.sha256);
+      assert.equal(hashes.has(hash), false, 'No repeated or renamed photos');
+      hashes.add(hash);
+      assert.ok(image.credit.author);
+      assert.ok(image.credit.title);
+      assert.ok(image.credit.sourceUrl.startsWith('https://commons.wikimedia.org/'));
+      assert.ok(image.credit.licenseUrl.startsWith('https://creativecommons.org/'));
+    }
+  }
+  for (const { entity, payload } of generated) {
+    if (entity === 'properties') {
+      assert.match(payload.description, /FYP DEMO/);
+      assert.ok(payload.seedCatalog.sourceUrl);
+      assert.ok(payload.images.length >= 2 && payload.images.length <= 5);
+    }
+    if (entity === 'reviews') assert.match(payload.text, /^Demo review, not a real guest experience/);
   }
 });

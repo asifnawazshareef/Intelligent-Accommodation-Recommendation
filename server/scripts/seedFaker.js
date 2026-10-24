@@ -95,10 +95,10 @@ try {
         { name: "FYP demo", namespace, recipe: config },
         options["--actor"],
       );
-    if (!options["--append"] && !options["--config"]) config = ds.recipe;
+    if (!options["--append"] && !options["--config"] && !options["--preset"] && !options["--standard"]) config = ds.recipe;
     const preview = await previewGeneration(
       ds._id,
-      { recipe: config },
+      { recipe: config, kind: options["--append"] ? "append" : "generate" },
       options["--actor"],
     );
     const job = await startJob(

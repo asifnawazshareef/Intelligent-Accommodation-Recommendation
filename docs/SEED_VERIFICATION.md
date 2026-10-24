@@ -41,3 +41,22 @@ The sentiment integration tests use a local mock response to verify request hand
 No live database, real payment, deployment, or remote repository branch was modified by verification. Both connected GitHub accounts had read access only, so the feature is delivered as a local branch commit and portable patch.
 
 These checks cover the new feature and the listed existing flows. They are not a complete regression suite for every page and third party service in the repository.
+
+## Pakistani property catalog verification
+
+The real property preset adds six unique hotels with seventeen bundled photographs.
+All images were visually reviewed for relevance. Each property has two to four
+photos, within the supported two to five range. Local asset checks verify each
+file against its catalog SHA256 and check for repeated photo contents.
+
+The current seed suite passes 25 tests, with the optional large database load test
+skipped. Coverage includes catalog city filtering, invalid counts, image credits,
+demo review labels, persistence, manual edits, idempotent generation and duplicate
+append rejection. Existing application integration tests continue to pass.
+
+Client production build and lint pass with the existing unrelated warnings.
+A browser check using a disposable MongoDB replica set, backend, worker and client
+confirmed dashboard generation of all 69 records, successful responses for all
+17 image assets, working gallery navigation and credits, the official source link,
+visible demo notices and a mobile layout without horizontal overflow or page errors.
+The CLI catalog preview also succeeds without database writes.

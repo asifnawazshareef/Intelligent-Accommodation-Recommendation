@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import api from "@/services/api";
+import { resolveImageUrl } from "@/lib/imageUrl";
 import {
   Field,
   Modal,
@@ -993,6 +994,22 @@ export default function SeedDashboard() {
                       {preview.total} {tr("planned", "records planned")}
                     </strong>
                     <pre>{JSON.stringify(preview.counts, null, 2)}</pre>
+                    {preview.samples.filter(x => x.entity === "properties" && x.payload.seedCatalog).map(x => (
+                      <div key={x.key}>
+                        <strong>{x.payload.title}</strong>
+                        <p className="seed-muted">Real property reference with credited photos. Prices and reviews are demo data.</p>
+                        <div className="seed-photo-preview">
+                          {x.payload.images.map(photo => <figure key={photo.url}>
+                            <img src={resolveImageUrl(photo.url)} alt={photo.caption} />
+                            <figcaption>{photo.credit.author}{" · "}
+                              <a href={photo.credit.sourceUrl} target="_blank" rel="noopener noreferrer">Source</a>{" · "}
+                              <a href={photo.credit.licenseUrl} target="_blank" rel="noopener noreferrer">{photo.credit.license}</a>
+                            </figcaption>
+                          </figure>)}
+                        </div>
+                      </div>
+                    ))}
+
                     <details>
                       <summary>{tr("samples", "Example records")}</summary>
                       <pre>
@@ -1016,6 +1033,7 @@ export default function SeedDashboard() {
                         setPreview(
                           (
                             await api.post(`${base}/datasets/${ds}/preview`, {
+                              kind: modal.kind,
                               recipe: draft,
                             })
                           ).data,
