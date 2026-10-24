@@ -13,7 +13,7 @@ for (let i = 2; i < process.argv.length; i += 2) {
 const controller = new AbortController();
 process.on("SIGINT", () => controller.abort()); process.on("SIGTERM", () => controller.abort());
 try { const report = await collect({ ...options, signal: controller.signal }); console.log(JSON.stringify(report, null, 2));
-  if (report.status === "ready" && options.target !== 1500 && options.target !== undefined) console.log("Small collection complete. A 1500 property catalog is required for the dashboard preset.");
-  else if (report.status === "ready") console.log(JSON.stringify(await packageCatalog(JSON.parse(await fs.readFile(report.catalogPath, "utf8")), fileURLToPath(new URL("../data/pakistan-1500/", import.meta.url))), null, 2));
+  if (report.status === "ready" && options.target !== 1500 && options.target !== undefined) console.log("Collection complete. Exactly 1500 properties are required for the dashboard preset.");
+  else if (report.status === "ready") console.log(JSON.stringify(await packageCatalog(JSON.parse(await fs.readFile(report.catalogPath, "utf8")), fileURLToPath(new URL("../data/pakistan-1500/", import.meta.url)), path.join(options.directory, "cache")), null, 2));
   else process.exitCode = 2; }
 catch (e) { console.error(e.message); process.exitCode = 1; }

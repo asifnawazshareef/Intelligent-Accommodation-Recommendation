@@ -2,10 +2,22 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { propertyKey } from "./parsers.js";
+import { parseProperty, propertyKey } from "./parsers.js";
 import { allowedUrl } from "./network.js";
-export async function packageCatalog(input, directory) {
+export async function packageCatalog(input, directory, sourceCache) {
   if (!Array.isArray(input.properties) || input.properties.length !== 1500) throw new Error("Exactly 1500 collected properties are required. No fallback records will be invented.");
+  if (sourceCache) {
+    const audited = [];
+    for (const p of input.properties) {
+      const key = crypto.createHash("sha256").update(p.sourceUrl).digest("hex");
+      const source = parseProperty(await fs.readFile(path.join(sourceCache, key + ".html"), "utf8"), p.sourceUrl);
+      if (!source || source.title !== p.title || source.city !== p.city || source.address !== p.address ||
+          p.images.some(image => !source.images.some(match => match.url === image.url)))
+        throw new Error(`Cached source does not confirm this property's fields and gallery: ${p.id}`);
+      audited.push({ ...p, description: source.description });
+    }
+    input = { ...input, properties: audited };
+  }
   const ids = new Set(), keys = new Set(), photos = new Set(), sources = new Set();
   for (const p of input.properties) {
     if (!p.id || ids.has(p.id) || keys.has(propertyKey(p)) || p.country !== "Pakistan" || !p.title || !p.address || !p.city || !allowedUrl(p.sourceUrl)) throw new Error("Invalid or duplicate real property.");

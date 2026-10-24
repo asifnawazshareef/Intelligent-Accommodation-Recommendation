@@ -309,7 +309,8 @@ count, source breakdown and skipped count. A collection lock prevents competing
 collectors from overwriting that state. Cached source pages stay local.
 
 After exactly 1500 qualifying properties from at least two websites are available,
-the collector packages their factual metadata and external image references into
+the collector audits every selected record and photo URL against its cached source
+page, then packages their factual metadata and external image references into
 an immutable compressed snapshot under `server/data/pakistan-1500/`. Original
 third party photographs are not bundled or redistributed. Photo ownership and
 source terms remain with their respective holders; this collection does not

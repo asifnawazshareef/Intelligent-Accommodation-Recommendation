@@ -60,3 +60,24 @@ confirmed dashboard generation of all 69 records, successful responses for all
 17 image assets, working gallery navigation and credits, the official source link,
 visible demo notices and a mobile layout without horizontal overflow or page errors.
 The CLI catalog preview also succeeds without database writes.
+
+## Collected property workflow verification
+
+The collector tests cover explicit Pakistan locations, gallery association,
+image size variants, related hotel exclusion, URL guards, redirect rejection,
+non-image responses, interrupted work, resumable checkpoints, the photo cap and
+Retry-After handling. Packaging requires exactly 1500 unique properties from at
+least two source websites and verifies snapshot integrity by SHA256.
+
+The current build and lint checks pass with existing unrelated warnings. A browser
+check using a disposable database confirmed that a collected property displays
+its actual source photographs, matching photo credits, the reference link and a
+visible FYP demo notice. The desktop and mobile layouts passed without horizontal
+overflow or page errors. Real image responses were fetched through the test
+client's outbound proxy for this environment, then supplied unchanged to the
+browser. External photos can become unavailable after collection.
+
+The full 1500 property import check is available with SEED_COLLECTED_LOAD=1 once
+a complete packaged snapshot is installed. It checks 1500 properties, 6000
+historical demo bookings, 6000 demo reviews and dataset validation in an isolated
+MongoDB replica set. A missing or incomplete catalog cannot enable the preset.

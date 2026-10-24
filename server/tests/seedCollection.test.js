@@ -51,6 +51,7 @@ test('collection checkpoints survive resume and never fabricate records to meet 
   assert.equal(second.collected,1);
   const catalog=JSON.parse(await fs.readFile(path.join(directory,'catalog.json'),'utf8'));
   assert.equal(catalog.properties[0].images.length,2);
+  assert.ok(catalog.properties.every(p=>p.images.length<=2));
   assert.ok(catalog.properties[0].images.every(x=>x.credit.sourceUrl===url));
   await assert.rejects(()=>packageCatalog(catalog,path.join(directory,'bundle')),/Exactly 1500/);
  } finally {await fs.rm(directory,{recursive:true,force:true});}
@@ -67,5 +68,52 @@ test('packaged catalogs require 1500 unique properties from multiple sites and p
   assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),packed.digest);assert.equal(packed.photos,3000);
   const duplicate=structuredClone(properties);duplicate[1].images[0].sha256=duplicate[0].images[0].sha256;
   await assert.rejects(()=>packageCatalog({properties:duplicate},directory),/duplicate/);
+  const cache=path.join(directory,'sources');await fs.mkdir(cache);
+  const key=crypto.createHash('sha256').update(properties[0].sourceUrl).digest('hex');
+  await fs.writeFile(path.join(cache,key+'.html'),'<html>No matching property gallery</html>');
+  await assert.rejects(()=>packageCatalog({properties},directory,cache),/Cached source/);
+
  } finally {await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('interruption preserves in flight property work and releases the collection lock', async () => {
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iars-paused-'));
+ const controller=new AbortController();let begin;
+ const started=new Promise(r=>{begin=r;});
+ const pages=async(u,{image:photo=false,signal}={})=>{
+  if(photo){begin();return new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(new Error('Paused')),{once:true}));}
+  return{body:Buffer.from(u.includes('en-pk-pakistan')?'<a href="/alpha-123-en">Alpha</a>':u===url?hotelHtml():'<html></html>')};
+ };
+ try {
+  const running=collect({directory,target:2,maxImages:2,client:{request:pages},signal:controller.signal,log:()=>{}});
+  await started;controller.abort();assert.equal((await running).status,'paused');
+  const state=JSON.parse(await fs.readFile(path.join(directory,'checkpoint.json'),'utf8'));
+  assert.ok(state.pending.some(x=>x.url===url));assert.equal(state.seen.includes(url),false);
+  await assert.rejects(()=>fs.access(path.join(directory,'collector.lock')));
+  const client={request:async(u,{image:photo=false}={})=>({body:photo?Buffer.from(u):Buffer.from(hotelHtml())})};
+  assert.equal((await collect({directory,target:2,maxImages:2,client,log:()=>{}})).collected,1);
+ } finally {await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('gallery fallbacks keep the requested image cap when one photograph is unavailable', async () => {
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iars-photo-cap-'));
+ const more=`<img src="${image(4)}" alt="Alpha Hotel, Lahore (photo 4)"><img src="${image(5)}" alt="Alpha Hotel, Lahore (photo 5)">`;
+ const client={request:async(u,{image:photo=false}={})=>{
+  if(photo){if(u===image(1))throw new Error('Unavailable');return{body:Buffer.from(u)};}
+  return{body:Buffer.from(u.includes('en-pk-pakistan')?'<a href="/alpha-123-en">Alpha</a>':u===url?hotelHtml({extra:more}):'<html></html>')};
+ }};
+ try {
+  const report=await collect({directory,target:1,maxImages:2,client,log:()=>{}});assert.equal(report.collected,1);
+  const catalog=JSON.parse(await fs.readFile(path.join(directory,'catalog.json'),'utf8'));assert.equal(catalog.properties[0].images.length,2);
+ } finally {await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('retry after pauses the source and retries respect the full requested delay', async () => {
+ let clock=0,calls=0;const times=[];
+ const c=new PublicClient({intervalMs:0,now:()=>clock,wait:async ms=>{clock+=ms;},fetcher:async()=>{
+  times.push(clock);calls++;
+  return calls===1?{status:429,headers:{'retry-after':'30'},data:Buffer.from('Slow down')}:{status:200,headers:{'content-type':'text/plain'},data:Buffer.from('User-agent: *\nAllow: /')};
+ }});
+ await c.request('https://www.sleepzon.com/robots.txt',{robots:true});
+ assert.equal(calls,2);assert.ok(times[1]-times[0]>=30000);
 });
