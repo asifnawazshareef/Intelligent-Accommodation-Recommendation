@@ -21,7 +21,9 @@
     "seed:worker": "npm run seed:worker --prefix server --",
     "seed:grant": "npm run seed:grant --prefix server --",
     "test:seed": "npm run test:seed --prefix server --",
-    "seed:pakistan": "npm run seed:pakistan --prefix server"
+    "seed:pakistan": "npm run seed:pakistan --prefix server",
+    "seed:collect:pakistan": "npm run seed:collect:pakistan --prefix server",
+    "seed:pakistan1500": "npm run seed:pakistan1500 --prefix server"
   },
   "keywords": [],
   "author": "",

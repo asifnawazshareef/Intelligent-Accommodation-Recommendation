@@ -1,3 +1,4 @@
+import { normalize } from "./collection/identity.js";
 import { catalogProperties } from "./pakistanCatalog.js";
 import mongoose from "mongoose";
 import { Faker, en } from "@faker-js/faker";
@@ -186,10 +187,14 @@ export async function getRecord(ds, entity, id) {
   };
 }
 async function requireUnusedCatalog(ds, config) {
-  if (config.propertySource !== "pakistan_v1") return;
-  const ids = catalogProperties(config.cities).slice(0, config.properties).map(p => p.id);
+  if (!["pakistan_v1", "pakistan_collected_v1"].includes(config.propertySource)) return;
+  const ids = catalogProperties(config.cities, config.propertySource, config.catalogDigest).slice(0, config.properties).map(p => p.id);
   const tracked = await SeedRecord.find({ dataset: ds, entity: "properties", state: "active" }).select("documentId").lean();
-  assert(!await models.properties.exists({ _id: { $in: tracked.map(r => r.documentId) }, "seedCatalog.id": { $in: ids } }),
+  const selected = catalogProperties(config.cities, config.propertySource, config.catalogDigest).slice(0, config.properties);
+  const names = new Set(selected.map(p => `${normalize(p.title)}|${normalize(p.city)}`));
+  const existing = await models.properties.find({ _id: { $in: tracked.map(r => r.documentId) }, seedCatalog: { $exists: true } })
+    .select("title location.city seedCatalog.id").lean();
+  assert(!existing.some(p => ids.includes(p.seedCatalog.id) || names.has(`${normalize(p.title)}|${normalize(p.location.city)}`)),
     "Some selected real properties already exist in this dataset. Choose other catalog cities or use generated demo properties to add more records.");
 }
 export async function previewGeneration(ds, input, actor) {

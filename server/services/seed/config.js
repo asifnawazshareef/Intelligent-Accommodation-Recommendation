@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { pakistanCatalog, pakistanCatalogCities, catalogProperties } from "./pakistanCatalog.js";
+import { pakistanCatalog, pakistanCatalogCities, catalogProperties, collectedCatalogStatus, collectedCatalog } from "./pakistanCatalog.js";
 export class SeedError extends Error {
   constructor(message, status = 400) {
     super(message);
@@ -45,6 +45,7 @@ export const presetDescriptions = {
   neutral: "Neutral review examples",
   mixed: "Mixed review examples",
   pakistan: "Real Pakistani properties",
+  pakistan1500: "1500 Pakistani properties from multiple websites",
 };
 export const presets = Object.fromEntries(Object.entries({
   pakistan: { propertySource: "pakistan_v1", owners: 3, guests: 12, properties: pakistanCatalog.length, reviews: 24, cities: pakistanCatalogCities, approvedPercent: 100 },
@@ -64,6 +65,14 @@ export const presets = Object.fromEntries(Object.entries({
   neutral: { positivePercent: 0, negativePercent: 0, neutralPercent: 100 },
   mixed: { positivePercent: 0, negativePercent: 0, neutralPercent: 0 },
 }).map(([key, values]) => [key, { ...presetBase, ...values }]));
+export function getSeedPresets() {
+  const c = collectedCatalogStatus();
+  return { ...presets, ...(c.ready && { pakistan1500: {
+    ...presets.standard, propertySource: "pakistan_collected_v1", catalogDigest: c.digest,
+    owners: 50, guests: 450, properties: 1500, reviews: 6000, cities: c.cities,
+    approvedPercent: 100,
+  } }) };
+}
 export const integer = (value, label, min = 0, max = 20000) => {
   const n = Number(value);
   assert(
@@ -92,6 +101,7 @@ export function recipe(input = {}) {
     "negativePercent",
     "neutralPercent",
     "propertySource",
+    "catalogDigest",
   ];
   assert(
     Object.keys(input).every((k) => allowed.includes(k)),
@@ -144,17 +154,24 @@ export function recipe(input = {}) {
   assert(
     Array.isArray(result.cities) &&
       result.cities.length > 0 &&
-      result.cities.length <= 20 &&
+      result.cities.length <= (input.propertySource === "pakistan_collected_v1" ? 300 : 20) &&
       result.cities.every(
         (c) => typeof c === "string" && c.trim().length > 0 && c.length < 80,
       ),
     "Choose 1 to 20 cities.",
   );
   result.cities = [...new Set(result.cities.map((c) => c.trim()))];
-  assert(input.propertySource === undefined || ["synthetic", "pakistan_v1"].includes(input.propertySource),
+  assert(input.propertySource === undefined || ["synthetic", "pakistan_v1", "pakistan_collected_v1"].includes(input.propertySource),
     "Choose synthetic properties or the Pakistani catalog.");
-  if (result.propertySource === "pakistan_v1") {
-    const available = catalogProperties(result.cities);
+  if (result.propertySource === "pakistan_collected_v1") {
+    assert(typeof result.catalogDigest === "string" && /^[a-f0-9]{64}$/.test(result.catalogDigest),
+      "Collect and package the real property catalog before seeding it.");
+    let catalog;
+    try { catalog = collectedCatalog(result.catalogDigest); } catch { assert(false, "The selected collected catalog is missing or damaged. Restore its snapshot before retrying."); }
+    assert(catalog.properties.length >= 1500, "The collected catalog has fewer than 1500 qualified properties.");
+  } else assert(result.catalogDigest === undefined, "A catalog digest is only valid for collected properties.");
+  if (["pakistan_v1", "pakistan_collected_v1"].includes(result.propertySource)) {
+    const available = catalogProperties(result.cities, result.propertySource, result.catalogDigest);
     assert(result.properties > 0 && result.properties <= available.length,
       `The selected cities contain ${available.length} catalog properties. Choose 1 to ${available.length} properties. Real hotel names are never repeated within a generation.`);
   }

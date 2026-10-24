@@ -2,7 +2,7 @@ import "dotenv/config";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
-import { recipe, presets, assert, safeError } from "../services/seed/config.js";
+import { recipe, getSeedPresets, assert, safeError } from "../services/seed/config.js";
 import { buildDataset } from "../services/seed/generator.js";
 import {
   initialize,
@@ -18,6 +18,7 @@ import { SeedDataset } from "../services/seed/models.js";
 import { runNextJob } from "../services/seed/jobs.js";
 try {
   const args = process.argv.slice(2);
+  const presets = getSeedPresets();
   const options = {};
   for (let i = 0; i < args.length; i++) {
     assert(
@@ -43,6 +44,8 @@ try {
       options[key] = true;
     }
   }
+  assert(options["--preset"] !== "pakistan1500" || presets.pakistan1500,
+    "The 1500 property catalog is not ready. Run npm run seed:collect:pakistan first, or restore its packaged snapshot.");
   assert(!options["--preset"] || Object.hasOwn(presets, options["--preset"]),
     `Choose a preset: ${Object.keys(presets).join(", ")}`);
   assert([options["--preset"], options["--standard"], options["--config"]].filter(Boolean).length <= 1,

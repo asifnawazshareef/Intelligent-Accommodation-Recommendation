@@ -945,6 +945,10 @@ export default function SeedDashboard() {
                     />
                   </Field>
                 </div>
+                {cap.collectedCatalog?.ready && <p className="seed-muted">
+                  Collected catalog ready: {cap.collectedCatalog.available} properties,
+                  {" "}{cap.collectedCatalog.images} matching photos from {cap.collectedCatalog.sources.length} websites.
+                </p>}
                 <PresetPicker presets={cap.presets} descriptions={cap.presetDescriptions}
                   onSelect={(recipe, key) => setDraft({ ...draft,
                     name: cap.presetDescriptions?.[key] || key,

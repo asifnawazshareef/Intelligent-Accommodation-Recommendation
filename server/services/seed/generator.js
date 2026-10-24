@@ -85,7 +85,7 @@ export function buildDataset(namespace, input, generation = "initial") {
         }),
       );
   }
-  const catalog = c.propertySource === "pakistan_v1" ? catalogProperties(c.cities) : null;
+  const catalog = ["pakistan_v1", "pakistan_collected_v1"].includes(c.propertySource) ? catalogProperties(c.cities, c.propertySource, c.catalogDigest) : null;
   for (let i = 0; i < c.properties; i++) {
     const real = catalog?.[i];
     const city = faker.helpers.arrayElement(c.cities);

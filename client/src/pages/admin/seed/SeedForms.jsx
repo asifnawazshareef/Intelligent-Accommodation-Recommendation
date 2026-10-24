@@ -394,8 +394,13 @@ export function GenerationFields({ value, onChange }) {
           onChange={(e) => set("propertySource", e.target.value)}>
           <option value="synthetic">Generated demo properties</option>
           <option value="pakistan_v1">Real Pakistani property catalog</option>
+          {value.propertySource === "pakistan_collected_v1" && <option value="pakistan_collected_v1">Collected Pakistani properties</option>}
         </select>
       </Field>
+      {value.propertySource === "pakistan_collected_v1" && <p className="seed-span seed-muted">
+        Real property names, locations and 2 to 5 matching photos from source galleries.
+        Photos load from their external sources. Prices, owners, bookings and reviews are demo data.
+      </p>}
       {value.propertySource === "pakistan_v1" && <p className="seed-span seed-muted">
         Six real properties with 2 to 5 credited photos each. Cities: Bhurban, Lahore,
         Islamabad, Gilgit, Shigar and Khaplu. Choose up to one property per selected city.
@@ -466,7 +471,7 @@ export function PresetPicker({ presets, descriptions, onSelect }) {
             <strong>{descriptions?.[key] || key}</strong>
             <span>{recipe.owners} owners · {recipe.guests} guests · {recipe.properties} properties</span>
             <span>{recipe.reviews} bookings · {recipe.reviews} reviews</span>
-            {recipe.propertySource === "pakistan_v1" && <span>Real names, locations and 2 to 5 credited photos per property. Demo prices and reviews.</span>}
+            {["pakistan_v1", "pakistan_collected_v1"].includes(recipe.propertySource) && <span>Real names, locations and 2 to 5 credited photos per property. Demo prices and reviews.</span>}
           </button>
         ))}
       </div>

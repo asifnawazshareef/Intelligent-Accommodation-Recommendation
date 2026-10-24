@@ -6,3 +6,11 @@
 
 # Dependencies
 node_modules/
+# Local collection checkpoints and cached source pages
+/server/data/pakistan-collection/cache/
+/server/data/pakistan-collection/checkpoint.json
+/server/data/pakistan-collection/report.json
+/server/data/pakistan-collection/collector.lock
+
+/server/data/pakistan-collection/catalog.json
+/server/data/pakistan-collection/*.tmp

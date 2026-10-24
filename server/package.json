@@ -20,7 +20,9 @@
     "seed:worker": "node scripts/seedWorker.js",
     "seed:grant": "node scripts/grantSuperAdmin.js",
     "test:seed": "node --test --test-concurrency=1 tests/seed*.test.js",
-    "seed:pakistan": "node scripts/seedFaker.js --preset pakistan"
+    "seed:pakistan": "node scripts/seedFaker.js --preset pakistan",
+    "seed:collect:pakistan": "node scripts/collectPakistanProperties.js",
+    "seed:pakistan1500": "node scripts/seedFaker.js --preset pakistan1500"
   },
   "keywords": [],
   "author": "",
@@ -30,6 +32,7 @@
     "@faker-js/faker": "10.6.0",
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
+    "cheerio": "1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

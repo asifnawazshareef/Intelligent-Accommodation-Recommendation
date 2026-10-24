@@ -1,4 +1,4 @@
-import { pakistanCatalogCities, pakistanCatalog } from "../services/seed/pakistanCatalog.js";
+import { pakistanCatalogCities, pakistanCatalog, collectedCatalogStatus } from "../services/seed/pakistanCatalog.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { SeedDataset, SeedJob, SeedAudit } from "../services/seed/models.js";
@@ -18,7 +18,7 @@ import {
   safeError,
   integer,
   fingerprint,
-  presets,
+  getSeedPresets,
   presetDescriptions,
   cities,
 } from "../services/seed/config.js";
@@ -62,7 +62,7 @@ router.use(protect, async (req, res, next) => {
 router.get(
   "/capabilities",
   handler(async (req, res) =>
-    res.json({ ...(await capabilities()), presets, presetDescriptions, cities, propertyCatalog: { count: pakistanCatalog.length, cities: pakistanCatalogCities } }),
+    res.json({ ...(await capabilities()), presets: getSeedPresets(), presetDescriptions, cities, collectedCatalog: collectedCatalogStatus(), propertyCatalog: { count: pakistanCatalog.length, cities: pakistanCatalogCities } }),
   ),
 );
 router.get(

@@ -215,7 +215,7 @@ const PropertyDetailPage = () => {
                 This app is not affiliated with the hotel.</p>
               <p>Public information checked: {property.seedCatalog.checkedAt}.{" "}
                 {/^https:\/\//.test(property.seedCatalog.sourceUrl || "") && <a className="underline"
-                  href={property.seedCatalog.sourceUrl} target="_blank" rel="noopener noreferrer">Official property source</a>}
+                  href={property.seedCatalog.sourceUrl} target="_blank" rel="noopener noreferrer">Property reference source</a>}
               </p>
             </aside>
           )}

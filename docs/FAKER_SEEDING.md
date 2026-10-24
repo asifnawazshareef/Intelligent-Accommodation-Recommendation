@@ -279,3 +279,62 @@ npm.cmd run seed:pakistan
 
 This only previews data. Dashboard generation still requires the existing seed
 environment settings, a super admin, MongoDB transactions and the seed worker.
+
+## Collecting 1500 genuine Pakistani property references
+
+`npm.cmd run seed:collect:pakistan` starts a resumable collector from either the
+repository root or the server folder. The default target is 1500 unique properties
+with up to three gallery photos each. The `--photos 2` CLI option reduces the
+collection to two photos per property, within the supported two to five range.
+
+Sources are the published property pages on Sleepzon, Porter Pakistan and PC
+Hotels. Extraction uses explicit property names, Pakistan location metadata and
+property specific galleries. It does not copy long descriptions, reviews, guest
+identities, accounts, live inventory or payment information. A source listing is
+evidence of a property reference, not an independent inspection of the business.
+Some sources publish only the city rather than a precise street address; these
+records say so instead of inventing an address.
+
+The collector respects robots paths, spaces requests, honors retry backoff,
+limits response sizes and stops following access restrictions. It does not solve
+CAPTCHAs, rotate identities, authenticate to source websites, follow arbitrary
+redirects or fetch private network addresses. HTTP image responses are checked
+and photo contents are hashed to reject duplicates. Galleries with fewer than two
+usable distinct photos are skipped. A shortfall remains a shortfall.
+
+Collection checkpoints, source page caches and reports are local files under
+`server/data/pakistan-collection/` and excluded from git. Run the same command to
+resume after interruption. `report.json` contains the actual count, remaining
+count, source breakdown and skipped count. A collection lock prevents competing
+collectors from overwriting that state. Cached source pages stay local.
+
+After exactly 1500 qualifying properties from at least two websites are available,
+the collector packages their factual metadata and external image references into
+an immutable compressed snapshot under `server/data/pakistan-1500/`. Original
+third party photographs are not bundled or redistributed. Photo ownership and
+source terms remain with their respective holders; this collection does not
+assert an open license or identify authors the sources do not disclose.
+
+The **1500 Pakistani properties from multiple websites** dashboard preset becomes
+available once a complete packaged snapshot is installed. Refresh the dashboard
+after collection. Create a new dataset, select that preset, preview, and start
+generation with the seed worker running. It includes 50 demo owners, 450 demo
+guests, 1500 real property references, 6000 historical demo bookings and 6000
+explicitly labeled demo reviews. Prices, owners, availability, bookings and
+reviews remain synthetic. Photographs are external references and can later be
+removed or changed by their source websites.
+
+Existing datasets pin the snapshot by SHA256. A newer collection creates another
+snapshot, so it cannot silently change an existing dataset or an in progress job.
+Keep snapshot files when restoring a database. Appends reject properties already
+present in the dataset, including names and cities shared with the six property
+catalog. No source access or scraping takes place inside a database transaction.
+
+Preview a ready packaged dataset from the server folder with:
+
+```sh
+npm.cmd run seed:pakistan1500
+```
+
+The preview fails clearly when the 1500 property snapshot is unavailable. The
+original synthetic presets and six property licensed photo catalog remain usable.
