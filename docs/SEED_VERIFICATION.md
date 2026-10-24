@@ -38,7 +38,7 @@ The browser exercise found and resolved form labeling and button contrast issues
 
 The sentiment integration tests use a local mock response to verify request handling and persisted results. They do not evaluate the real Python model's accuracy. The real service must be running for dashboard sentiment analysis; generation itself uses explicitly labeled synthetic sentiment.
 
-No live database, real payment, deployment, or remote repository branch was modified by verification. Both connected GitHub accounts had read access only, so the feature is delivered as a local branch commit and portable patch.
+Verification uses disposable databases and no real payments or deployment. Implementation is published on feature/faker_seed_data through the authorized GitHub account, with pull request 1 open for review. Main remains unchanged.
 
 These checks cover the new feature and the listed existing flows. They are not a complete regression suite for every page and third party service in the repository.
 
@@ -49,8 +49,7 @@ All images were visually reviewed for relevance. Each property has two to four
 photos, within the supported two to five range. Local asset checks verify each
 file against its catalog SHA256 and check for repeated photo contents.
 
-The current seed suite passes 25 tests, with the optional large database load test
-skipped. Coverage includes catalog city filtering, invalid counts, image credits,
+The catalog tests cover city filtering, invalid counts, image credits,
 demo review labels, persistence, manual edits, idempotent generation and duplicate
 append rejection. Existing application integration tests continue to pass.
 
@@ -66,8 +65,11 @@ The CLI catalog preview also succeeds without database writes.
 The collector tests cover explicit Pakistan locations, gallery association,
 image size variants, related hotel exclusion, URL guards, redirect rejection,
 non-image responses, interrupted work, resumable checkpoints, the photo cap and
-Retry-After handling. Packaging requires exactly 1500 unique properties from at
-least two source websites and verifies snapshot integrity by SHA256.
+Retry-After handling. Full target packaging requires exactly 1500 unique properties from at least two
+source websites. Partial snapshots report their actual counts and cannot enable
+the 1500 preset. Both snapshot types verify integrity by SHA256. Tests cover
+bootstrapping from a bundled snapshot without fetching saved records and rejecting
+checkpoint edits when no cached source confirms them.
 
 The current build and lint checks pass with existing unrelated warnings. A browser
 check using a disposable database confirmed that a collected property displays
@@ -77,7 +79,36 @@ overflow or page errors. Real image responses were fetched through the test
 client's outbound proxy for this environment, then supplied unchanged to the
 browser. External photos can become unavailable after collection.
 
-The full 1500 property import check is available with SEED_COLLECTED_LOAD=1 once
-a complete packaged snapshot is installed. It checks 1500 properties, 6000
-historical demo bookings, 6000 demo reviews and dataset validation in an isolated
-MongoDB replica set. A missing or incomplete catalog cannot enable the preset.
+The installed collection import check is available with SEED_COLLECTED_LOAD=1.
+It uses the actual snapshot count and checks generated properties, historical demo
+bookings, demo reviews and dataset validation in an isolated MongoDB replica set.
+The current snapshot has 1096 properties. A missing or incomplete catalog cannot
+enable the 1500 preset. The remaining 404 records require further source access;
+the environment blocked collection before the target was reached.
+
+
+## Audited collection checkpoint, 24 October 2026
+
+The published snapshot contains 1096 properties and 2195 photo references from
+three websites. Every record's name, city, address and selected gallery URLs were
+audited against its saved source page before packaging. Source HTML and image
+files are excluded from the snapshot. Recovery includes public URLs only.
+
+With SEED_COLLECTED_LOAD=1, the current suite reports 37 tests: 36 pass, zero fail,
+and the unrelated optional original 11500 record test is skipped. The actual
+collected snapshot imports through the transactional worker into a disposable
+replica set: 500 demo users, 1096 properties, 4384 bookings and 4384 reviews,
+10364 generated records total. Dataset validation passes. Only the test operator
+has admin privileges. Existing application route and CRUD/bulk tests pass.
+
+A fresh browser check confirms that the dashboard shows 1096 of 1500 properties,
+2195 photos and three source websites. The partial preset previews 10364 records;
+the incomplete 1500 preset is absent. Desktop and 390 pixel mobile layouts have no
+horizontal overflow or browser errors. Client build and lint pass with existing
+unrelated warnings. The earlier real photo gallery browser check also passed.
+
+Recovery tests verify that installed snapshot records need no network refetch,
+checkpoint edits cannot grant trust, new collection work cannot mutate the cached
+trusted snapshot, and new records still require source evidence. Snapshot saves
+now use one consistent view for the checkpoint, report and catalog while requests
+continue in flight.

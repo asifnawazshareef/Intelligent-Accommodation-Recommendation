@@ -22,7 +22,8 @@
     "test:seed": "node --test --test-concurrency=1 tests/seed*.test.js",
     "seed:pakistan": "node scripts/seedFaker.js --preset pakistan",
     "seed:collect:pakistan": "node scripts/collectPakistanProperties.js",
-    "seed:pakistan1500": "node scripts/seedFaker.js --preset pakistan1500"
+    "seed:pakistan1500": "node scripts/seedFaker.js --preset pakistan1500",
+    "seed:pakistan:collected": "node scripts/seedFaker.js --preset pakistanCollected"
   },
   "keywords": [],
   "author": "",

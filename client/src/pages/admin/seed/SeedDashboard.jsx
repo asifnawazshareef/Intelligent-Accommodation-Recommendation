@@ -945,8 +945,8 @@ export default function SeedDashboard() {
                     />
                   </Field>
                 </div>
-                {cap.collectedCatalog?.ready && <p className="seed-muted">
-                  Collected catalog ready: {cap.collectedCatalog.available} properties,
+                {cap.collectedCatalog?.available > 0 && <p className="seed-muted">
+                  Collected catalog: {cap.collectedCatalog.available} of {cap.collectedCatalog.target} properties,
                   {" "}{cap.collectedCatalog.images} matching photos from {cap.collectedCatalog.sources.length} websites.
                 </p>}
                 <PresetPicker presets={cap.presets} descriptions={cap.presetDescriptions}

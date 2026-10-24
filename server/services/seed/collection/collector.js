@@ -3,30 +3,41 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { discoverPages, parseProperty, propertyKey, normalize, sourceHosts } from "./parsers.js";
 import { PublicClient, allowedUrl } from "./network.js";
+import { collectedCatalog } from "../pakistanCatalog.js";
 export const starts = ["https://porterpakistan.com/hotels", "https://www.pchotels.com/hotel-and-resort", "https://www.sleepzon.com/en-pk-pakistan"];
 const sha = value => crypto.createHash("sha256").update(value).digest("hex");
-async function runCollection({ directory, target = 1500, maxImages = 3, concurrency = 16, client = new PublicClient(), log = console.log, signal } = {}) {
+async function runCollection({ directory, target = 1500, maxImages = 3, concurrency = 16, client = new PublicClient(), log = console.log, signal, bootstrap = false } = {}) {
   if (!directory || !Number.isInteger(concurrency) || concurrency < 1 || concurrency > 16 || !Number.isInteger(target) || target < 1 || target > 5000 || !Number.isInteger(maxImages) || maxImages < 2 || maxImages > 5)
     throw new Error("Choose a directory, 1 to 5000 properties and 2 to 5 photos.");
   const cache = path.join(directory, "cache"); await fs.mkdir(cache, { recursive: true });
   const checkpoint = path.join(directory, "checkpoint.json");
   let state;
   try { state = JSON.parse(await fs.readFile(checkpoint, "utf8")); }
-  catch (e) { if (e.code !== "ENOENT") throw e; state = { version: 1, pending: starts.map(url => ({ url, kind: "list" })), seen: [], properties: [], skipped: [], pages: 0 }; }
-  const seen = new Set(state.seen), keys = new Set(state.properties.map(propertyKey));
+  catch (e) {
+    if (e.code !== "ENOENT") throw e;
+    const bundled = bootstrap ? structuredClone(collectedCatalog()) : { properties: [] };
+    state = { version: 1, pending: bundled.resume?.pending || starts.map(url => ({ url, kind: "list" })),
+      seen: bundled.resume?.seen || [], properties: bundled.properties, skipped: [], pages: bundled.resume?.pages || 0,
+      ...(bundled.digest && { trustedCatalogDigest: bundled.digest }) };
+    if (bundled.properties.length) log(`Resuming from ${bundled.properties.length} bundled property references. Target: ${target}.`);
+  }
+  const seen = new Set([...state.seen, ...state.properties.map(p => p.sourceUrl)]), keys = new Set(state.properties.map(propertyKey));
   const names = new Set(state.properties.map(p => `${normalize(p.title)}|${normalize(p.city)}`));
   const photos = new Set(state.properties.flatMap(p => p.images.map(i => i.sha256)));
   const inFlight = new Map(), running = new Set();
   const stop = new AbortController();
   const workSignal = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
-  const report = () => ({ target, collected: state.properties.length, remaining: Math.max(0, target-state.properties.length), pages: state.pages, skipped: state.skipped.length,
-    sourceCounts: Object.fromEntries(sourceHosts.map(h => [h, state.properties.filter(p => new URL(p.sourceUrl).hostname === h).length])),
-    status: state.properties.length >= target ? "ready" : signal?.aborted ? "paused" : (state.pending.length || inFlight.size) ? "collecting" : "shortfall" });
+  const report = (value = state) => ({ target, collected: value.properties.length, remaining: Math.max(0, target-value.properties.length), pages: value.pages, skipped: value.skipped.length,
+    sourceCounts: Object.fromEntries(sourceHosts.map(h => [h, value.properties.filter(p => new URL(p.sourceUrl).hostname === h).length])),
+    status: value.properties.length >= target ? "ready" : signal?.aborted ? "paused" : (value.pending.length || inFlight.size) ? "collecting" : "shortfall" });
   async function save() {
-    const snapshot = { ...state, seen: [...seen].filter(u => !inFlight.has(u)), pending: [...inFlight.values(), ...state.pending] };
+    const snapshot = { ...state, properties: state.properties.slice(), skipped: state.skipped.slice(),
+      seen: [...seen].filter(u => !inFlight.has(u)), pending: [...inFlight.values(), ...state.pending] };
+    const savedReport = report(snapshot);
     await fs.writeFile(checkpoint + ".tmp", JSON.stringify(snapshot)); await fs.rename(checkpoint + ".tmp", checkpoint);
-    await fs.writeFile(path.join(directory, "report.json"), JSON.stringify(report(), null, 2));
-    await fs.writeFile(path.join(directory, "catalog.json.tmp"), JSON.stringify({ version: "pakistan_collected_v1", target, report: report(), properties: state.properties.slice(0, target) }, null, 2));
+    await fs.writeFile(path.join(directory, "report.json"), JSON.stringify(savedReport, null, 2));
+    await fs.writeFile(path.join(directory, "catalog.json.tmp"), JSON.stringify({ version: "pakistan_collected_v1", target, report: savedReport,
+      trustedCatalogDigest: snapshot.trustedCatalogDigest, properties: snapshot.properties.slice(0, target) }, null, 2));
     await fs.rename(path.join(directory, "catalog.json.tmp"), path.join(directory, "catalog.json"));
   }
   function enqueue(url, kind) {

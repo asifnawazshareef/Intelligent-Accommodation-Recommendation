@@ -308,22 +308,62 @@ resume after interruption. `report.json` contains the actual count, remaining
 count, source breakdown and skipped count. A collection lock prevents competing
 collectors from overwriting that state. Cached source pages stay local.
 
+The branch includes an audited partial snapshot of **1096 Pakistani property
+references with 2195 matching photo references**, from Sleepzon (903), Porter
+Pakistan (165) and PC Hotels (28). Every selected photo URL and each property name,
+city and address was checked against its cached source page. The source listings
+establish the association; this is not an independent inspection of the businesses.
+Some listings publish only a city rather than a precise street address.
+
+Use the **Collected Pakistani properties** dashboard preset to seed the available
+1096 properties now. The card shows the actual property and photo counts. It also
+creates 50 demo owners, 450 demo guests, 4384 historical demo bookings and 4384
+explicitly labeled demo reviews. Preview before generating and keep the seed worker
+running. Prices, owners, availability, bookings and reviews remain synthetic.
+
+From the server folder, this command previews the available snapshot without
+connecting to or writing the database:
+
+```sh
+npm.cmd run seed:pakistan:collected
+```
+
+The target is still **1500**, with **404 remaining**. Collection stopped because
+the development environment blocked further network access to the main listing
+source. No records or photos were invented to close that gap. On your own Windows
+PC, install the current server dependencies and run:
+
+```sh
+npm.cmd ci
+npm.cmd run seed:collect:pakistan
+```
+
+When there is no local checkpoint, the collector starts from the bundled snapshot
+and its saved public URL queue, preserving all 1096 records. Existing local
+checkpoints take precedence. Interrupted work resumes with the same command.
+The collector still obeys robots paths, source access restrictions and request
+pacing. If sources return too few qualifying records, it reports that shortfall.
+
 After exactly 1500 qualifying properties from at least two websites are available,
-the collector audits every selected record and photo URL against its cached source
-page, then packages their factual metadata and external image references into
-an immutable compressed snapshot under `server/data/pakistan-1500/`. Original
-third party photographs are not bundled or redistributed. Photo ownership and
-source terms remain with their respective holders; this collection does not
-assert an open license or identify authors the sources do not disclose.
+the collector audits new records against cached source pages, then packages an
+immutable compressed snapshot under `server/data/pakistan-1500/`. Saved records
+without a local source cache must exactly match an installed snapshot verified by
+SHA256. Editing a checkpoint cannot make an unverified record trusted. The snapshot
+contains factual metadata, external image references and public recovery URLs.
+Cached source HTML and third party photo files are not redistributed.
 
 The **1500 Pakistani properties from multiple websites** dashboard preset becomes
-available once a complete packaged snapshot is installed. Refresh the dashboard
-after collection. Create a new dataset, select that preset, preview, and start
-generation with the seed worker running. It includes 50 demo owners, 450 demo
-guests, 1500 real property references, 6000 historical demo bookings and 6000
-explicitly labeled demo reviews. Prices, owners, availability, bookings and
-reviews remain synthetic. Photographs are external references and can later be
-removed or changed by their source websites.
+available only after the complete snapshot is installed. Restart the backend and
+refresh the dashboard after collection. Create a new dataset, select that preset,
+preview, and start generation with the seed worker running. It includes 50 demo
+owners, 450 demo guests, 1500 real property references, 6000 historical demo bookings
+and 6000 explicitly labeled demo reviews. Existing partial datasets remain pinned
+to their original snapshot; use a new dataset for the completed collection.
+
+Photo ownership and source terms remain with their respective holders. This
+collection does not assert an open license or identify authors the sources do not
+disclose. Photographs are external references and can later be removed, changed
+or blocked by their source websites. Property links and credits remain visible.
 
 Existing datasets pin the snapshot by SHA256. A newer collection creates another
 snapshot, so it cannot silently change an existing dataset or an in progress job.

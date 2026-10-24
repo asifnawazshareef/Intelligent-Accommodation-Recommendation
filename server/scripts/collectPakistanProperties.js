@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import { packageCatalog } from "../services/seed/collection/package.js";
 import { collect } from "../services/seed/collection/collector.js";
 const directory = fileURLToPath(new URL("../data/pakistan-collection/", import.meta.url));
-const options = { directory };
+const options = { directory, bootstrap: true };
 for (let i = 2; i < process.argv.length; i += 2) {
   const key = process.argv[i], value = process.argv[i+1];
   if (!["--target", "--photos", "--directory"].includes(key) || !value) throw new Error("Use --target 1500, --photos 2 to 5 or --directory PATH.");

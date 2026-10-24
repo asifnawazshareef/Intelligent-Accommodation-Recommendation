@@ -9,6 +9,7 @@ import { parseProperty, discoverPages } from '../services/seed/collection/parser
 import { allowedUrl, robotsAllowed, PublicClient } from '../services/seed/collection/network.js';
 import { collect } from '../services/seed/collection/collector.js';
 import { packageCatalog } from '../services/seed/collection/package.js';
+import { collectedCatalog, collectedCatalogStatus } from '../services/seed/pakistanCatalog.js';
 
 const image = id => `https://q-xx.bstatic.com/xdata/images/hotel/max500/${id}.jpg?k=test`;
 const url = 'https://www.sleepzon.com/alpha-123-en';
@@ -59,16 +60,22 @@ test('collection checkpoints survive resume and never fabricate records to meet 
 
 test('packaged catalogs require 1500 unique properties from multiple sites and preserve the exact digest', async () => {
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iars-package-'));
- const properties=Array.from({length:1500},(_,i)=>({id:`fixture_${i}`,title:`Test fixture ${i}`,city:'Lahore',address:`${i} Example Road`,country:'Pakistan',
-   sourceUrl:i===0?'https://porterpakistan.com/hotel/test':'https://www.sleepzon.com/test-'+i+'-en',
-   images:[0,1].map(n=>({url:image(i*2+n),caption:'Test fixture photo',sha256:crypto.createHash('sha256').update(`${i}:${n}`).digest('hex'),credit:{sourceUrl:i===0?'https://porterpakistan.com/hotel/test':'https://www.sleepzon.com/test-'+i+'-en'}}))}));
+ const cache=path.join(directory,'sources');await fs.mkdir(cache);
+ const properties=await Promise.all(Array.from({length:1500},async(_,i)=>{
+   const sourceUrl=i===0?'https://porterpakistan.com/hotel/test':'https://www.sleepzon.com/test-'+i+'-en';
+   const title=`Test fixture ${i}`;
+   const pics=[image(i*2),image(i*2+1)];
+   const html=i===0?`<h1>${title}</h1><span itemprop="addressLocality">Lahore</span><span itemprop="streetAddress">${i} Example Road</span>${pics.map(u=>`<a data-lightbox="brand-slider"><img src="${u}"></a>`).join('')}`
+     :`<script type="application/ld+json">${JSON.stringify({'@type':'Hotel',name:title,address:{addressLocality:'Lahore',streetAddress:`${i} Example Road`,addressCountry:'Pakistan'}})}</script>${pics.map(u=>`<img src="${u}" alt="${title}, Lahore">`).join('')}`;
+   await fs.writeFile(path.join(cache,crypto.createHash('sha256').update(sourceUrl).digest('hex')+'.html'),html);
+   const p=parseProperty(html,sourceUrl);p.images=p.images.map((photo,n)=>({...photo,sha256:crypto.createHash('sha256').update(`${i}:${n}`).digest('hex'),credit:{sourceUrl}}));return p;
+ }));
  try {
-  const packed=await packageCatalog({properties},directory);
+  const packed=await packageCatalog({properties},directory,cache);
   const bytes=gunzipSync(await fs.readFile(path.join(directory,packed.digest+'.json.gz')));
   assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),packed.digest);assert.equal(packed.photos,3000);
   const duplicate=structuredClone(properties);duplicate[1].images[0].sha256=duplicate[0].images[0].sha256;
-  await assert.rejects(()=>packageCatalog({properties:duplicate},directory),/duplicate/);
-  const cache=path.join(directory,'sources');await fs.mkdir(cache);
+  await assert.rejects(()=>packageCatalog({properties:duplicate},directory,cache),/duplicate/);
   const key=crypto.createHash('sha256').update(properties[0].sourceUrl).digest('hex');
   await fs.writeFile(path.join(cache,key+'.html'),'<html>No matching property gallery</html>');
   await assert.rejects(()=>packageCatalog({properties},directory,cache),/Cached source/);
@@ -116,4 +123,36 @@ test('retry after pauses the source and retries respect the full requested delay
  }});
  await c.request('https://www.sleepzon.com/robots.txt',{robots:true});
  assert.equal(calls,2);assert.ok(times[1]-times[0]>=30000);
+});
+
+
+test('bundled partial collection resumes without fetching saved records and rejects tampered trusted data', {skip:!collectedCatalogStatus().available}, async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iars-bootstrap-'));
+ const controller=new AbortController();controller.abort();
+ try {
+  const bundle=collectedCatalog();
+  const report=await collect({directory,bootstrap:true,signal:controller.signal,client:{request:async()=>{throw new Error('Must not fetch');}},log:()=>{}});
+  assert.equal(report.collected,bundle.properties.length);
+  const state=JSON.parse(await fs.readFile(path.join(directory,'checkpoint.json'),'utf8'));
+  assert.equal(state.trustedCatalogDigest,bundle.digest);assert.deepEqual(state.properties,bundle.properties);
+  assert.ok(state.pending.length>0);
+  const packaged=await packageCatalog(state,path.join(directory,'bundle'),path.join(directory,'cache'),{partial:true,resume:state});
+  assert.equal(packaged.properties,bundle.properties.length);assert.equal(packaged.remaining,1500-bundle.properties.length);
+  state.properties[0].title='Tampered property';
+  await assert.rejects(()=>packageCatalog(state,path.join(directory,'bundle'),path.join(directory,'cache'),{partial:true}),/no unchanged trusted record/);
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('collecting a new record cannot mutate the trusted bundled snapshot', {skip:!collectedCatalogStatus().available || collectedCatalogStatus().ready}, async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iars-trust-'));
+ try {
+  const bundled=collectedCatalog(), count=bundled.properties.length;
+  const client={request:async(u,{image:photo=false}={})=>({body:Buffer.from(photo?u:hotelHtml({name:'Isolated Fixture Hotel'}))})};
+  const report=await collect({directory,bootstrap:true,target:count+1,concurrency:1,maxImages:2,client,log:()=>{}});
+  assert.equal(report.collected,count+1);assert.equal(collectedCatalog().properties.length,count);
+  const input=JSON.parse(await fs.readFile(path.join(directory,'catalog.json'),'utf8'));
+  // Removing the new page must prevent it from inheriting the bundled digest's trust.
+  await fs.rm(path.join(directory,'cache'),{recursive:true});
+  await assert.rejects(()=>packageCatalog(input,path.join(directory,'bundle'),undefined,{partial:true}),/no unchanged trusted record/);
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
 });

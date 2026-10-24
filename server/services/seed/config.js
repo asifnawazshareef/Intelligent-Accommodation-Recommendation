@@ -45,6 +45,7 @@ export const presetDescriptions = {
   neutral: "Neutral review examples",
   mixed: "Mixed review examples",
   pakistan: "Real Pakistani properties",
+  pakistanCollected: "Collected Pakistani properties",
   pakistan1500: "1500 Pakistani properties from multiple websites",
 };
 export const presets = Object.fromEntries(Object.entries({
@@ -67,7 +68,11 @@ export const presets = Object.fromEntries(Object.entries({
 }).map(([key, values]) => [key, { ...presetBase, ...values }]));
 export function getSeedPresets() {
   const c = collectedCatalogStatus();
-  return { ...presets, ...(c.ready && { pakistan1500: {
+  return { ...presets, ...(c.available > 0 && { pakistanCollected: {
+    ...presets.standard, propertySource: "pakistan_collected_v1", catalogDigest: c.digest,
+    owners: 50, guests: 450, properties: c.available, reviews: c.available * 4,
+    cities: c.cities, approvedPercent: 100,
+  } }), ...(c.ready && { pakistan1500: {
     ...presets.standard, propertySource: "pakistan_collected_v1", catalogDigest: c.digest,
     owners: 50, guests: 450, properties: 1500, reviews: 6000, cities: c.cities,
     approvedPercent: 100,
@@ -168,7 +173,7 @@ export function recipe(input = {}) {
       "Collect and package the real property catalog before seeding it.");
     let catalog;
     try { catalog = collectedCatalog(result.catalogDigest); } catch { assert(false, "The selected collected catalog is missing or damaged. Restore its snapshot before retrying."); }
-    assert(catalog.properties.length >= 1500, "The collected catalog has fewer than 1500 qualified properties.");
+    assert(catalog.properties.length >= result.properties, "The collected catalog has fewer properties than requested.");
   } else assert(result.catalogDigest === undefined, "A catalog digest is only valid for collected properties.");
   if (["pakistan_v1", "pakistan_collected_v1"].includes(result.propertySource)) {
     const available = catalogProperties(result.cities, result.propertySource, result.catalogDigest);
