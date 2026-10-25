@@ -6,6 +6,8 @@
 
 # Dependencies
 node_modules/
+/sentiment-service/.venv/
+__pycache__/
 # Local collection checkpoints and cached source pages
 /server/data/pakistan-collection/cache/
 /server/data/pakistan-collection/checkpoint.json

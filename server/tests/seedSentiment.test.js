@@ -8,11 +8,13 @@ import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { initialize, models, validateDataset, saveRecord, transaction } from "../services/seed/store.js";
-import { SeedItem, SeedRecord } from "../services/seed/models.js";
+import { SeedItem, SeedRecord, SeedJob, SeedWorker } from "../services/seed/models.js";
 import { createDataset, previewGeneration, startJob } from "../services/seed/management.js";
 import { runNextJob, controlJob } from "../services/seed/jobs.js";
 import { analyzeSentiment, sentimentHealth, reviewTextHash } from "../services/sentimentService.js";
 import { reviewAnalysisCounts } from "../services/seed/sentimentJobs.js";
+import { queueLegacyReviewRecovery, heartbeat, workerStatus } from "../services/seed/recovery.js";
+import { fingerprint } from "../services/seed/config.js";
 
 let repl, http, actor, serviceUrl, mode = "ok", calls = 0;
 const config = { owners: 1, guests: 2, properties: 2, reviews: 7, approvedPercent: 100 };
@@ -34,8 +36,8 @@ before(async () => {
   serviceUrl = `http://127.0.0.1:${http.address().port}`; process.env.SENTIMENT_API_URL = serviceUrl;
 });
 after(async () => { if (http) await new Promise(r => http.close(r)); await mongoose.disconnect(); if (repl) await repl.stop(); });
-async function generated(namespace, analyzeReviews = false) {
-  const dataset = await createDataset({ name: namespace, namespace, recipe: config }, actor._id);
+async function generated(namespace, analyzeReviews = false, overrides = {}) {
+  const dataset = await createDataset({ name: namespace, namespace, recipe: { ...config, ...overrides } }, actor._id);
   const preview = await previewGeneration(dataset._id, {}, actor._id);
   const job = await startJob(dataset._id, { kind: "generate", requestKey: crypto.randomUUID(), confirmation: preview.confirmation, recipe: preview.recipe, analyzeReviews }, actor._id);
   const done = await runNextJob({ jobId: job._id }); assert.equal(done.state, "completed", done.error);
@@ -169,15 +171,92 @@ test("the actual Python model analyzes seeded reviews and updates property aspec
       ["The room was dirty and the staff were unhelpful. We stayed for 2 nights.", "negative"],
       ["The staff were friendly, but the room was noisy. We stayed for 3 nights.", "mixed"],
       ["It was a standard stay with basic facilities. We stayed for 4 nights.", "neutral"],
+      ["Demo review, not a real guest experience. The room was spotless and the staff were helpful. We stayed for 2 nights.", "positive"],
+      ["Demo review, not a real guest experience. The room was dirty and the staff were unhelpful. We stayed for 2 nights.", "negative"],
+      ["Demo review, not a real guest experience. The staff were friendly, but the room was noisy. We stayed for 2 nights.", "mixed"],
+      ["Demo review, not a real guest experience. It was a standard stay with basic facilities. We stayed for 4 nights.", "neutral"],
     ]) {
       assert.equal((await analyzeSentiment(text, { strict: true })).sentiment, expected);
     }
-    const { dataset, job } = await generated("actual_python", true);
+    const { dataset, job } = await generated("actual_python", true, { propertySource: "pakistan_v1", cities: ["Gilgit"], properties: 1, positivePercent: 100, negativePercent: 0, neutralPercent: 0 });
     const result = await runNextJob({ jobId: job.options.analysisJob }); assert.equal(result.state, "completed", result.error);
     const reviews = await models.reviews.find({ "sentimentAnalysis.modelVersion": { $ne: "mock-v1" }, "sentimentAnalysis.source": "model" }).lean();
     assert.equal(reviews.length, 7);
-    for (const r of reviews) { assert.ok(r.sentimentScore > 0); assert.notEqual(r.summary, "Synthetic demo feedback. Not a model prediction."); assert.match(r.sentimentAnalysis.modelVersion, /^[a-f0-9]{16}$/); }
+    for (const r of reviews) { assert.match(r.text, /^Demo review, not a real guest experience/); assert.equal(r.sentiment, "positive"); assert.ok(r.sentimentScore > 0); assert.notEqual(r.summary, "Synthetic demo feedback. Not a model prediction."); assert.match(r.sentimentAnalysis.modelVersion, /^[a-f0-9]{16}$/); }
     assert.ok(await models.properties.exists({ _id: { $in: reviews.map(r => r.property) }, "sentimentSnapshot.aspectBreakdown.0": { $exists: true } }));
     assert.equal((await validateDataset(dataset._id)).valid, true);
   } finally { if (python.pid && python.exitCode === null && python.signalCode === null) python.kill("SIGTERM"); await stopped; process.env.SENTIMENT_API_URL = previous; }
+});
+
+async function legacy(namespace) {
+  const result = await generated(namespace);
+  const records = await SeedRecord.find({ dataset: result.dataset._id, entity: "reviews" }).lean();
+  for (const record of records) {
+    await models.reviews.updateOne({ _id: record.documentId }, { $unset: { sentimentAnalysis: 1 } });
+    const review = await models.reviews.findById(record.documentId).lean();
+    await SeedRecord.updateOne({ _id: record._id }, { $set: { fingerprint: fingerprint(review) } });
+  }
+  return { ...result, records };
+}
+
+test("worker upgrades older tracked reviews once and preserves explicit fixtures and unrelated reviews", async () => {
+  const { dataset, records } = await legacy("legacy_upgrade");
+  const explicit = await generated("explicit_fixture_mode");
+  const unrelated = await models.reviews.create({ guest: new mongoose.Types.ObjectId(), property: new mongoose.Types.ObjectId(), booking: new mongoose.Types.ObjectId(), text: "An unrelated review", rating: 4, summary: "Synthetic demo feedback. Not a model prediction." });
+  const before = await models.reviews.findById(records[0].documentId).lean();
+  const [first, second] = await Promise.all([queueLegacyReviewRecovery(), queueLegacyReviewRecovery()]);
+  assert.equal([...first.queued, ...second.queued].filter(j => j.dataset === String(dataset._id)).length, 1);
+  const job = await SeedJob.findOne({ dataset: dataset._id, requestKey: "legacy_sentiment_v1" });
+  assert.equal(job.total, 7);
+  assert.equal((await runNextJob({ jobId: job._id })).state, "completed");
+  const after = await models.reviews.findById(before._id).lean();
+  assert.equal(after.text, before.text); assert.equal(after.rating, before.rating); assert.deepEqual(after.createdAt, before.createdAt);
+  assert.equal(after.sentimentAnalysis.source, "model"); assert.equal(after.sentimentScore, 0.91);
+  assert.equal((await reviewAnalysisCounts(explicit.dataset._id)).pending, 7);
+  assert.equal((await models.reviews.findById(unrelated._id)).summary, unrelated.summary);
+  assert.equal((await queueLegacyReviewRecovery()).queued.length, 0);
+  assert.equal((await validateDataset(dataset._id)).valid, true);
+});
+
+test("legacy recovery waits for Python and preserves cancellation instead of requeuing", async () => {
+  const { dataset } = await legacy("legacy_offline");
+  mode = "offline";
+  try {
+    assert.equal((await queueLegacyReviewRecovery()).waitingForModel, true);
+    assert.equal(await SeedJob.exists({ dataset: dataset._id, kind: "analyze_reviews" }), null);
+  } finally { mode = "ok"; }
+  const report = await queueLegacyReviewRecovery();
+  const job = report.queued.find(j => j.dataset === String(dataset._id)); assert.ok(job);
+  await controlJob(job.job, "cancel", actor._id);
+  assert.equal((await queueLegacyReviewRecovery()).queued.length, 0);
+  assert.equal((await SeedJob.findById(job.job)).state, "cancelled");
+});
+
+test("legacy recovery respects an earlier manual analysis cancellation and revoked creator access", async () => {
+  const cancelled = await legacy("legacy_manual_cancel");
+  const manual = await startJob(cancelled.dataset._id, { kind: "analyze_reviews", requestKey: crypto.randomUUID() }, actor._id);
+  await controlJob(manual._id, "cancel", actor._id);
+  assert.equal((await queueLegacyReviewRecovery()).queued.length, 0);
+  const revoked = await legacy("legacy_revoked");
+  await models.users.updateOne({ _id: actor._id }, { $set: { isSuperAdmin: false } });
+  try {
+    const report = await queueLegacyReviewRecovery();
+    assert.equal(report.queued.length, 0); assert.ok(report.blocked.find(item => item.dataset === String(revoked.dataset._id)));
+  } finally { await models.users.updateOne({ _id: actor._id }, { $set: { isSuperAdmin: true } }); }
+  const queued = (await queueLegacyReviewRecovery()).queued.find(j => j.dataset === String(revoked.dataset._id));
+  assert.ok(queued); assert.equal((await runNextJob({ jobId: queued.job })).state, "completed");
+});
+
+test("legacy recovery refuses untracked edits and worker health expires after shutdown", async () => {
+  const { dataset, records } = await legacy("legacy_conflict");
+  await models.reviews.updateOne({ _id: records[0].documentId }, { $set: { text: "An outside edit" } });
+  const report = await queueLegacyReviewRecovery();
+  assert.ok(report.blocked.find(item => item.dataset === String(dataset._id)));
+  assert.equal(await SeedJob.exists({ dataset: dataset._id, kind: "analyze_reviews" }), null);
+  assert.equal((await workerStatus()).available, false);
+  await heartbeat("worker-one"); await heartbeat("worker-two");
+  await SeedWorker.deleteOne({ _id: "worker-one" });
+  assert.equal((await workerStatus()).available, true);
+  await SeedWorker.updateOne({ _id: "worker-two" }, { $set: { lastSeenAt: new Date(Date.now() - 31000) } });
+  assert.equal((await workerStatus()).available, false);
 });

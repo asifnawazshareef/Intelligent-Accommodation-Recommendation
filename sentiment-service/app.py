@@ -87,6 +87,7 @@ STAY_DURATION_FACT = re.compile(
     r"(?:we|i) stayed(?: here| there)? for (?:\d+|one|two|three|four|five|six|seven) nights?[.!]?",
     re.IGNORECASE,
 )
+DEMO_DISCLOSURE = re.compile(r"Demo review, not a real guest experience[.!]?", re.IGNORECASE)
 
 
 def split_analysis_units(text: str) -> List[str]:
@@ -169,7 +170,7 @@ def predict_single(sentence: str) -> dict:
     best_index = int(probabilities.argmax())
     sentiment = classes[best_index]
     confidence = float(probabilities[best_index])
-    factual_context = STAY_DURATION_FACT.fullmatch(sentence.strip()) is not None
+    factual_context = any(pattern.fullmatch(sentence.strip()) for pattern in (STAY_DURATION_FACT, DEMO_DISCLOSURE))
 
     if factual_context:
         sentiment = "neutral"

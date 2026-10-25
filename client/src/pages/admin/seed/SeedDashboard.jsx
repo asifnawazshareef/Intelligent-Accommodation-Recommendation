@@ -329,7 +329,8 @@ export default function SeedDashboard() {
           <div className="seed-section-heading"><div><h2>Sentiment model</h2>
             <p>{!sentiment ? "Checking model connection…" : sentiment.service.available ? "Connected to your Python model" : "Model is offline or unreachable"}</p>
           </div><button type="button" disabled={busy} onClick={() => loadSentiment().catch(e => setError(e.response?.data?.message || e.message))}>Refresh model status</button></div>
-          {sentiment?.service.available ? <p className="seed-muted">{sentiment.service.model}</p> : <p className="seed-muted">Start <code>npm.cmd run sentiment</code> from the project root. Then refresh this status.</p>}
+          {sentiment?.service.available ? <p className="seed-muted">{sentiment.service.model}</p> : <p className="seed-muted">Start <code>npm.cmd run dev:seed</code> from the project root. Then refresh this status.</p>}
+          {sentiment?.worker && <p className="seed-muted">{sentiment.worker.available ? "Seed worker connected" : <>Seed worker is not running. Start <code>npm.cmd run dev:seed</code> to process reviews.</>}</p>}
           {active && sentiment && <>
             <p>{sentiment.analyzed || 0} of {sentiment.total || 0} reviews analyzed · {sentiment.pending || 0} awaiting model predictions</p>
             <button type="button" className="seed-primary" disabled={busy || running || !sentiment.service.available || !sentiment.pending} onClick={() => run(async () => {

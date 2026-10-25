@@ -44,6 +44,7 @@ Use a different port if another database is already listening on 27017. Do not r
 Install from the repository root:
 
 ```sh
+npm ci
 npm ci --prefix server
 npm ci --prefix client
 ```
@@ -68,29 +69,30 @@ There is intentionally no public role elevation endpoint. To revoke permission, 
 
 ## Run the app and worker
 
-Start these in separate terminals:
+Install Python 3.11 or 3.12 on the current PC. From the repository root, create a local Python environment once:
 
 ```sh
-npm run server
-npm run client
-npm run seed:worker
+npm.cmd run sentiment:setup
+npm.cmd run sentiment:check
 ```
 
-The worker must use the same environment and database as the server. It is a separate process so leaving the dashboard does not interrupt a job. The database stores job state and checkpoints; after a worker crash, a replacement worker can reclaim an expired lease within approximately two minutes.
-
-The dashboard selects **Analyze reviews with my sentiment model after generation** by default. Start the Python sentiment service before generation:
+Then start the client, server, sentiment model and seed worker together:
 
 ```sh
-npm.cmd run dev
+npm.cmd run dev:seed
 ```
 
-On Windows Git Bash, that runs the client, server and sentiment service together. Keep `npm.cmd run seed:worker` running in another terminal. Install server dependencies and recreate the Python virtual environment on the current PC first; a virtual environment copied from another computer will not work. The sentiment service needs the packages in `sentiment-service/requirements.txt` and the trained file `sentiment-service/models/sentiment_pipeline.joblib`. Configure `SENTIMENT_API_URL` for both the server and worker if the model uses a different address.
+Stop older app terminals first so they do not occupy the same ports. Keep MongoDB running. On Linux or macOS use `npm` instead of `npm.cmd`. The setup command installs the pinned requirements in `sentiment-service/.venv`; it does not install Python itself. The launcher checks working Python 3.11/3.12 installations and skips broken copied environments. `SENTIMENT_PYTHON` can specify an executable explicitly. The trained file `sentiment-service/models/sentiment_pipeline.joblib` must be present.
+
+The worker uses the same environment and database as the server. It is a separate process so leaving the dashboard does not interrupt a job. The database stores checkpoints; after a worker crash, a replacement can reclaim an expired lease within approximately two minutes. If running services separately, start `npm run server`, `npm run client`, `npm run sentiment` and `npm run seed:worker`. The regular `dev` command starts only the first three.
+
+The dashboard selects **Analyze reviews with my sentiment model after generation** by default. Configure `SENTIMENT_API_URL` for both the server and worker if the model uses a different address.
 
 Generation first saves demonstration accounts, properties, bookings and review text, then queues a separate **Analyze reviews** job. The worker calls the actual Python model and saves its sentiment, confidence, aspects, summary, model version, text hash and analysis time. Property summaries refresh with each committed analysis batch. The text remains synthetic; its predictions come from the model. Sentiment percentages control text generation, so final predicted percentages may differ.
 
-The existing trained model is reused without retraining. The service treats a plain stay duration such as “We stayed for 5 nights.” as factual context, so that sentence cannot turn otherwise positive feedback into a mixed prediction. Actual positive and negative clauses still produce mixed sentiment. The model version identifies both the trained artifact and inference code.
+The existing trained model is reused without retraining. The service treats a plain stay duration such as “We stayed for 5 nights.” and the exact disclosure “Demo review, not a real guest experience.” as factual context. These sentences remain visible in the review but cannot turn otherwise positive feedback into a mixed prediction. Actual positive and negative clauses still produce mixed sentiment. The model version identifies both the trained artifact and inference code.
 
-The **Sentiment model** panel shows service health, analyzed counts and pending reviews. For existing datasets showing “Synthetic demo feedback. Not a model prediction.”, select the dataset and press **Analyze all pending reviews**. No reseeding or deletion is needed. A failed or cancelled analysis resumes through **Jobs → Retry**. Completed predictions for unchanged text are skipped; editing a review marks it pending again. If the model is offline or returns invalid results, analysis fails visibly without saving a neutral fallback. Normal review submission returns HTTP 503 and saves no review until the model is available.
+The **Sentiment model** panel shows model health, worker heartbeat, analyzed counts and pending reviews. The worker automatically queues the first analysis for older tracked fixture reviews that have no analysis metadata and still show “Synthetic demo feedback. Not a model prediction.” with confidence zero. It waits for the model to become available, verifies the original creator still has super admin permission, and respects provenance checks. It does not retry a dataset that already had an analysis job, including a cancelled or failed job, or adopt unrelated reviews. New datasets explicitly generated without analysis stay pending until you choose **Analyze all pending reviews**. No reseeding or deletion is needed. An open property page refreshes pending reviews every five seconds while visible and on window focus, then stops polling when none remain. A failed or cancelled analysis resumes through **Jobs → Retry**. Completed predictions for unchanged text are skipped; editing a review marks it pending again. If the model is offline or returns invalid results, analysis fails visibly without saving a neutral fallback. Normal review submission returns HTTP 503 and saves no review until the model is available.
 
 Uncheck model analysis only when deliberately generating fixture data without Python. Such records retain confidence zero and a synthetic summary until analyzed. Image verification labels remain demonstration inputs, not image model predictions.
 
@@ -205,7 +207,7 @@ npm run test:seed
 
 A CI workflow runs integration tests, client lint, and the production build. The large preset test is opt in because it takes several minutes.
 
-* **Queued forever:** run `seed:worker` against the same database and check its console.
+* **Queued forever:** run `dev:seed` against the same database and check the WORKER console. The dashboard reports whether a worker heartbeat is present.
 * **Replica set required:** use Atlas or initialize the local replica set; do not remove the transaction check.
 * **Record changed:** refresh the rows and create a new preview.
 * **Untracked edit / missing document:** Validate identifies records changed by a direct database edit or legacy script. Restore the record from your database backup, or resolve the change with a database operator. The UI deliberately does not silently adopt arbitrary edits or delete unknown data.

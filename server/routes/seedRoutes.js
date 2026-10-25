@@ -2,6 +2,7 @@ import { pakistanCatalogCities, pakistanCatalog, collectedCatalogStatus, catalog
 import { checkSeedSetup } from "../services/seed/readiness.js";
 import { sentimentHealth } from "../services/sentimentService.js";
 import { reviewAnalysisCounts } from "../services/seed/sentimentJobs.js";
+import { workerStatus } from "../services/seed/recovery.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { SeedDataset, SeedJob, SeedAudit } from "../services/seed/models.js";
@@ -135,10 +136,13 @@ router.post(
   ),
 );
 router.get("/datasets/:ds/sentiment", handler(async (req, res) => {
-  const [service, counts] = await Promise.all([sentimentHealth(), reviewAnalysisCounts(req.params.ds)]);
-  res.json({ service, ...counts });
+  const [service, counts, worker] = await Promise.all([sentimentHealth(), reviewAnalysisCounts(req.params.ds), workerStatus()]);
+  res.json({ service, worker, ...counts });
 }));
-router.get("/sentiment", handler(async (req, res) => res.json({ service: await sentimentHealth() })));
+router.get("/sentiment", handler(async (req, res) => {
+  const [service, worker] = await Promise.all([sentimentHealth(), workerStatus()]);
+  res.json({ service, worker });
+}));
 router.post(
   "/datasets/:ds/jobs",
   handler(async (req, res) =>

@@ -466,7 +466,10 @@
       "noise": "شور"
     },
     "modelAnalyzed": "ماڈل سے تجزیہ مکمل",
-    "awaitingAnalysis": "ماڈل کے تجزیے کا انتظار"
+    "awaitingAnalysis": "ماڈل کے تجزیے کا انتظار",
+    "pendingCount": "{{count}} جائزے ماڈل کے تجزیے کے منتظر ہیں۔",
+    "startServices": "پرانے نمونہ جائزوں کے تجزیے کے لیے تمام سروسز شروع کریں:",
+    "openSeedData": "پیش رفت اور مسائل کے لیے Seed Data کھولیں"
   },
   "admin": {
     "adminDashboard": "ایڈمن ڈیش بورڈ",

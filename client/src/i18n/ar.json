@@ -466,7 +466,10 @@
       "noise": "مستوى الضوضاء"
     },
     "modelAnalyzed": "تم التحليل بالنموذج",
-    "awaitingAnalysis": "بانتظار تحليل النموذج"
+    "awaitingAnalysis": "بانتظار تحليل النموذج",
+    "pendingCount": "{{count}} مراجعات بانتظار تحليل النموذج.",
+    "startServices": "شغل جميع الخدمات لتحليل المراجعات التجريبية القديمة:",
+    "openSeedData": "افتح Seed Data لمتابعة التقدم والأخطاء"
   },
   "admin": {
     "adminDashboard": "لوحة المشرف",

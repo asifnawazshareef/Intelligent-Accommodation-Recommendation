@@ -113,6 +113,11 @@ export const SeedGate = model("SeedGate", {
   _id: String,
   revision: { type: Number, default: 0 },
 });
+export const SeedWorker = model("SeedWorker", {
+  _id: String,
+  lastSeenAt: Date,
+  expiresAt: Date,
+}, [[{ expiresAt: 1 }, { expireAfterSeconds: 0 }]]);
 export const seedModels = [
   SeedDataset,
   SeedRecord,
@@ -121,4 +126,5 @@ export const seedModels = [
   SeedItem,
   SeedAudit,
   SeedGate,
+  SeedWorker,
 ];

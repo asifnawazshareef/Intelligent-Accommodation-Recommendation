@@ -466,7 +466,10 @@
       "noise": "Noise level"
     },
     "modelAnalyzed": "Model analyzed",
-    "awaitingAnalysis": "Awaiting model analysis"
+    "awaitingAnalysis": "Awaiting model analysis",
+    "pendingCount": "{{count}} reviews are awaiting model analysis.",
+    "startServices": "Start all services to process older demo reviews:",
+    "openSeedData": "Open Seed Data for progress and errors"
   },
   "admin": {
     "adminDashboard": "Admin Dashboard",

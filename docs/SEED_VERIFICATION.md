@@ -200,3 +200,34 @@ quick demo with all 60 reviews analyzed automatically. Both datasets validate.
 It also verifies the offline status, disabled analysis action, no page errors and
 390 pixel mobile layout without horizontal page overflow. Client lint and
 production build pass with existing unrelated warnings.
+
+## Older review recovery and startup, 25 October 2026
+
+The worker now discovers tracked fixture reviews saved before analysis metadata
+existed and queues their first analysis automatically when the model is ready.
+It preserves explicitly selected fixture mode on newer datasets, prior analysis
+cancellations, untracked reviews and provenance checks. The original dataset
+creator must still have super admin access. Workers report an expiring heartbeat.
+Public property pages identify pending reviews and refresh while analysis runs.
+
+The Python launcher skips broken copied environments, supports executable paths
+containing spaces and provides setup/check commands. The new dev:seed command
+starts the client, server, actual model and worker together. The exact demo
+review disclosure is factual context, like the stay duration, so its wording
+cannot add a false negative opinion to positive feedback.
+
+Verification reports 57 tests: 55 passed, zero failed and two optional load tests
+skipped. This includes the actual Python model, concurrent recovery workers,
+offline recovery, cancellation, revoked access, untracked edits, heartbeat
+expiry and launcher selection. Client lint and production build passed with
+existing unrelated warnings. Windows executable selection was tested with
+simulated process results; a Windows desktop was not available.
+
+A browser exercise starts all four processes using npm run dev:seed against a
+disposable replica set. Seven Gilgit Serena Hotel reviews with the older schema
+are automatically analyzed once. The already open property page shows all seven
+model results without navigation, a refresh or an analysis button. All seven
+positive texts produce positive predictions and nonzero confidence, the original
+text is preserved, and the dataset validates. The dashboard shows the model and
+worker connected. Desktop and 390 pixel mobile views have no page errors or
+horizontal overflow. No user database was accessed by these checks.
