@@ -76,13 +76,21 @@ npm.cmd run sentiment:setup
 npm.cmd run sentiment:check
 ```
 
+If setup reports no matching SciPy distribution, run this repair instead:
+
+```sh
+npm.cmd run sentiment:repair
+```
+
+Repair uses the official PyPI HTTPS source for this installation, ignores saved package source overrides and cached downloads, and keeps existing pip configuration files unchanged. Custom certificate and proxy environment settings are preserved. It upgrades pip inside the project environment, installs binary packages with pinned NumPy and SciPy versions, checks dependency consistency, and executes the trained model before reporting success. Network access to `pypi.org` and `files.pythonhosted.org` is required. If repair fails, read its download error and do not start the app yet.
+
 Then start the client, server, sentiment model and seed worker together:
 
 ```sh
 npm.cmd run dev:seed
 ```
 
-Stop older app terminals first so they do not occupy the same ports. Keep MongoDB running. On Linux or macOS use `npm` instead of `npm.cmd`. The setup command installs the pinned requirements in `sentiment-service/.venv`; it does not install Python itself. The launcher checks working Python 3.11/3.12 installations and skips broken copied environments. `SENTIMENT_PYTHON` can specify an executable explicitly. The trained file `sentiment-service/models/sentiment_pipeline.joblib` must be present.
+Stop older app terminals with Ctrl+C first so they do not occupy the same ports. The client now refuses to move from port 5173 to another port. If 5173 is occupied, stop the existing app process and retry. The combined command checks a model prediction before launching any service. Keep MongoDB running. On Linux or macOS use `npm` instead of `npm.cmd`. The setup command uses your configured package source and installs the pinned requirements in `sentiment-service/.venv`; it does not install Python itself. The launcher checks working Python 3.11/3.12 installations and skips broken copied environments. `SENTIMENT_PYTHON` can specify an executable explicitly. The trained file `sentiment-service/models/sentiment_pipeline.joblib` must be present.
 
 The worker uses the same environment and database as the server. It is a separate process so leaving the dashboard does not interrupt a job. The database stores checkpoints; after a worker crash, a replacement can reclaim an expired lease within approximately two minutes. If running services separately, start `npm run server`, `npm run client`, `npm run sentiment` and `npm run seed:worker`. The regular `dev` command starts only the first three.
 

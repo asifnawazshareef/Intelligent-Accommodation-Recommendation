@@ -30,3 +30,41 @@ jobs:
           SEED_REAL_SENTIMENT_PYTHON: python
       - run: npm run lint --prefix client
       - run: npm run build --prefix client
+  windows_startup:
+    name: Windows Python ${{ matrix.python }} setup
+    runs-on: windows-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/
+            /sentiment-service/app.py
+            /sentiment-service/text_preprocessing.py
+            /sentiment-service/requirements.txt
+            /sentiment-service/models/
+            /server/tests/seedStartup.test.js
+            /server/package.json
+            /package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Repair from PyPI despite an unusable configured source
+        run: npm run sentiment:repair
+        env:
+          SENTIMENT_PYTHON: python
+          PIP_NO_INDEX: '1'
+          PIP_INDEX_URL: https://missing.invalid/simple
+      - name: Verify Windows launcher and actual model prediction
+        shell: pwsh
+        run: |
+          $env:SEED_REAL_SENTIMENT_PYTHON = (Resolve-Path sentiment-service/.venv/Scripts/python.exe).Path
+          node --test server/tests/seedStartup.test.js

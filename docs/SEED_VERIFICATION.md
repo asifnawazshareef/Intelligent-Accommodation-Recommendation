@@ -231,3 +231,37 @@ positive texts produce positive predictions and nonzero confidence, the original
 text is preserved, and the dataset validates. The dashboard shows the model and
 worker connected. Desktop and 390 pixel mobile views have no page errors or
 horizontal overflow. No user database was accessed by these checks.
+
+
+## Python package repair, 25 October 2026
+
+A Windows Python 3.11 setup reported no SciPy distribution from pip. The log
+establishes a package discovery failure, but cannot identify the user's package
+index, cache or network cause. PyPI publishes the required Windows wheels.
+NumPy 2.2.6 and SciPy 1.15.3 are now explicit requirements, compatible with the
+existing model dependencies on Python 3.11 and 3.12.
+
+The explicit sentiment:repair command temporarily uses official PyPI, bypasses
+package source overrides and cached downloads, preserves certificate/proxy
+environment settings and leaves saved pip configuration untouched. Both setup
+and repair update local pip, install binary packages, check dependencies and
+run a model prediction. The dev:seed preflight checks the model before starting
+services; Vite now refuses to silently change its port. Root npm dependencies
+were updated within the existing major version to resolve the two reported
+root audit findings.
+
+Regression coverage includes a failed download stopping validation, official
+repair ignoring source overrides without mutating the original environment,
+and actual model loading. CI also installs and checks the model on Windows
+with Python 3.11 and 3.12 using an intentionally unusable configured pip source.
+
+Local verification of the revised dependency set reports 59 tests: 57 passed,
+zero failed and two optional load tests skipped. A fresh repair succeeds with
+PIP_NO_INDEX enabled and an invalid configured index. Dependency validation and
+a real trained prediction pass. Browser verification repeats automatic review
+recovery using that repaired environment and the updated process launcher.
+A missing Python executable stops startup before child services launch, and an
+occupied port 5173 produces an explicit error without opening 5174. Client lint
+and build pass with existing unrelated warnings. Root npm audit reports zero
+vulnerabilities; this audit result does not cover the separate client/server
+packages or Python dependencies.
