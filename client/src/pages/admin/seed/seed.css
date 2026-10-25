@@ -394,6 +394,8 @@
 .seed-detail-grid dd { margin: 5px 0 0; }
 .seed-detail-text { line-height: 1.7; white-space: pre-wrap; }
 .seed-advanced { margin-block: 12px; }
+.seed-analysis-choice { display: flex; align-items: center; gap: 10px; padding: 14px; border: 1px solid var(--seed-line); border-radius: 10px; }
+.seed-analysis-choice input { flex-shrink: 0; }
 .seed-modal .seed-wizard-actions { position: sticky; bottom: -24px; background: var(--background, white); border-top: 1px solid var(--seed-line); padding-block: 16px; z-index: 1; }
 .seed-modal .seed-wizard-actions > button { flex: 1; }
 @media (max-width: 900px) {

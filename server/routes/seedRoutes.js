@@ -1,5 +1,7 @@
 import { pakistanCatalogCities, pakistanCatalog, collectedCatalogStatus, catalogSummary } from "../services/seed/pakistanCatalog.js";
 import { checkSeedSetup } from "../services/seed/readiness.js";
+import { sentimentHealth } from "../services/sentimentService.js";
+import { reviewAnalysisCounts } from "../services/seed/sentimentJobs.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { SeedDataset, SeedJob, SeedAudit } from "../services/seed/models.js";
@@ -42,7 +44,7 @@ const handler = (fn) => async (req, res, next) => {
     await fn(req, res);
   } catch (e) {
     res
-      .status(e instanceof SeedError ? e.status : e.code === 11000 ? 409 : 400)
+      .status(e instanceof SeedError ? e.status : e.code === "SENTIMENT_UNAVAILABLE" ? 503 : e.code === 11000 ? 409 : 400)
       .json({ success: false, message: safeError(e) });
   }
 };
@@ -132,6 +134,11 @@ router.post(
     res.json(await previewGeneration(req.params.ds, req.body, req.user._id)),
   ),
 );
+router.get("/datasets/:ds/sentiment", handler(async (req, res) => {
+  const [service, counts] = await Promise.all([sentimentHealth(), reviewAnalysisCounts(req.params.ds)]);
+  res.json({ service, ...counts });
+}));
+router.get("/sentiment", handler(async (req, res) => res.json({ service: await sentimentHealth() })));
 router.post(
   "/datasets/:ds/jobs",
   handler(async (req, res) =>

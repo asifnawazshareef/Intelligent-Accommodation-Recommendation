@@ -76,6 +76,7 @@ before(async () => {
     role: "admin",
   });
   const sentiment = express();
+  sentiment.get("/health", (req, res) => res.json({ status: "running", model: "Test classifier", modelVersion: "test-v1" }));
   sentiment.post("/predict", (req, res) =>
     res.json({
       sentiment: "positive",
@@ -148,6 +149,17 @@ const ok = (r, status = 200) => {
   return r.body;
 };
 
+test("sentiment dashboard reports model health and pending counts only to super admins", async () => {
+  const path = `/admin/seed/datasets/${ds._id}/sentiment`;
+  assert.equal((await api(path, null)).status, 401);
+  assert.equal((await api(path, ordinary)).status, 403);
+  const status = ok(await api(path));
+  assert.equal(status.service.available, true);
+  assert.equal(status.service.modelVersion, "test-v1");
+  assert.equal(status.total, 8); assert.equal(status.pending, 8); assert.equal(status.analyzed, 0);
+  assert.equal(ok(await api("/admin/seed/sentiment")).service.available, true);
+});
+
 test("existing login, search, recommendations, owner lists, booking, payment and review work with seed records", async () => {
   const guest = (await queryRecords(ds._id, "users", { role: "guest" }))
     .records[0];
@@ -212,6 +224,13 @@ test("existing login, search, recommendations, owner lists, booking, payment and
       {},
     ),
   );
+  const priorService = process.env.SENTIMENT_API_URL;
+  try {
+    process.env.SENTIMENT_API_URL = "http://127.0.0.1:1";
+    const failed = await api("/reviews", guest, "POST", { property: property._id, booking: booking._id, rating: 5, text: "A clean and comfortable stay." });
+    assert.equal(failed.status, 503);
+    assert.equal(await models.reviews.exists({ booking: booking._id }), null);
+  } finally { process.env.SENTIMENT_API_URL = priorService; }
   const review = ok(
     await api("/reviews", guest, "POST", {
       property: property._id,
@@ -221,6 +240,8 @@ test("existing login, search, recommendations, owner lists, booking, payment and
     }),
     201,
   ).data;
+  assert.equal(review.sentimentAnalysis.source, "model");
+  assert.equal(review.sentimentAnalysis.status, "completed");
   assert.ok(
     await SeedRecord.exists({
       entity: "reviews",

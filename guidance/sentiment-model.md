@@ -64,7 +64,7 @@ Do **not** retrain unless explicitly asked — the trained model already exists 
 
 | File | Role |
 |------|------|
-| `server/services/sentimentService.js` | HTTP client to FastAPI `/predict`; safe fallback if service down |
+| `server/services/sentimentService.js` | HTTP client to FastAPI `/predict`; strict mode for reviews and seed analysis |
 | `server/controllers/reviewController.js` | On create review → call sentiment → save on `Review` |
 | `server/controllers/sentimentController.js` | Property-level sentiment summary API |
 | `server/routes/reviewRoutes.js` | Review endpoints |
@@ -89,7 +89,9 @@ Guest submits review
   → recommendation engine later reads snapshot as ReviewAnalysisScore
 ```
 
-If FastAPI is down, the service should fail soft (neutral / safe fallback) so booking/review UX does not hard-crash — check `sentimentService.js` behaviour when debugging.
+Review creation and seed analysis use strict mode. If FastAPI is down or returns invalid data, review creation responds with HTTP 503 and saves no review. Seed analysis fails visibly and can resume from its saved checkpoint. A neutral fallback remains available only to legacy callers that explicitly use the nonstrict default; it must not be labeled as a completed model prediction.
+
+Seed generation in the dashboard selects actual model analysis by default and queues it as a separate worker job. Existing datasets can use **Analyze all pending reviews**. Predictions save their model version, text hash and analysis time. The version hashes the trained artifact, inference code and text preprocessing code. Plain stay duration sentences are treated as factual context so they cannot create false mixed sentiment, and conflicting positive and negative opinions still produce mixed output. The trained artifact itself is unchanged.
 
 ---
 

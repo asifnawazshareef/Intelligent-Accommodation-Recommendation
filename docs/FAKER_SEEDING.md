@@ -78,7 +78,21 @@ npm run seed:worker
 
 The worker must use the same environment and database as the server. It is a separate process so leaving the dashboard does not interrupt a job. The database stores job state and checkpoints; after a worker crash, a replacement worker can reclaim an expired lease within approximately two minutes.
 
-The existing Python sentiment service is optional for generation. Start it using the repository's normal setup when you want **Analyze sentiment** to run actual predictions. Synthetic fixtures have confidence zero and an explicit synthetic summary. Their sentiment and image verification labels are demonstration inputs, not model predictions.
+The dashboard selects **Analyze reviews with my sentiment model after generation** by default. Start the Python sentiment service before generation:
+
+```sh
+npm.cmd run dev
+```
+
+On Windows Git Bash, that runs the client, server and sentiment service together. Keep `npm.cmd run seed:worker` running in another terminal. Install server dependencies and recreate the Python virtual environment on the current PC first; a virtual environment copied from another computer will not work. The sentiment service needs the packages in `sentiment-service/requirements.txt` and the trained file `sentiment-service/models/sentiment_pipeline.joblib`. Configure `SENTIMENT_API_URL` for both the server and worker if the model uses a different address.
+
+Generation first saves demonstration accounts, properties, bookings and review text, then queues a separate **Analyze reviews** job. The worker calls the actual Python model and saves its sentiment, confidence, aspects, summary, model version, text hash and analysis time. Property summaries refresh with each committed analysis batch. The text remains synthetic; its predictions come from the model. Sentiment percentages control text generation, so final predicted percentages may differ.
+
+The existing trained model is reused without retraining. The service treats a plain stay duration such as “We stayed for 5 nights.” as factual context, so that sentence cannot turn otherwise positive feedback into a mixed prediction. Actual positive and negative clauses still produce mixed sentiment. The model version identifies both the trained artifact and inference code.
+
+The **Sentiment model** panel shows service health, analyzed counts and pending reviews. For existing datasets showing “Synthetic demo feedback. Not a model prediction.”, select the dataset and press **Analyze all pending reviews**. No reseeding or deletion is needed. A failed or cancelled analysis resumes through **Jobs → Retry**. Completed predictions for unchanged text are skipped; editing a review marks it pending again. If the model is offline or returns invalid results, analysis fails visibly without saving a neutral fallback. Normal review submission returns HTTP 503 and saves no review until the model is available.
+
+Uncheck model analysis only when deliberately generating fixture data without Python. Such records retain confidence zero and a synthetic summary until analyzed. Image verification labels remain demonstration inputs, not image model predictions.
 
 ## Generate from the dashboard
 
@@ -110,6 +124,14 @@ Apply requires an explicit database and a super admin ID:
 ```sh
 npm run seed:faker -- --standard --namespace fyp_demo --actor EXISTING_ADMIN_OBJECT_ID --apply
 ```
+
+For CLI generation followed by actual model analysis, add `--analyze`:
+
+```sh
+npm run seed:faker -- --namespace fyp_demo --actor EXISTING_ADMIN_OBJECT_ID --apply --analyze
+```
+
+The CLI runs the analysis job itself after generation and exits nonzero if analysis fails. Retry that saved job in the dashboard with the worker running. CLI previews never contact the model. CLI calls without `--analyze` retain the existing fixture behavior.
 
 The CLI queues and executes its own job using the same service as the dashboard. It exits nonzero on failure. If another worker claimed the job first, follow it in Jobs. On subsequent initial runs without `--config`, the stored recipe is reused, including its reference date.
 
@@ -146,7 +168,7 @@ Each request supports up to 5,000 users, 5,000 properties, and 20,000 review/boo
 
 Users can be guests or owners only. Changing an owner's role requires reassigning their properties first; a guest's bookings and reviews likewise protect their role. Property owners and booking guests must belong to the same dataset. Booking dates must fit availability, and active bookings cannot overlap. Changing a property's current price preserves the booked rate and total on existing bookings. Editing dates or the booked rate recalculates the booking total. Reviews derive their guest and property from their booking; booking reassignment updates the review references and both property summaries in the same transaction.
 
-Bulk actions freeze the selected IDs, expected revisions, and exact proposed changes in a preview valid for 15 minutes. Changing a filter or dataset after preview requires a new preview. Execution rejects stale dataset revisions. Bulk create accepts up to 100 records, explicit selection accepts up to 500 IDs, and Select all matching supports larger filtered selections. Sentiment analysis accepts at most 50 reviews per job and performs external analysis before freezing the plan.
+Bulk actions freeze the selected IDs, expected revisions, and exact proposed changes in a preview valid for 15 minutes. Changing a filter or dataset after preview requires a new preview. Execution rejects stale dataset revisions. Bulk create accepts up to 100 records, explicit selection accepts up to 500 IDs, and Select all matching supports larger filtered selections. The selected review **Analyze sentiment** bulk preview accepts at most 50 reviews and performs external analysis before freezing the plan. **Analyze all pending reviews** uses a resumable job without that selection limit and makes model calls outside database transactions, with at most four calls per batch.
 
 Deleting a single record or a selection uses the same preview workflow. Type the exact dataset display name to confirm. Include related seed records collects dependencies and deletes children before parents. **Any dependent activity outside the selected dataset blocks deletion**, including mixed real/demo activity. Whole dataset deletion removes application records while keeping dataset metadata, audit history, and tombstones. Create a new namespace if you want a completely fresh generation after deleting an initial dataset.
 

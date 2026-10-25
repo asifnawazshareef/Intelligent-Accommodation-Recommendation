@@ -61,6 +61,14 @@ const reviewSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    sentimentAnalysis: {
+      type: new mongoose.Schema({
+        source: { type: String, enum: ["fixture", "model"] },
+        status: { type: String, enum: ["pending", "completed"] },
+        model: String, modelVersion: String, analyzedAt: Date, textHash: String,
+      }, { _id: false }),
+      default: undefined,
+    },
   },
   { timestamps: true },
 );

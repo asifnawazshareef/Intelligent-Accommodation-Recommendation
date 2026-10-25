@@ -464,7 +464,9 @@
       "facilities": "Facilities",
       "food": "Food & dining",
       "noise": "Noise level"
-    }
+    },
+    "modelAnalyzed": "Model analyzed",
+    "awaitingAnalysis": "Awaiting model analysis"
   },
   "admin": {
     "adminDashboard": "Admin Dashboard",
@@ -822,7 +824,7 @@
     "addDates": "Add dates",
     "calculated": "The total is calculated from the booked nightly rate and number of nights.",
     "text": "Review text",
-    "synthetic": "These are demo fixtures. Synthetic sentiment and image labels are not model predictions.",
+    "synthetic": "Demo reviews use your sentiment model when analysis is selected. Pending labels and image verification labels are demo inputs, not model predictions.",
     "referenceDate": "Reference date",
     "cities": "Cities, separated by commas",
     "bookingHint": "Each review includes a matching historical booking. Remaining sentiment percentage is mixed.",

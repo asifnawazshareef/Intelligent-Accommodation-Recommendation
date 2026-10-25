@@ -168,3 +168,35 @@ and prevents old rows appearing under another dataset or record type.
 The default seed API and generator suite reports 39 passes, zero failures and two
 optional load tests skipped. Backend data rules, seed recipes and the 1096 property
 collection are unchanged. Client production build and lint are checked separately.
+
+## Actual sentiment model integration, 25 October 2026
+
+Dashboard generation now selects actual model analysis by default. Generation
+queues a separate durable analysis job; the worker makes prediction requests
+outside MongoDB transactions and commits predictions, tracking revisions,
+property summaries and its checkpoint together. Existing datasets have an
+Analyze all pending reviews action, service health and analyzed counts. Review
+details and public review cards distinguish model results from pending fixtures.
+
+The suite reports 50 tests: 48 pass, zero fail and the two optional database load
+tests are skipped. This run sets SEED_REAL_SENTIMENT_PYTHON and starts the actual
+trained Python service, rather than skipping that integration test. Checks cover
+unavailable and malformed responses, persisted confidence/aspects/version/hash,
+resuming after an outage, cancellation and retry, stale edits, repeat generation,
+append isolation, edited text invalidation, revoked privileges, authenticated
+health endpoints and normal review submission returning 503 without a fallback.
+
+The trained artifact is unchanged. Regression requests check positive, negative,
+neutral and mixed feedback, including the duration sentence added to seeded
+reviews. Pure duration sentences no longer produce false negative feedback or
+turn positive reviews into mixed output. The version includes the model artifact
+and inference/preprocessing code. CI installs the pinned Python dependencies and
+runs the actual model integration on future pull requests.
+
+A browser exercise runs the real server, client, worker and Python model against
+a disposable replica set. It analyzes seven existing reviews, verifies readable
+prediction details and public review summaries, and generates the 155 record
+quick demo with all 60 reviews analyzed automatically. Both datasets validate.
+It also verifies the offline status, disabled analysis action, no page errors and
+390 pixel mobile layout without horizontal page overflow. Client lint and
+production build pass with existing unrelated warnings.

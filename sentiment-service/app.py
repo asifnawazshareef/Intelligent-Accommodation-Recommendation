@@ -8,6 +8,7 @@ uvicorn app:app --reload --host 0.0.0.0 --port 8000
 from __future__ import annotations
 
 import re
+import hashlib
 from collections import Counter
 from pathlib import Path
 from typing import Dict, List
@@ -43,6 +44,10 @@ def load_model():
 
 
 model = load_model()
+MODEL_NAME = "TF-IDF (1-3 gram, negation-safe) + Logistic Regression"
+MODEL_VERSION = hashlib.sha256(b"".join(
+    path.read_bytes() for path in (MODEL_PATH, Path(__file__), BASE_DIR / "text_preprocessing.py")
+)).hexdigest()[:16]
 app = FastAPI(
     title="ISAR Sentiment Analysis API",
     version="1.0.0",
@@ -55,6 +60,8 @@ class PredictRequest(BaseModel):
 
 
 class PredictResponse(BaseModel):
+    model: str
+    modelVersion: str
     sentiment: str
     confidence: float
     aspects: List[str]
@@ -72,6 +79,12 @@ def split_sentences(text: str) -> List[str]:
 # e.g. "the room was clean but the Wi-Fi was poor"
 CLAUSE_SPLITTERS = re.compile(
     r"\s*,?\s*\b(?:but|however|although|though|yet|while|whereas)\b\s*",
+    re.IGNORECASE,
+)
+# A stay duration is factual context, not a complaint about the accommodation.
+# Keep this narrow so phrases such as "the worst five nights" still reach the model.
+STAY_DURATION_FACT = re.compile(
+    r"(?:we|i) stayed(?: here| there)? for (?:\d+|one|two|three|four|five|six|seven) nights?[.!]?",
     re.IGNORECASE,
 )
 
@@ -156,8 +169,12 @@ def predict_single(sentence: str) -> dict:
     best_index = int(probabilities.argmax())
     sentiment = classes[best_index]
     confidence = float(probabilities[best_index])
+    factual_context = STAY_DURATION_FACT.fullmatch(sentence.strip()) is not None
 
-    if rule_sentiment and rule_sentiment != sentiment:
+    if factual_context:
+        sentiment = "neutral"
+        confidence = float(probabilities[classes.index("neutral")])
+    elif rule_sentiment and rule_sentiment != sentiment:
         sentiment = rule_sentiment
         confidence = max(confidence, 0.88)
 
@@ -166,6 +183,7 @@ def predict_single(sentence: str) -> dict:
         "sentiment": sentiment,
         "confidence": round(confidence, 4),
         "aspects": detect_aspects(sentence),
+        "factualContext": factual_context,
     }
 
 
@@ -174,7 +192,8 @@ def health():
     return {
         "status": "running",
         "service": "sentiment-analysis",
-        "model": "TF-IDF (1-3 gram, negation-safe) + Logistic Regression",
+        "model": MODEL_NAME,
+        "modelVersion": MODEL_VERSION,
     }
 
 
@@ -187,15 +206,18 @@ def predict(payload: PredictRequest):
     sentences = split_analysis_units(review)
     sentence_results = [predict_single(unit) for unit in sentences]
 
-    sentiment_counts = Counter(item["sentiment"] for item in sentence_results)
+    contributing_results = [item for item in sentence_results if not item["factualContext"]] or sentence_results
+    sentiment_counts = Counter(item["sentiment"] for item in contributing_results)
     sentiments_found = set(sentiment_counts.keys())
 
     if "positive" in sentiments_found and "negative" in sentiments_found:
         overall_sentiment = "mixed"
     else:
-        overall_sentiment = sentiment_counts.most_common(1)[0][0]
+        # Neutral context does not outweigh an actual positive or negative opinion.
+        opinions = Counter({label: count for label, count in sentiment_counts.items() if label != "neutral"})
+        overall_sentiment = (opinions or sentiment_counts).most_common(1)[0][0]
 
-    avg_confidence = sum(item["confidence"] for item in sentence_results) / len(sentence_results)
+    avg_confidence = sum(item["confidence"] for item in contributing_results) / len(contributing_results)
 
     aspect_counter = Counter()
     for item in sentence_results:
@@ -204,6 +226,8 @@ def predict(payload: PredictRequest):
     aspect_insights = build_aspect_insights(sentence_results)
 
     return {
+        "model": MODEL_NAME,
+        "modelVersion": MODEL_VERSION,
         "sentiment": overall_sentiment,
         "confidence": round(float(avg_confidence), 4),
         "aspects": aspects,

@@ -47,7 +47,8 @@ export function SeedQuickStart({ presets, catalog, onChoose, disabled }) {
 export function SeedJobSummary({ job, onJobs, onRecords }) {
   if (!job) return null;
   const percent = Math.min(100, Math.max(0, Math.round((job.cursor || 0) / (job.total || 1) * 100)));
-  const title = { queued: "Your data is queued", running: "Generating your data", cancel_requested: "Stopping after the current batch", completed: "Your job is complete", failed: "This job needs attention", cancelled: "This job was cancelled" }[job.state] || job.state;
+  const analysis = job.kind === "analyze_reviews";
+  const title = { queued: analysis ? "Review analysis is queued" : "Your data is queued", running: analysis ? "Analyzing reviews with your model" : "Generating your data", cancel_requested: "Stopping after the current batch", completed: analysis ? "Model analysis is complete" : "Your job is complete", failed: analysis ? "Sentiment analysis needs attention" : "This job needs attention", cancelled: "This job was cancelled" }[job.state] || job.state;
   return <section className={`seed-card seed-progress-card seed-job-${job.state}`} aria-label="Latest seed job">
     <SeedSteps step={3} />
     <div className="seed-section-heading"><div><span className="seed-eyebrow">Latest activity</span><h2>{title}</h2></div><strong>{percent}%</strong></div>
@@ -83,14 +84,16 @@ export function SeedExamples({ samples }) {
 }
 
 export function SeedRecordDetails({ entity, row }) {
+  const analyzed = row.sentimentAnalysis?.source === "model" && row.sentimentAnalysis?.status === "completed";
   const entries = entity === "users" ? [["Email", row.email], ["Role", row.role], ["Phone", row.phone || "Not provided"], ["Verified", row.isVerified ? "Yes" : "No"]]
     : entity === "properties" ? [["City", row.location?.city], ["Address", row.location?.address], ["Nightly price", `PKR ${number(row.price)}`], ["Status", row.status]]
       : entity === "bookings" ? [["Check in", row.startDate], ["Check out", row.endDate], ["Guests", row.guests], ["Total", `PKR ${number(row.totalAmount)}`], ["Status", row.status], ["Payment", row.paymentStatus]]
-        : [["Rating", `${row.rating} out of 5`], ["Demo sentiment", row.sentiment]];
+        : [["Rating", `${row.rating} out of 5`], [analyzed ? "Model sentiment" : "Demo sentiment (pending analysis)", row.sentiment], ["Analysis", analyzed ? "Completed" : "Awaiting model analysis"], ...(analyzed ? [["Confidence", `${Math.round(row.sentimentScore * 100)}%`], ["Model", row.sentimentAnalysis.model]] : [])];
   return <>
     <h3>{row.name || row.title || (entity === "reviews" ? "Demo review" : "Demo booking")}</h3>
     <dl className="seed-detail-grid">{entries.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? "Not provided"}</dd></div>)}</dl>
     {(row.description || row.text) && <p className="seed-detail-text">{row.description || row.text}</p>}
+    {entity === "reviews" && analyzed && row.summary && <p className="seed-detail-text">{row.summary}</p>}
     {entity === "properties" && <><PhotoReferences row={row} />{row.seedCatalog && <a href={row.seedCatalog.sourceUrl} target="_blank" rel="noopener noreferrer">Property reference source</a>}</>}
     <details className="seed-advanced"><summary>Technical record details</summary><pre>{JSON.stringify(row, null, 2)}</pre></details>
   </>;

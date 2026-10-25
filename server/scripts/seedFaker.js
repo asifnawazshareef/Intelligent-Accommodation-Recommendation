@@ -30,6 +30,7 @@ try {
         "--namespace",
         "--actor",
         "--append",
+        "--analyze",
       ].includes(args[i]),
       `Unknown argument: ${args[i]}`,
     );
@@ -111,6 +112,7 @@ try {
         recipe: config,
         confirmation: preview.confirmation,
         requestKey: crypto.randomUUID(),
+        analyzeReviews: options["--analyze"] === true,
       },
       options["--actor"],
     );
@@ -130,6 +132,12 @@ try {
       }),
     );
     if (result.state !== "completed") process.exitCode = 1;
+    if (result.state === "completed" && result.options?.analysisJob) {
+      const analysis = await runNextJob({ jobId: result.options.analysisJob });
+      assert(analysis, "Another worker claimed review analysis. Follow its status in the dashboard.");
+      console.log(JSON.stringify({ kind: "analyze_reviews", state: analysis.state, analyzed: analysis.succeeded, total: analysis.total, error: analysis.error }));
+      if (analysis.state !== "completed") process.exitCode = 1;
+    }
   }
 } catch (e) {
   console.error(safeError(e));

@@ -11,6 +11,8 @@ import {
 import { applyItem } from "./management.js";
 import { buildDataset } from "./generator.js";
 import { syncPropertySentiment } from "../../utils/propertySentimentStore.js";
+import { analyzeSentiment, reviewAnalysisPayload } from "../sentimentService.js";
+import { queueReviewAnalysis } from "./sentimentJobs.js";
 export async function controlJob(id, action, actor) {
   return transaction(async () => {
     await superAdmin(actor);
@@ -91,6 +93,21 @@ export async function runNextJob({
       ? buildDataset(ds.namespace, job.options.recipe, job.options.generation)
       : null;
     while (true) {
+      let predictions;
+      if (job.kind === "analyze_reviews") {
+        const checkpoint = await SeedJob.findOne({ _id: job._id, leaseOwner: workerId }).lean();
+        assert(checkpoint && checkpoint.leaseUntil > new Date(), "Worker lease expired.", 409);
+        if (checkpoint.state === "running") {
+          await superAdmin(checkpoint.actor);
+          const end = Math.min(checkpoint.cursor + Math.min(batchSize, 4), checkpoint.total);
+          const items = await SeedItem.find({ plan: checkpoint.options.plan, index: { $gte: checkpoint.cursor, $lt: end } }).sort({ index: 1 }).lean();
+          assert(items.length === end - checkpoint.cursor, "Analysis items are missing.");
+          const results = await Promise.all(items.map(async item => ({ ...item,
+            payload: reviewAnalysisPayload(item.payload.text, await analyzeSentiment(item.payload.text, { strict: true })),
+          })));
+          predictions = { cursor: checkpoint.cursor, end, items: results };
+        }
+      }
       const result = await transaction(async () => {
         const current = await SeedJob.findOne({
           _id: job._id,
@@ -110,7 +127,12 @@ export async function runNextJob({
         assert(current.state === "running", "Job is no longer running.", 409);
         await superAdmin(current.actor);
         current.leaseUntil = new Date(Date.now() + 120000);
-        if (["validate", "recalculate"].includes(current.kind)) {
+        if (current.kind === "analyze_reviews") {
+          assert(predictions && predictions.cursor === current.cursor, "Analysis checkpoint changed. Retry this job.", 409);
+          for (const item of predictions.items) await applyItem(ds._id, item, current.actor, current._id);
+          current.cursor = predictions.end;
+          current.succeeded += predictions.items.length;
+        } else if (["validate", "recalculate"].includes(current.kind)) {
           const work = await SeedRecord.find({
             dataset: ds._id,
             state: "active",
@@ -174,6 +196,11 @@ export async function runNextJob({
           current.cursor = end;
         }
         if (current.cursor >= current.total) {
+          if (generated && current.options.analyzeReviews) {
+            const next = await queueReviewAnalysis({ dataset: ds._id, actor: current.actor,
+              requestKey: `analysis:${current._id}`, generationJob: current.kind === "append" ? current._id : undefined });
+            if (next) current.options = { ...current.options, analysisJob: String(next._id) };
+          }
           current.state = "completed";
           current.finishedAt = new Date();
           await audit({

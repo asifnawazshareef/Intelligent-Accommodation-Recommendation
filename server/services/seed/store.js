@@ -414,6 +414,7 @@ export async function validateRecord(
       data.aspects = [];
       data.aspectInsights = [];
       data.summary = "Synthetic demo feedback. Not a model prediction.";
+      data.sentimentAnalysis = { source: "fixture", status: "pending" };
     }
   }
   return { data };

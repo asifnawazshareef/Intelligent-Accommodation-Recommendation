@@ -235,6 +235,7 @@ export function fingerprint(doc) {
   return digest(value);
 }
 export function safeError(error) {
+  if (error.code === "SENTIMENT_UNAVAILABLE") return error.message;
   if (error instanceof SeedError) return error.message;
   if (error.code === 11000)
     return "A unique value already exists. Refresh the preview and choose a different value.";

@@ -2,7 +2,8 @@ import { normalize } from "./collection/identity.js";
 import { catalogProperties } from "./pakistanCatalog.js";
 import mongoose from "mongoose";
 import { Faker, en } from "@faker-js/faker";
-import { analyzeSentiment } from "../sentimentService.js";
+import { analyzeSentiment, reviewAnalysisPayload } from "../sentimentService.js";
+import { queueReviewAnalysis } from "./sentimentJobs.js";
 import { syncPropertySentiment } from "../../utils/propertySentimentStore.js";
 import {
   SeedDataset,
@@ -223,7 +224,7 @@ export async function previewGeneration(ds, input, actor) {
 }
 export async function startJob(ds, input, actor) {
   assert(
-    ["generate", "append", "validate", "recalculate"].includes(input.kind),
+    ["generate", "append", "validate", "recalculate", "analyze_reviews"].includes(input.kind),
     "Invalid job type.",
   );
   assert(
@@ -243,6 +244,7 @@ export async function startJob(ds, input, actor) {
       assert(
         previous.kind === input.kind &&
           String(previous.actor) === String(actor) &&
+          (!["generate", "append"].includes(input.kind) || Boolean(previous.options?.analyzeReviews) === Boolean(input.analyzeReviews)) &&
           (!previous.options?.recipe ||
             digest(previous.options.recipe) ===
               digest(recipe(input.recipe || d.recipe))),
@@ -252,6 +254,11 @@ export async function startJob(ds, input, actor) {
       return previous;
     }
     await idle(ds);
+    if (input.kind === "analyze_reviews") {
+      const analysis = await queueReviewAnalysis({ dataset: ds, actor, requestKey: input.requestKey });
+      assert(analysis, "All reviews already have current model predictions, or this dataset has no reviews.");
+      return analysis;
+    }
     let options = {};
     let total = 1;
     if (["generate", "append"].includes(input.kind)) {
@@ -269,7 +276,8 @@ export async function startJob(ds, input, actor) {
         );
       const generation =
         input.kind === "generate" ? "initial" : `append:${d.nextSequence++}`;
-      options = { recipe: config, generation };
+      assert(input.analyzeReviews === undefined || typeof input.analyzeReviews === "boolean", "Analyze reviews must be true or false.");
+      options = { recipe: config, generation, analyzeReviews: input.analyzeReviews === true };
       total = buildDataset(d.namespace, config, generation).length;
       await d.save();
     } else {
@@ -506,19 +514,13 @@ export async function previewBulk(ds, input, actor) {
         payload = Object.fromEntries(selected.map((k) => [k, choices[k]]));
       }
       if (input.action === "analyze") {
-        const result = await analyzeSentiment(doc.text);
+        const result = await analyzeSentiment(doc.text, { strict: true });
         assert(
           result.summary !== "Sentiment service unavailable",
           "The sentiment service is unavailable. No analysis job was created.",
           503,
         );
-        payload = {
-          sentiment: result.sentiment,
-          sentimentScore: result.confidence,
-          aspects: result.aspects,
-          aspectInsights: result.aspectInsights,
-          summary: result.summary,
-        };
+        payload = reviewAnalysisPayload(doc.text, result);
       }
       if (["update", "regenerate"].includes(input.action)) {
         const checked = await validateRecord(ds, r.entity, payload, doc, r);

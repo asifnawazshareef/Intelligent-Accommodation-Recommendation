@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Booking from "../models/Booking.js";
 import Property from "../models/Property.js";
-import { analyzeSentiment } from "../services/sentimentService.js";
+import { analyzeSentiment, reviewAnalysisPayload } from "../services/sentimentService.js";
 import { syncPropertySentiment } from "../utils/propertySentimentStore.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -63,7 +63,7 @@ export const createReview = async (req, res) => {
       return res.status(400).json({ success: false, message: "A review already exists for this booking." });
     }
 
-    const sentimentResult = await analyzeSentiment(trimmedText);
+    const sentimentResult = await analyzeSentiment(trimmedText, { strict: true });
 
     const aspectInsights =
       sentimentResult.aspectInsights?.length > 0
@@ -86,6 +86,7 @@ export const createReview = async (req, res) => {
       aspects: sentimentResult.aspects,
       aspectInsights,
       summary: sentimentResult.summary,
+      sentimentAnalysis: reviewAnalysisPayload(trimmedText, sentimentResult).sentimentAnalysis,
     });
 
     await syncPropertySentiment(property);
@@ -100,6 +101,7 @@ export const createReview = async (req, res) => {
       data: populatedReview,
     });
   } catch (error) {
+    if (error.code === "SENTIMENT_UNAVAILABLE") return res.status(503).json({ success: false, message: error.message });
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: "A review already exists for this booking." });
     }

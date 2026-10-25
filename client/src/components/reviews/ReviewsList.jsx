@@ -39,6 +39,8 @@ const ReviewsList = ({ reviews = [] }) => {
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <SentimentBadge sentiment={review.sentiment} />
+                      {review.sentimentAnalysis?.source === "model" && review.sentimentAnalysis?.status === "completed" && <span className="text-xs text-muted-foreground">{t("review.modelAnalyzed", "Model analyzed")}</span>}
+                      {review.sentimentAnalysis?.status === "pending" && <span className="text-xs text-muted-foreground">{t("review.awaitingAnalysis", "Awaiting model analysis")}</span>}
                       {review.sentimentScore > 0 ? (
                         <p className="text-xs text-muted-foreground" dir="ltr">
                           {t("review.confidence", {

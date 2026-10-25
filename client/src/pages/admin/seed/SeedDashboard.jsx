@@ -75,6 +75,7 @@ export default function SeedDashboard() {
     [draft, setDraft] = useState({}),
     [preview, setPreview] = useState(null),
     [rowVersion, setRowVersion] = useState(0),
+    [sentimentStatus, setSentimentStatus] = useState(null),
     [confirmName, setConfirmName] = useState("");
   const active = datasets.find((x) => x._id === ds);
   const activeTotal = Object.values(active?.counts || {}).reduce((n, count) => n + count, 0);
@@ -133,6 +134,22 @@ export default function SeedDashboard() {
     };
   }, [refresh, user]);
   const completedJobs = datasetJobs.filter((j) => j.state === "completed").length;
+  const analysisCheckpoint = datasetJobs.filter(j => j.kind === "analyze_reviews").map(j => `${j._id}:${j.cursor}:${j.state}`).join(",");
+  const sentimentSequence = useRef(0);
+  const loadSentiment = useCallback(async () => {
+    const sequence = ++sentimentSequence.current;
+    try {
+      const result = await api.get(ds ? `${base}/datasets/${ds}/sentiment` : `${base}/sentiment`);
+      if (sequence === sentimentSequence.current) setSentimentStatus({ dataset: ds, ...result.data });
+    } catch (error) {
+      if (sequence === sentimentSequence.current) setSentimentStatus({ dataset: ds, service: { available: false } });
+      throw error;
+    }
+  }, [ds]);
+  const sentiment = sentimentStatus?.dataset === ds ? sentimentStatus : null;
+  useEffect(() => {
+    if (user?.isSuperAdmin) loadSentiment().catch(() => {});
+  }, [loadSentiment, completedJobs, analysisCheckpoint, rowVersion, user, ds]);
   useEffect(() => {
     loadRows().catch((e) => setError(e.response?.data?.message || e.message));
   }, [loadRows, completedJobs, rowVersion]);
@@ -308,6 +325,18 @@ export default function SeedDashboard() {
           </div>
         )}
         {!cap && !error && <p role="status">Loading seed options…</p>}
+        <section className="seed-card" aria-label="Sentiment model">
+          <div className="seed-section-heading"><div><h2>Sentiment model</h2>
+            <p>{!sentiment ? "Checking model connection…" : sentiment.service.available ? "Connected to your Python model" : "Model is offline or unreachable"}</p>
+          </div><button type="button" disabled={busy} onClick={() => loadSentiment().catch(e => setError(e.response?.data?.message || e.message))}>Refresh model status</button></div>
+          {sentiment?.service.available ? <p className="seed-muted">{sentiment.service.model}</p> : <p className="seed-muted">Start <code>npm.cmd run sentiment</code> from the project root. Then refresh this status.</p>}
+          {active && sentiment && <>
+            <p>{sentiment.analyzed || 0} of {sentiment.total || 0} reviews analyzed · {sentiment.pending || 0} awaiting model predictions</p>
+            <button type="button" className="seed-primary" disabled={busy || running || !sentiment.service.available || !sentiment.pending} onClick={() => run(async () => {
+              await api.post(`${base}/datasets/${ds}/jobs`, { kind: "analyze_reviews", requestKey: crypto.randomUUID() }); setView("jobs");
+            })}>Analyze all pending reviews</button>
+          </>}
+        </section>
         {cap && !cap.transactions && (
           <div className="seed-notice">
             {tr(
@@ -779,7 +808,7 @@ export default function SeedDashboard() {
                   <div className="seed-job" key={j._id}>
                     <div className="seed-job-title">
                       <strong>
-                        {tr(j.kind, j.kind)} · {tr(j.state, j.state)}
+                        {tr(j.kind, j.kind === "analyze_reviews" ? "Analyze reviews" : j.kind)} · {tr(j.state, j.state)}
                       </strong>
                       <span>
                         {j.cursor} / {j.total}
@@ -926,6 +955,11 @@ export default function SeedDashboard() {
                   <GenerationFields presets={cap.presets} value={draft} onChange={v => { setDraft(v); setPreview(null); }} />
                 </details>}
                 {modal.kind === "generate" && <p className="seed-muted">These are the settings saved for this dataset. Add more data lets you choose a different recipe later.</p>}
+                {draft.reviews > 0 && <label className="seed-analysis-choice">
+                  <input type="checkbox" disabled={busy} checked={modal.analyzeReviews !== false} onChange={e => setModal({ ...modal, analyzeReviews: e.target.checked, requestKey: crypto.randomUUID() })} />
+                  <span>Analyze reviews with my sentiment model after generation</span>
+                </label>}
+                {draft.reviews > 0 && <p className="seed-muted">The worker saves actual predictions, confidence and aspects. If the model is offline, analysis fails visibly and can be retried after starting it. Unchecked reviews keep fixture labels.</p>}
                 {busy && !preview && <p role="status">Preparing your preview…</p>}
                 {preview && <section className="seed-card seed-review" aria-label="Generation preview">
                   <strong>{preview.total} {tr("planned", "records planned")}</strong>
@@ -965,6 +999,7 @@ export default function SeedDashboard() {
                           recipe: preview.recipe,
                           confirmation: preview.confirmation,
                           requestKey: modal.requestKey,
+                          analyzeReviews: modal.analyzeReviews !== false,
                         });
                         setModal(null);
                         setView("jobs");
