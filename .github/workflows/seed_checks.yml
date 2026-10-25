@@ -67,4 +67,6 @@ jobs:
         shell: pwsh
         run: |
           $env:SEED_REAL_SENTIMENT_PYTHON = (Resolve-Path sentiment-service/.venv/Scripts/python.exe).Path
+          & $env:SEED_REAL_SENTIMENT_PYTHON -c "import importlib.util; assert importlib.util.find_spec('websockets') is None; assert importlib.util.find_spec('watchfiles') is None"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test server/tests/seedStartup.test.js

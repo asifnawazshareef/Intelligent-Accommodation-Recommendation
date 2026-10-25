@@ -265,3 +265,20 @@ occupied port 5173 produces an explicit error without opening 5174. Client lint
 and build pass with existing unrelated warnings. Root npm audit reports zero
 vulnerabilities; this audit result does not cover the separate client/server
 packages or Python dependencies.
+
+## Minimal HTTP server dependencies, 25 October 2026
+
+The next Windows installation reached SciPy but failed to discover the optional
+websockets package from Uvicorn's standard extras. This service has only HTTP
+routes, so requirements now select base Uvicorn at the same pinned version.
+No WebSocket, accelerated HTTP parser, event loop or file watcher extras are
+needed. Development reload falls back to Uvicorn's built in StatReload.
+
+A fresh virtual environment installs the reduced requirements with websockets
+and watchfiles confirmed absent. The suite reports 60 tests: 58 pass, zero fail
+and two optional load tests are skipped. The new HTTP smoke check starts the
+actual server, checks health and submits a positive model prediction. It runs
+on Windows Python 3.11 and 3.12 in CI, where optional package absence is also
+asserted. Browser verification starts all four services using this minimal
+environment, exercises StatReload startup, and confirms automatic analysis of
+seven older reviews with live page updates, valid tracking and no page errors.

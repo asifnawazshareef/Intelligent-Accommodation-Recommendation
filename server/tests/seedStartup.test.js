@@ -1,6 +1,7 @@
+import { createServer } from "node:net";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import launcher from "../../scripts/sentiment.cjs";
 
@@ -70,4 +71,34 @@ test("setup stops at a failed download and repair validates dependencies and a r
   const download = calls.find(call => call.args.includes("requirements.txt"));
   assert.ok(download.args.includes("--only-binary=:all:"));
   assert.equal(download.options.shell, undefined);
+});
+
+
+test("base Uvicorn serves health and model predictions over HTTP", { skip: !process.env.SEED_REAL_SENTIMENT_PYTHON, timeout: 60000 }, async () => {
+  const reservation = createServer();
+  await new Promise(resolve => reservation.listen(0, "127.0.0.1", resolve));
+  const port = reservation.address().port;
+  await new Promise(resolve => reservation.close(resolve));
+  const child = spawn(process.env.SEED_REAL_SENTIMENT_PYTHON, ["-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", String(port)], { cwd: fileURLToPath(new URL("../../sentiment-service/", import.meta.url)), stdio: ["ignore", "pipe", "pipe"] });
+  let output = "", startupError;
+  const stopped = new Promise(resolve => child.once("close", resolve));
+  child.on("error", error => { startupError = error; });
+  for (const stream of [child.stdout, child.stderr]) stream.on("data", chunk => { output = (output + chunk.toString()).slice(-4000); });
+  try {
+    const url = `http://127.0.0.1:${port}`;
+    let ready = false;
+    const deadline = Date.now() + 40000;
+    while (Date.now() < deadline && !startupError && child.exitCode === null && child.signalCode === null) {
+      try { if ((await fetch(`${url}/health`, { signal: AbortSignal.timeout(2000) })).ok) { ready = true; break; } } catch {}
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.ok(ready, startupError?.message || output);
+    const response = await fetch(`${url}/predict`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ review: "The room was clean and the staff were helpful." }), signal: AbortSignal.timeout(10000) });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.sentiment, "positive"); assert.ok(result.confidence > 0);
+  } finally {
+    if (child.pid && child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+    await stopped;
+  }
 });
