@@ -139,3 +139,32 @@ and collected catalogs, accent insensitive city search, city count adjustment an
 the pinned digest. Desktop and 390 pixel mobile layouts pass without horizontal
 overflow or browser errors. The Lahore subset preview contains 79 properties and
 9347 total records with the unchanged preset user and review counts.
+
+
+## Guided Seed Data UI, 25 October 2026
+
+Quick start cards expose the available presets and their actual counts. Creation
+now leads directly to a generation preview with readable sample cards and a
+three step guide. Initial settings are read only during review. Explicit Start
+generation remains required. Existing dataset generation opens its saved preview
+automatically. Namespaces and raw record data are under advanced expanders.
+
+The UI displays job progress and the queued worker command above the records,
+clickable count cards, property thumbnails, readable record dialogs, filter reset
+and recent dataset cards. Destructive maintenance, bulk tools and exports remain
+available in expandable sections. Empty states fit mobile screens without requiring
+a horizontal table swipe.
+
+Browser verification uses the real server, client and worker with a disposable
+MongoDB replica set. It checks a quick start recipe, automatic preview with zero
+application records before Start, worker queue feedback, generation of 155 records,
+record shortcuts, property details, user create/edit/delete, a 20 property bulk
+price change, clearing filters and rapid dataset switching. It also exercises
+appending a ready made owner recipe and the six property catalog with real bundled
+photos and source credits. Desktop and mobile checks include page errors and
+horizontal overflow. The implementation fixes the automatic preview clearing race
+and prevents old rows appearing under another dataset or record type.
+
+The default seed API and generator suite reports 39 passes, zero failures and two
+optional load tests skipped. Backend data rules, seed recipes and the 1096 property
+collection are unchanged. Client production build and lint are checked separately.

@@ -82,11 +82,13 @@ The existing Python sentiment service is optional for generation. Start it using
 
 ## Generate from the dashboard
 
-1. Open `/admin/seed`, create a dataset with a unique namespace such as `fyp_demo`, and choose the small or standard preset.
-2. Adjust the generation settings. Each review includes a matching historical confirmed demo booking. The remaining sentiment percentage is mixed.
-3. Preview the counts and sample records, then start generation.
-4. Follow progress in Jobs. A queued job needs the worker running. A cancelled or failed job retains completed batches; Retry resumes from its checkpoint.
-5. Use Validate after generation. Recalculate summaries repairs property sentiment snapshots and validates records in batches.
+1. Open `/admin/seed` and choose **Quick demo**, **Pakistani properties** or **Demo accounts**. Each card shows the exact counts. **New dataset** opens all presets, including user only, city and sentiment scenarios.
+2. Review the totals. The name and unique dataset identifier are already filled in. **Customize counts and settings** is optional; the identifier is under **Advanced dataset identifier**.
+3. Press **Review seed data**. The dashboard saves the dataset settings and automatically loads readable sample cards. Application records are generated only after you press **Start generation**. Saved initial settings are read only during review.
+4. Follow the progress panel. A queued job displays the worker command. Keep the worker running in another terminal. Cancelled or failed jobs retain completed batches; **Retry** in job details resumes from the checkpoint.
+5. Press **View seeded records**, or a Users, Properties, Bookings or Reviews count, to open those records. Properties have thumbnails. **View** opens readable fields, photos and source credits; raw fields remain under **Technical record details**.
+6. Use **Add more data** to choose another preset or settings. **More dataset actions** contains validation, recalculation and dataset deletion. **Filters, bulk actions and exports** contains date filters, bulk tools and downloads; it also opens when records are selected.
+7. Use the dataset selector to switch between collections, or open a recent dataset card on the start screen. Search empty states offer **Clear filters**. Records from a previous dataset are hidden while the next dataset loads.
 
 **Generate data** repeats the saved initial recipe. It skips existing tracked records and deletion tombstones. It preserves edits and passwords. **Add more data** reserves a new deterministic generation range and adds a separate connected set of records. It does not attach new generated bookings to existing properties, avoiding date conflicts.
 
@@ -200,7 +202,7 @@ Premium accommodation, Islamabad city demo, Lahore city demo, Mountain destinati
 Positive review examples, Negative review examples, Neutral review examples and
 Mixed review examples.
 
-Open Seed Data, choose New dataset and select a scenario. The name and unique
+Open Seed Data, choose a quick start card or New dataset, and select a scenario. The name and unique
 namespace are filled automatically. Counts, prices, cities and sentiment settings
 are supplied by the preset. Customize counts and settings is optional. Create the
 dataset, preview the generated samples, then start generation. Keep the worker running.

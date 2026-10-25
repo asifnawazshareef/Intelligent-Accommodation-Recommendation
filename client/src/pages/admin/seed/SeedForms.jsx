@@ -512,8 +512,8 @@ export function GenerationFields({ value, onChange, presets = {} }) {
   );
 }
 
-export function PresetPicker({ presets, descriptions, onSelect }) {
-  const [expanded, setExpanded] = useState(true);
+export function PresetPicker({ presets, descriptions, onSelect, initiallyExpanded = true }) {
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const [search, setSearch] = useState("");
   const toggle = useRef(null);
   const id = useId();

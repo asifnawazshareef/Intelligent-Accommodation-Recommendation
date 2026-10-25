@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import api from "@/services/api";
-import { resolveImageUrl } from "@/lib/imageUrl";
+import { SeedSteps, RecipeSummary, SeedQuickStart, SeedJobSummary, PropertyThumbnail, SeedExamples, SeedRecordDetails } from "./SeedOverview";
 import {
   Field,
   Modal,
@@ -58,7 +58,8 @@ export default function SeedDashboard() {
     [datasets, setDatasets] = useState([]),
     [ds, setDs] = useState(""),
     [entity, setEntity] = useState("users"),
-    [rows, setRows] = useState([]),
+    [loadedRows, setRows] = useState([]),
+    [rowsKey, setRowsKey] = useState(""),
     [total, setTotal] = useState(0),
     [page, setPage] = useState(1),
     [filters, setFilters] = useState({}),
@@ -73,23 +74,30 @@ export default function SeedDashboard() {
     [modal, setModal] = useState(null),
     [draft, setDraft] = useState({}),
     [preview, setPreview] = useState(null),
+    [rowVersion, setRowVersion] = useState(0),
     [confirmName, setConfirmName] = useState("");
   const active = datasets.find((x) => x._id === ds);
-  const running = jobs.some((j) =>
+  const activeTotal = Object.values(active?.counts || {}).reduce((n, count) => n + count, 0);
+  const rows = rowsKey === `${ds}:${entity}` ? loadedRows : [];
+  const datasetJobs = jobs.filter(j => String(j.dataset) === ds);
+  const running = datasetJobs.some((j) =>
     ["queued", "running", "cancel_requested"].includes(j.state),
   );
+  const refreshSequence = useRef(0);
   const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     const [d, j] = await Promise.all([
       api.get(`${base}/datasets`),
       api.get(`${base}/jobs`, { params: ds ? { dataset: ds } : {} }),
     ]);
+    if (sequence !== refreshSequence.current) return;
     setDatasets(d.data);
     setJobs(j.data);
   }, [ds]);
   const loadSequence = useRef(0);
   const loadRows = useCallback(async () => {
     const sequence = ++loadSequence.current;
-    if (!ds) return;
+    if (!ds) { setRows([]); setTotal(0); setLoading(false); return; }
     setLoading(true);
     try {
       const r = await api.get(`${base}/datasets/${ds}/${entity}`, {
@@ -97,6 +105,7 @@ export default function SeedDashboard() {
       });
       if (sequence !== loadSequence.current) return;
       setRows(r.data.records);
+      setRowsKey(`${ds}:${entity}`);
       setTotal(r.data.total);
     } finally {
       if (sequence === loadSequence.current) setLoading(false);
@@ -123,14 +132,13 @@ export default function SeedDashboard() {
       clearInterval(timer);
     };
   }, [refresh, user]);
-  const completedJobs = jobs.filter((j) => j.state === "completed").length;
+  const completedJobs = datasetJobs.filter((j) => j.state === "completed").length;
   useEffect(() => {
     loadRows().catch((e) => setError(e.response?.data?.message || e.message));
-  }, [loadRows, completedJobs]);
+  }, [loadRows, completedJobs, rowVersion]);
   useEffect(() => {
     setSelected([]);
     setAll(false);
-    setPreview(null);
   }, [ds, entity, filters]);
   useEffect(() => {
     if (view === "history" && ds)
@@ -145,7 +153,7 @@ export default function SeedDashboard() {
     try {
       await fn();
       await refresh();
-      await loadRows();
+      setRowVersion(v => v + 1);
     } catch (e) {
       setError(e.response?.data?.message || e.message);
     } finally {
@@ -163,6 +171,21 @@ export default function SeedDashboard() {
     setPreview(null);
     setConfirmName("");
     setModal({ type, requestKey: crypto.randomUUID(), ...data });
+  };
+  const startDataset = (presetKey) => {
+    const key = presetKey || "small";
+    setDraft({ name: cap?.presetDescriptions?.[key] || "FYP demo",
+      namespace: `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      recipe: { ...(cap?.presets?.[key] || initialRecipe), referenceDate: new Date().toISOString().slice(0, 10) } });
+    open("dataset", { presetKey });
+  };
+  const showRecords = (nextEntity = entity) => {
+    setEntity(nextEntity); setView("records"); setPage(1); setFilters({});
+  };
+  const reviewSaved = () => {
+    setDraft({ ...active.recipe });
+    open("generate", { kind: "generate" });
+    run(async () => setPreview((await api.post(`${base}/datasets/${active._id}/preview`, { kind: "generate", recipe: active.recipe })).data));
   };
   const selection = () => (all ? { all: true, filters } : { ids: selected });
   const setFilter = (key, value) => {
@@ -274,14 +297,7 @@ export default function SeedDashboard() {
           <button
             className="seed-primary"
             disabled={busy || !cap?.transactions}
-            onClick={() => {
-              setDraft({
-                name: "FYP demo",
-                namespace: `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
-                recipe: { ...initialRecipe },
-              });
-              open("dataset");
-            }}
+            onClick={() => startDataset()}
           >
             {tr("newDataset", "New dataset")}
           </button>
@@ -291,6 +307,7 @@ export default function SeedDashboard() {
             {error}
           </div>
         )}
+        {!cap && !error && <p role="status">Loading seed options…</p>}
         {cap && !cap.transactions && (
           <div className="seed-notice">
             {tr(
@@ -334,93 +351,36 @@ export default function SeedDashboard() {
           </Field>
           <span className="seed-muted">{cap?.environment}</span>
         </div>
-        {!active && (
-          <div className="seed-card">
-            <h2>{tr("startTitle", "Start with a small dataset")}</h2>
-            <p>
-              {tr(
-                "startText",
-                "Choose a dataset or create one. Preview the records before generating them, then use the tabs to edit and manage your demo.",
-              )}
-            </p>
-          </div>
-        )}
-        {running && (
-          <p className="seed-notice" role="status">
-            {tr(
-              "jobRunning",
-              "A job is running. Editing will be available when it finishes.",
-            )}
-          </p>
-        )}
+        {!active && <>
+          <SeedSteps />
+          <SeedQuickStart presets={cap?.presets} catalog={cap?.collectedCatalog} onChoose={startDataset} disabled={busy || !cap?.transactions} />
+          {datasets.length > 0 && <section className="seed-card" aria-label="Your datasets">
+            <h2>Your datasets</h2><p className="seed-muted">Open a dataset to view and manage its records.</p>
+            <div className="seed-dataset-grid">{datasets.slice(0, 6).map(d => <button type="button" key={d._id} onClick={() => { setDs(d._id); showRecords(); }}>
+              <strong>{d.name}</strong><span>{Object.values(d.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records</span>
+              <small>{d.counts?.properties || 0} properties · {d.counts?.users || 0} users</small>
+            </button>)}</div>
+          </section>}
+        </>}
         {active && (
           <>
-            <div className="seed-stats">
-              {entities.map((e) => (
-                <div className="seed-stat" key={e}>
-                  <strong>{(active.counts?.[e] || 0).toLocaleString()}</strong>
-                  {tr(e, labels[e])}
-                </div>
-              ))}
+            <div className="seed-section-heading seed-dataset-heading"><div><span className="seed-eyebrow">Selected dataset</span><h2>{active.name}</h2></div><span className="seed-badge">{Object.values(active.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records</span></div>
+            <div className="seed-stats" aria-label="View records by type">
+              {entities.map(e => <button type="button" className={`seed-stat ${view === "records" && entity === e ? "is-selected" : ""}`} key={e} onClick={() => showRecords(e)} aria-pressed={view === "records" && entity === e}>
+                <strong>{(active.counts?.[e] || 0).toLocaleString()}</strong><span>{tr(e, labels[e])}</span><small>View {labels[e].toLowerCase()} →</small>
+              </button>)}
             </div>
+            <SeedJobSummary job={datasetJobs[0]} onJobs={() => setView("jobs")} onRecords={() => showRecords(active.counts?.properties ? "properties" : "users")} />
             <div className="seed-toolbar">
               <div className="seed-inline">
-                <button
-                  className="seed-primary"
-                  disabled={running || busy || !cap?.transactions}
-                  onClick={() => {
-                    setDraft({ ...active.recipe });
-                    open("generate", { kind: "generate" });
-                  }}
-                >
-                  {tr("generate", "Generate data")}
-                </button>
-                <button
-                  disabled={running || busy || !cap?.transactions}
-                  onClick={() => {
-                    setDraft({ ...initialRecipe });
-                    open("generate", { kind: "append" });
-                  }}
-                >
-                  {tr("append", "Add more data")}
-                </button>
-                <button
-                  disabled={running || busy}
-                  onClick={() =>
-                    run(() =>
-                      api.post(`${base}/datasets/${ds}/jobs`, {
-                        kind: "validate",
-                        requestKey: crypto.randomUUID(),
-                      }),
-                    )
-                  }
-                >
-                  {tr("validate", "Validate")}
-                </button>
-                <button
-                  disabled={running || busy}
-                  onClick={() =>
-                    run(() =>
-                      api.post(`${base}/datasets/${ds}/jobs`, {
-                        kind: "recalculate",
-                        requestKey: crypto.randomUUID(),
-                      }),
-                    )
-                  }
-                >
-                  {tr("recalculate", "Recalculate summaries")}
-                </button>
+                <button className={activeTotal ? "" : "seed-primary"} disabled={running || busy || !cap?.transactions} onClick={reviewSaved}>{tr("generate", "Generate data")}</button>
+                <button className={activeTotal ? "seed-primary" : ""} disabled={running || busy || !cap?.transactions} onClick={() => { setDraft({ ...(cap?.presets?.small || initialRecipe), referenceDate: new Date().toISOString().slice(0, 10) }); open("generate", { kind: "append" }); }}>{tr("append", "Add more data")}</button>
               </div>
-              <button
-                className="seed-danger"
-                disabled={running || busy}
-                onClick={() => {
-                  setDraft({ action: "delete", cascade: true });
-                  open("bulk", { datasetDelete: true });
-                }}
-              >
-                {tr("deleteDataset", "Delete dataset records")}
-              </button>
+              <details className="seed-more-actions"><summary>More dataset actions</summary><div className="seed-inline">
+                <button disabled={running || busy} onClick={() => run(() => api.post(`${base}/datasets/${ds}/jobs`, { kind: "validate", requestKey: crypto.randomUUID() }))}>{tr("validate", "Validate")}</button>
+                <button disabled={running || busy} onClick={() => run(() => api.post(`${base}/datasets/${ds}/jobs`, { kind: "recalculate", requestKey: crypto.randomUUID() }))}>{tr("recalculate", "Recalculate summaries")}</button>
+                <button className="seed-danger" disabled={running || busy} onClick={() => { setDraft({ action: "delete", cascade: true }); open("bulk", { datasetDelete: true }); }}>{tr("deleteDataset", "Delete dataset records")}</button>
+              </div></details>
             </div>
             <div className="seed-tabs">
               {["records", "jobs", "history"].map((v) => (
@@ -556,6 +516,8 @@ export default function SeedDashboard() {
                     {tr("create", "Create record")}
                   </button>
                 </div>
+                <details className="seed-tools" open={all || selected.length > 0}>
+                  <summary>Filters, bulk actions and exports{(all || selected.length > 0) ? ` · ${all ? total : selected.length} selected` : ""}</summary>
                 <div className="seed-inline">
                   <Field label={tr("from", "Created from")}>
                     <input
@@ -634,12 +596,14 @@ export default function SeedDashboard() {
                     </button>
                   </div>
                 </div>
+                </details>
                 <p className="seed-muted seed-scroll-hint">
                   {tr(
                     "scrollTable",
                     "Swipe the table to see all columns and actions.",
                   )}
                 </p>
+                {rows.length > 0 ? (
                 <div className="seed-table-wrap" aria-busy={loading}>
                   <table>
                     <thead>
@@ -695,11 +659,10 @@ export default function SeedDashboard() {
                             />
                           </td>
                           <td>
-                            {r.name ||
-                              r.title ||
-                              r.text?.slice(0, 100) ||
-                              `${r.startDate} to ${r.endDate}`}
-                            <small>{r._id}</small>
+                            <div className="seed-record-title">
+                              {entity === "properties" && <PropertyThumbnail key={r.images?.[0]?.url || r._id} image={r.images?.[0]} title={r.title} />}
+                              <span>{r.name || r.title || r.text?.slice(0, 100) || `${r.startDate} to ${r.endDate}`}</span>
+                            </div>
                           </td>
                           <td>
                             {r.email ||
@@ -771,21 +734,17 @@ export default function SeedDashboard() {
                           </td>
                         </tr>
                       ))}
-                      {!rows.length && (
-                        <tr>
-                          <td colSpan={5}>
-                            {loading
-                              ? tr("loading", "Loading…")
-                              : tr(
-                                  "noRecords",
-                                  "No records match these filters.",
-                                )}
-                          </td>
-                        </tr>
-                      )}
+
                     </tbody>
                   </table>
                 </div>
+                ) : <div className="seed-card seed-empty" role="status" aria-busy={loading}>
+                  {loading ? <p>Loading records…</p> : <>
+                    <strong>{active.counts?.[entity] ? "No matching records" : `No ${labels[entity].toLowerCase()} yet`}</strong>
+                    <p>{active.counts?.[entity] ? "Try a different search or clear the filters." : "Choose Generate data to fill this dataset, or Add more data to use a different recipe."}</p>
+                    {Object.keys(filters).length > 0 && <button type="button" onClick={() => { setFilters({}); setPage(1); }}>Clear filters</button>}
+                  </>}
+                </div>}
                 <div className="seed-toolbar">
                   <span>
                     {total} {tr("records", "records")} · {tr("page", "Page")}{" "}
@@ -816,7 +775,7 @@ export default function SeedDashboard() {
                     "Jobs continue when you leave this page. Queued jobs need the seed worker to be running.",
                   )}
                 </p>
-                {jobs.map((j) => (
+                {datasetJobs.map((j) => (
                   <div className="seed-job" key={j._id}>
                     <div className="seed-job-title">
                       <strong>
@@ -896,22 +855,7 @@ export default function SeedDashboard() {
         )}
         {modal && (
           <Modal
-            title={tr(
-              modal.type,
-              modal.type === "bulk"
-                ? "Bulk action"
-                : modal.type === "dataset"
-                  ? "New dataset"
-                  : modal.type === "generate"
-                    ? "Generate data"
-                    : modal.type === "detail"
-                      ? "Record details"
-                      : modal.type === "password"
-                        ? "Reset demo password"
-                        : modal.type === "edit"
-                          ? "Edit record"
-                          : "Create record",
-            )}
+            title={modal.type === "dataset" ? "Choose seed data" : modal.type === "generate" ? "Review and seed data" : tr(modal.type, { bulk: "Bulk action", detail: "Record details", password: "Reset demo password", edit: "Edit record", create: "Create record" }[modal.type])}
             onClose={close}
           >
             {error && (
@@ -926,47 +870,28 @@ export default function SeedDashboard() {
                   run(async () => {
                     const r = await api.post(`${base}/datasets`, draft);
                     setDs(r.data._id);
+                    setPage(1); setFilters({}); setView("records");
+                    setEntity(r.data.recipe.properties ? "properties" : "users");
                     setDraft(r.data.recipe);
-                    setModal({
-                      type: "generate",
-                      kind: "generate",
-                      requestKey: crypto.randomUUID(),
-                    });
+                    setModal({ type: "generate", kind: "generate", requestKey: crypto.randomUUID() });
+                    const reviewed = await api.post(`${base}/datasets/${r.data._id}/preview`, { kind: "generate", recipe: r.data.recipe });
+                    setPreview(reviewed.data);
                   });
                 }}
               >
-                <div className="seed-form-grid">
-                  <Field label={tr("name", "Name")}>
-                    <input
-                      required
-                      maxLength={80}
-                      value={draft.name}
-                      onChange={(e) =>
-                        setDraft({ ...draft, name: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label={tr("namespace", "Unique dataset name")}>
-                    <input
-                      required
-                      pattern="[a-z][a-z0-9_]{2,39}"
-                      placeholder="fyp_demo"
-                      value={draft.namespace}
-                      onChange={(e) =>
-                        setDraft({ ...draft, namespace: e.target.value })
-                      }
-                    />
-                  </Field>
-                </div>
-                {cap.collectedCatalog?.available > 0 && <p className="seed-muted">
+                <SeedSteps step={1} />
+                <p className="seed-muted">Choose a preset, check the totals, then review examples. Records are generated only after you press Start generation.</p>
+                <Field label={tr("name", "Name")}><input required maxLength={80} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
+                {draft.recipe.propertySource === "pakistan_collected_v1" && cap.collectedCatalog?.available > 0 && <p className="seed-muted">
                   Collected catalog: {cap.collectedCatalog.available} of {cap.collectedCatalog.target} properties,
                   {" "}{cap.collectedCatalog.images} matching photos from {cap.collectedCatalog.sources.length} websites.
                 </p>}
-                <PresetPicker presets={cap.presets} descriptions={cap.presetDescriptions}
+                <PresetPicker presets={cap.presets} descriptions={cap.presetDescriptions} initiallyExpanded={!modal.presetKey}
                   onSelect={(recipe, key) => setDraft({ ...draft,
                     name: cap.presetDescriptions?.[key] || key,
                     recipe: { ...recipe, referenceDate: new Date().toISOString().slice(0, 10) },
                   })} />
+                <RecipeSummary recipe={draft.recipe} />
                 <details>
                   <summary>Customize counts and settings (optional)</summary>
                 <GenerationFields
@@ -975,9 +900,13 @@ export default function SeedDashboard() {
                   onChange={(v) => setDraft({ ...draft, recipe: v })}
                 />
                 </details>
-                <div className="seed-actions">
+                <details className="seed-advanced"><summary>Advanced dataset identifier</summary>
+                  <Field label={tr("namespace", "Unique dataset name")}><input required pattern="[a-z][a-z0-9_]{2,39}" value={draft.namespace} onChange={e => setDraft({ ...draft, namespace: e.target.value })} /></Field>
+                  <p className="seed-muted">A unique identifier has already been generated for you.</p>
+                </details>
+                <div className="seed-actions seed-wizard-actions">
                   <button className="seed-primary" disabled={busy}>
-                    {tr("createDataset", "Create dataset")}
+                    Review seed data
                   </button>
                 </div>
               </form>
@@ -991,60 +920,20 @@ export default function SeedDashboard() {
                       setPreview(null);
                     }} />
                 )}
-                <GenerationFields
-                  presets={cap.presets}
-                  value={draft}
-                  onChange={(v) => {
-                    setDraft(v);
-                    setPreview(null);
-                  }}
-                />
-                {modal.kind === "generate" && (
-                  <p className="seed-muted">
-                    {tr(
-                      "initialRecipe",
-                      "Initial generation uses the saved recipe. Use Add more data for a different recipe.",
-                    )}
-                  </p>
-                )}
-                {preview && (
-                  <div className="seed-card">
-                    <strong>
-                      {preview.total} {tr("planned", "records planned")}
-                    </strong>
-                    <pre>{JSON.stringify(preview.counts, null, 2)}</pre>
-                    {preview.samples.filter(x => x.entity === "properties" && x.payload.seedCatalog).map(x => (
-                      <div key={x.key}>
-                        <strong>{x.payload.title}</strong>
-                        <p className="seed-muted">Real property reference with credited photos. Prices and reviews are demo data.</p>
-                        <div className="seed-photo-preview">
-                          {x.payload.images.map(photo => <figure key={photo.url}>
-                            <img src={resolveImageUrl(photo.url)} alt={photo.caption} />
-                            <figcaption>{photo.credit.author}{" · "}
-                              <a href={photo.credit.sourceUrl} target="_blank" rel="noopener noreferrer">Source</a>{" · "}
-                              <a href={photo.credit.licenseUrl} target="_blank" rel="noopener noreferrer">{photo.credit.license}</a>
-                            </figcaption>
-                          </figure>)}
-                        </div>
-                      </div>
-                    ))}
-
-                    <details>
-                      <summary>{tr("samples", "Example records")}</summary>
-                      <pre>
-                        {JSON.stringify(
-                          preview.samples.map((x) => ({
-                            entity: x.entity,
-                            ...x.payload,
-                          })),
-                          null,
-                          2,
-                        )}
-                      </pre>
-                    </details>
-                  </div>
-                )}
-                <div className="seed-actions">
+                <SeedSteps step={2} />
+                <RecipeSummary recipe={draft} title={modal.kind === "append" ? "Records to add" : "Saved generation settings"} />
+                {modal.kind === "append" && <details className="seed-advanced"><summary>Customize counts and settings (optional)</summary>
+                  <GenerationFields presets={cap.presets} value={draft} onChange={v => { setDraft(v); setPreview(null); }} />
+                </details>}
+                {modal.kind === "generate" && <p className="seed-muted">These are the settings saved for this dataset. Add more data lets you choose a different recipe later.</p>}
+                {busy && !preview && <p role="status">Preparing your preview…</p>}
+                {preview && <section className="seed-card seed-review" aria-label="Generation preview">
+                  <strong>{preview.total} {tr("planned", "records planned")}</strong>
+                  <p>Check these examples, then start generation. Your existing application records are preserved.</p>
+                  <SeedExamples samples={preview.samples} />
+                  <details className="seed-advanced"><summary>Technical preview details</summary><pre>{JSON.stringify({ counts: preview.counts, samples: preview.samples }, null, 2)}</pre></details>
+                </section>}
+                <div className="seed-actions seed-wizard-actions">
                   <button
                     disabled={busy}
                     onClick={() =>
@@ -1108,22 +997,7 @@ export default function SeedDashboard() {
               </form>
             )}
             {modal.type === "detail" && (
-              <dl>
-                {Object.entries(modal.row)
-                  .filter(([k]) => !["__v", "seedRevision"].includes(k))
-                  .map(([k, v]) => (
-                    <div key={k} className="seed-span">
-                      <dt>{tr(k, k)}</dt>
-                      <dd>
-                        {typeof v === "object" ? (
-                          <pre>{JSON.stringify(v, null, 2)}</pre>
-                        ) : (
-                          String(v)
-                        )}
-                      </dd>
-                    </div>
-                  ))}
-              </dl>
+              <SeedRecordDetails entity={entity} row={modal.row} />
             )}
             {modal.type === "password" && (
               <form
