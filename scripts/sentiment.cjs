@@ -37,7 +37,7 @@ function pipOptions({ official = false, env = process.env, platform = process.pl
   const keep = new Set(["PIP_CERT", "PIP_CLIENT_CERT", "PIP_PROXY", "PIP_TIMEOUT", "PIP_RETRIES"]);
   const clean = Object.fromEntries(Object.entries(env).filter(([key]) => !key.toUpperCase().startsWith("PIP_") || keep.has(key.toUpperCase())));
   clean.PIP_CONFIG_FILE = platform === "win32" ? "nul" : "/dev/null";
-  return { env: clean, args: ["--index-url", "https://pypi.org/simple", "--no-cache-dir"] };
+  return { env: clean, args: ["--index-url", "https://pypi.org/simple", "--retries", "5", "--timeout", "60"] };
 }
 
 function checkModel(python, run = spawnSync) {
@@ -59,7 +59,17 @@ function setup({ official = false, env = process.env, platform = process.platfor
       : " Run npm.cmd run sentiment:repair to retry using the official PyPI source."));
   };
   install(["--upgrade", "pip>=25.1,<27"], "Could not update pip in the local environment.");
-  install(["-r", "requirements.txt"], "Sentiment dependency installation failed.");
+  let installed = false;
+  for (let attempt = 1; attempt <= (official ? 3 : 1); attempt++) {
+    const result = run(localPython, ["-m", "pip", "install", ...pip.args, "--only-binary=:all:", "-r", "requirements.txt"], { cwd: serviceDirectory, stdio: "inherit", env: pip.env });
+    if (!result.error && result.status === 0) { installed = true; break; }
+    if (attempt < 3 && official) {
+      console.error(`Package download failed on attempt ${attempt}. Retrying with pip cache (${attempt + 1} of 3).`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * 1500);
+    }
+  }
+  if (!installed) throw new Error("Sentiment dependency installation failed. Check the package download error above. The requirements include a Windows Python 3.11 wheel for scikit-learn. Check access to pypi.org and files.pythonhosted.org, then retry sentiment:repair.");
+
   const checked = run(localPython, ["-m", "pip", "check"], { cwd: serviceDirectory, stdio: "inherit", env: pip.env });
   if (checked.error || checked.status !== 0) throw new Error("Python dependency validation failed. Resolve the error above before starting the services.");
   checkModel({ command: localPython, args: [] }, run);

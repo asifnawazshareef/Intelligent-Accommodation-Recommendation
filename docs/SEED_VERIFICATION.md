@@ -242,7 +242,7 @@ NumPy 2.2.6 and SciPy 1.15.3 are now explicit requirements, compatible with the
 existing model dependencies on Python 3.11 and 3.12.
 
 The explicit sentiment:repair command temporarily uses official PyPI, bypasses
-package source overrides and cached downloads, preserves certificate/proxy
+package source overrides and reuses successful downloads, preserves certificate/proxy
 environment settings and leaves saved pip configuration untouched. Both setup
 and repair update local pip, install binary packages, check dependencies and
 run a model prediction. The dev:seed preflight checks the model before starting
@@ -282,3 +282,7 @@ on Windows Python 3.11 and 3.12 in CI, where optional package absence is also
 asserted. Browser verification starts all four services using this minimal
 environment, exercises StatReload startup, and confirms automatic analysis of
 seven older reviews with live page updates, valid tracking and no page errors.
+
+A follow up Windows log failed to discover scikit learn after an earlier attempt
+had found its wheel. Repair now retains pip cache, allows longer HTTP responses
+and retries requirement resolution up to three times, with a clear final error.

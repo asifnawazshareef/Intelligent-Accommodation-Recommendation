@@ -61,7 +61,8 @@ test("setup stops at a failed download and repair validates dependencies and a r
     if (args.includes("requirements.txt") && fail) return { status: 1 };
     return { status: 0 };
   } };
-  assert.throws(() => setup(options), /Do not start dev:seed until repair succeeds/);
+  assert.throws(() => setup(options), /Sentiment dependency installation failed/);
+  assert.equal(calls.filter(call => call.args.includes("requirements.txt")).length, 3);
   assert.equal(calls.some(call => call.args.includes("check")), false);
   assert.equal(calls.some(call => call.args.some(arg => arg.includes("from app import model"))), false);
   calls.length = 0; fail = false;
@@ -70,6 +71,8 @@ test("setup stops at a failed download and repair validates dependencies and a r
   assert.ok(calls.some(call => call.args.some(arg => arg.includes("from app import model"))));
   const download = calls.find(call => call.args.includes("requirements.txt"));
   assert.ok(download.args.includes("--only-binary=:all:"));
+  assert.equal(download.args.includes("--no-cache-dir"), false);
+  assert.ok(download.args.includes("--timeout"));
   assert.equal(download.options.shell, undefined);
 });
 
