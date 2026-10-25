@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import express from "express";
 import mongoose from "mongoose";
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { initialize, models, validateDataset, saveRecord, transaction } from "../services/seed/store.js";
@@ -140,14 +141,25 @@ test("revoked permissions stop model jobs before external calls and can be safel
 });
 
 test("the actual Python model analyzes seeded reviews and updates property aspects", { skip: !process.env.SEED_REAL_SENTIMENT_PYTHON, timeout: 90000 }, async () => {
-  const port = http.address().port + 1;
-  const python = spawn(process.env.SEED_REAL_SENTIMENT_PYTHON, ["-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", String(port)], { cwd: fileURLToPath(new URL("../../sentiment-service/", import.meta.url)), stdio: "ignore" });
+  const reservation = createServer();
+  await new Promise(resolve => reservation.listen(0, "127.0.0.1", resolve));
+  const port = reservation.address().port;
+  await new Promise(resolve => reservation.close(resolve));
+  let startupOutput = "", startupError;
+  const python = spawn(process.env.SEED_REAL_SENTIMENT_PYTHON, ["-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", String(port)], { cwd: fileURLToPath(new URL("../../sentiment-service/", import.meta.url)), stdio: ["ignore", "pipe", "pipe"] });
+  const stopped = new Promise(resolve => python.once("close", resolve));
+  python.on("error", error => { startupError = error; });
+  for (const output of [python.stdout, python.stderr]) output.on("data", chunk => { startupOutput = (startupOutput + chunk.toString()).slice(-8000); });
   const previous = process.env.SENTIMENT_API_URL;
   try {
     process.env.SENTIMENT_API_URL = `http://127.0.0.1:${port}`;
     let ready = false;
-    for (let i = 0; i < 150; i++) { if ((await sentimentHealth()).available) { ready = true; break; } await new Promise(r => setTimeout(r, 100)); }
-    assert.ok(ready, "Actual Python model startup");
+    const deadline = Date.now() + 45000;
+    while (Date.now() < deadline && !startupError && python.exitCode === null && python.signalCode === null) {
+      if ((await sentimentHealth()).available) { ready = true; break; }
+      await new Promise(r => setTimeout(r, 100));
+    }
+    assert.ok(ready, `Actual Python model startup: ${startupError?.message || startupOutput}`);
     for (const [text, expected] of [
       ["The room was spotless and the staff were helpful.", "positive"],
       ["The room was dirty and the staff were unhelpful.", "negative"],
@@ -167,5 +179,5 @@ test("the actual Python model analyzes seeded reviews and updates property aspec
     for (const r of reviews) { assert.ok(r.sentimentScore > 0); assert.notEqual(r.summary, "Synthetic demo feedback. Not a model prediction."); assert.match(r.sentimentAnalysis.modelVersion, /^[a-f0-9]{16}$/); }
     assert.ok(await models.properties.exists({ _id: { $in: reviews.map(r => r.property) }, "sentimentSnapshot.aspectBreakdown.0": { $exists: true } }));
     assert.equal((await validateDataset(dataset._id)).valid, true);
-  } finally { if (python.exitCode === null) { python.kill("SIGTERM"); await new Promise(r => python.once("exit", r)); } process.env.SENTIMENT_API_URL = previous; }
+  } finally { if (python.pid && python.exitCode === null && python.signalCode === null) python.kill("SIGTERM"); await stopped; process.env.SENTIMENT_API_URL = previous; }
 });
