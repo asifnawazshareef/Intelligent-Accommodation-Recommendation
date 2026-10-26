@@ -20,7 +20,7 @@ import {
   queryRecords,
 } from "../services/seed/management.js";
 import { runNextJob } from "../services/seed/jobs.js";
-import { SeedRecord, SeedJob } from "../services/seed/models.js";
+import { SeedRecord, SeedJob, SeedDataset } from "../services/seed/models.js";
 import { seedAppGuard } from "../services/seed/appGuard.js";
 import seedRoutes from "../routes/seedRoutes.js";
 import authRoutes from "../routes/authRoutes.js";
@@ -548,6 +548,35 @@ test("production and database mismatches disable writes", async () => {
   assert.equal((await api("/admin/seed/datasets")).status, 403);
   ok(await api("/properties", null));
   process.env.SEED_DASHBOARD_ENABLED = "true";
+});
+test("removing an old seed dataset deletes its tracked records and hides its name", async () => {
+  const old = await createDataset(
+    { name: "Old demo", namespace: `old_demo_${crypto.randomUUID().slice(0, 8)}`, recipe: config },
+    admin._id,
+  );
+  const generation = await previewGeneration(old._id, { recipe: config }, admin._id);
+  const job = await startJob(old._id, {
+    kind: "generate", recipe: config, confirmation: generation.confirmation,
+    requestKey: crypto.randomUUID(),
+  }, admin._id);
+  assert.equal((await runNextJob({ jobId: job._id })).state, "completed");
+  const ids = await SeedRecord.find({ dataset: old._id, state: "active" }).lean();
+  assert.ok(ids.length > 0);
+  const deletion = await previewBulk(old._id, {
+    entity: "all", action: "delete", selection: { all: true }, cascade: true,
+  }, admin._id);
+  const cleanup = await executeBulk(old._id, {
+    planId: deletion._id, confirmName: old.name,
+  }, admin._id);
+  const result = await runNextJob({ jobId: cleanup._id, batchSize: 4 });
+  assert.equal(result.state, "completed", result.error);
+  assert.equal(await SeedRecord.countDocuments({ dataset: old._id, state: "active" }), 0);
+  for (const item of ids) assert.equal(await models[item.entity].findById(item.documentId), null);
+  assert.ok((await SeedDataset.findById(old._id)).archivedAt);
+  assert.ok(!ok(await api("/admin/seed/datasets")).some(d => d._id === String(old._id)));
+  assert.equal((await api(`/admin/seed/datasets/${old._id}/users`)).status, 404);
+  assert.ok(await models.users.findById(admin._id));
+  assert.ok(await SeedRecord.exists({ dataset: ds._id, state: "active" }));
 });
 test(
   "standard 11500 record dataset generates and validates",

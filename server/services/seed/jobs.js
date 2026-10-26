@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { SeedDataset, SeedJob, SeedRecord, SeedItem } from "./models.js";
+import { SeedDataset, SeedJob, SeedRecord, SeedItem, SeedPlan } from "./models.js";
 import { assert, safeError } from "./config.js";
 import {
   transaction,
@@ -196,6 +196,20 @@ export async function runNextJob({
           current.cursor = end;
         }
         if (current.cursor >= current.total) {
+          if (current.kind === "bulk") {
+            const plan = await SeedPlan.findById(current.options.plan);
+            if (plan?.action === "delete" && plan.entity === "all") {
+              assert(
+                !(await SeedRecord.exists({ dataset: ds._id, state: "active" })),
+                "Some seed records remain in this dataset. Review the job before retrying.",
+                409,
+              );
+              await SeedDataset.updateOne(
+                { _id: ds._id },
+                { $set: { archivedAt: new Date() } },
+              );
+            }
+          }
           if (generated && current.options.analyzeReviews) {
             const next = await queueReviewAnalysis({ dataset: ds._id, actor: current.actor,
               requestKey: `analysis:${current._id}`, generationJob: current.kind === "append" ? current._id : undefined });

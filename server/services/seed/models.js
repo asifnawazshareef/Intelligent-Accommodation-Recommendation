@@ -13,6 +13,7 @@ export const SeedDataset = model("SeedDataset", {
   createdBy: id,
   nextSequence: { type: Number, default: 0 },
   revision: { type: Number, default: 0 },
+  archivedAt: Date,
 });
 export const SeedRecord = model(
   "SeedRecord",

@@ -95,6 +95,9 @@ export default function SeedDashboard() {
     if (sequence !== refreshSequence.current) return;
     setDatasets(d.data);
     setJobs(j.data);
+    setDs(current => current && !d.data.some(dataset => dataset._id === current)
+      ? (d.data.find(dataset => Object.values(dataset.counts || {}).some(count => count > 0)) || d.data[0])?._id || ""
+      : current);
     if (!initialDatasetSelected.current) {
       initialDatasetSelected.current = true;
       if (d.data.length) setDs(current => current || (d.data.find(dataset =>
@@ -201,6 +204,11 @@ export default function SeedDashboard() {
       namespace: `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`,
       recipe: { ...(cap?.presets?.[key] || initialRecipe), referenceDate: new Date().toISOString().slice(0, 10) } });
     open("dataset", { presetKey });
+  };
+  const removeDataset = (datasetId) => {
+    setDs(datasetId);
+    setDraft({ action: "delete", cascade: true });
+    open("bulk", { datasetDelete: true });
   };
   const showRecords = (nextEntity = entity) => {
     setEntity(nextEntity); setView("records"); setPage(1); setFilters({});
@@ -415,9 +423,17 @@ export default function SeedDashboard() {
               <details className="seed-more-actions"><summary>More dataset actions</summary><div className="seed-inline">
                 <button disabled={running || busy} onClick={() => run(() => api.post(`${base}/datasets/${ds}/jobs`, { kind: "validate", requestKey: crypto.randomUUID() }))}>{tr("validate", "Validate")}</button>
                 <button disabled={running || busy} onClick={() => run(() => api.post(`${base}/datasets/${ds}/jobs`, { kind: "recalculate", requestKey: crypto.randomUUID() }))}>{tr("recalculate", "Recalculate summaries")}</button>
-                <button className="seed-danger" disabled={running || busy} onClick={() => { setDraft({ action: "delete", cascade: true }); open("bulk", { datasetDelete: true }); }}>{tr("deleteDataset", "Delete dataset records")}</button>
+                <button className="seed-danger" disabled={running || busy} onClick={() => removeDataset(ds)}>{tr("deleteDataset", "Remove this dataset and its records")}</button>
               </div></details>
             </div>
+            {datasets.some(d => d._id !== ds && Object.values(d.counts || {}).some(count => count > 0)) && <section className="seed-card" aria-label="Old seed datasets">
+              <div className="seed-section-heading"><div><h2>Old seed data</h2><p>New datasets do not overwrite previous ones. Once your new generation finishes, remove old datasets here to keep only the new seed data.</p></div></div>
+              {datasets.filter(d => d._id !== ds && Object.values(d.counts || {}).some(count => count > 0)).map(d => <div className="seed-toolbar" key={d._id}>
+                <span>{d.name} · {Object.values(d.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records · {d.namespace}</span>
+                <button type="button" className="seed-danger" disabled={busy || running || !cap?.transactions || jobs.some(j => String(j.dataset) === d._id && ["queued", "running", "cancel_requested"].includes(j.state))} onClick={() => removeDataset(d._id)}>Remove old seed data</button>
+              </div>)}
+              <p className="seed-muted">Review the records and type the dataset name before deletion. Only records tracked in that dataset are removed.</p>
+            </section>}
             <div className="seed-tabs">
               {["records", "jobs", "history"].map((v) => (
                 <button
@@ -917,6 +933,7 @@ export default function SeedDashboard() {
               >
                 <SeedSteps step={1} />
                 <p className="seed-muted">Choose a preset, check the totals, then review examples. Records are generated only after you press Start generation.</p>
+                {datasets.some(d => Object.values(d.counts || {}).some(count => count > 0)) && <p className="seed-muted">Existing seed data stays available while you generate this dataset. After it completes, use Old seed data to remove previous datasets.</p>}
                 <Field label={tr("name", "Name")}><input required maxLength={80} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
                 {draft.recipe.propertySource === "pakistan_collected_v1" && cap.collectedCatalog?.available > 0 && <p className="seed-muted">
                   Collected catalog: {cap.collectedCatalog.available} of {cap.collectedCatalog.target} properties,
@@ -970,7 +987,7 @@ export default function SeedDashboard() {
                 {busy && !preview && <p role="status">Preparing your preview…</p>}
                 {preview && <section className="seed-card seed-review" aria-label="Generation preview">
                   <strong>{preview.total} {tr("planned", "records planned")}</strong>
-                  <p>Check these examples, then start generation. Your existing application records are preserved.</p>
+                  <p>Check these examples, then start generation. Previous datasets remain until you remove them from Old seed data after this job completes.</p>
                   <SeedExamples samples={preview.samples} />
                   <details className="seed-advanced"><summary>Technical preview details</summary><pre>{JSON.stringify({ counts: preview.counts, samples: preview.samples }, null, 2)}</pre></details>
                 </section>}

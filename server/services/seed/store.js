@@ -128,7 +128,7 @@ export async function superAdmin(actor) {
 }
 export async function dataset(id) {
   const d = await SeedDataset.findById(objectId(id));
-  assert(d, "Dataset not found.", 404);
+  assert(d && !d.archivedAt, "Dataset not found.", 404);
   return d;
 }
 export async function audit(data) {

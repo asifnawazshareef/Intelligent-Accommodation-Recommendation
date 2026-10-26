@@ -79,7 +79,7 @@ router.get("/catalog", handler(async (req, res) => {
 router.get(
   "/datasets",
   handler(async (req, res) => {
-    const docs = await SeedDataset.find()
+    const docs = await SeedDataset.find({ archivedAt: { $exists: false } })
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();

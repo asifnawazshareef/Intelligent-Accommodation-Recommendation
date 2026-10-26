@@ -17,6 +17,11 @@ If your checkout has newer changes, review any conflicts before continuing. Do n
 
 ## What is included
 
+### Replacing a previous seed
+
+Creating a new dataset adds records to the same demo application database; it does not overwrite an earlier dataset. Generate and check the new dataset first. Then open **Seed Data**, select the new dataset, and use **Old seed data → Remove old seed data** for each previous dataset. Preview the exact record counts, type that old dataset's name, and confirm. The worker deletes only records tracked by that dataset, including its related demo activity. When the cleanup job completes, the old dataset disappears from the selector; its audit and job history remain for investigation. Untracked application records and the new dataset are preserved. If cleanup fails because a record has untracked edits or outside dependencies, the job shows the error and keeps the old dataset visible; resolve the dependency and preview again.
+
+
 * A shared Faker generator for the CLI and the super admin dashboard.
 * Users, properties, confirmed demo bookings, and reviews with valid relationships.
 * Small preset: 3 owners, 12 guests, 20 properties, 60 bookings, 60 reviews.
