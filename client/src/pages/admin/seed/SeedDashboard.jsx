@@ -84,6 +84,7 @@ export default function SeedDashboard() {
   const running = datasetJobs.some((j) =>
     ["queued", "running", "cancel_requested"].includes(j.state),
   );
+  const initialDatasetSelected = useRef(false);
   const refreshSequence = useRef(0);
   const refresh = useCallback(async () => {
     const sequence = ++refreshSequence.current;
@@ -94,6 +95,11 @@ export default function SeedDashboard() {
     if (sequence !== refreshSequence.current) return;
     setDatasets(d.data);
     setJobs(j.data);
+    if (!initialDatasetSelected.current) {
+      initialDatasetSelected.current = true;
+      if (d.data.length) setDs(current => current || (d.data.find(dataset =>
+        Object.values(dataset.counts || {}).some(count => count > 0)) || d.data[0])._id);
+    }
   }, [ds]);
   const loadSequence = useRef(0);
   const loadRows = useCallback(async () => {
@@ -374,7 +380,7 @@ export default function SeedDashboard() {
               </option>
               {datasets.map((d) => (
                 <option key={d._id} value={d._id}>
-                  {d.name}
+                  {d.name} · {Object.values(d.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records · {d.namespace}
                 </option>
               ))}
             </select>
@@ -387,7 +393,7 @@ export default function SeedDashboard() {
           {datasets.length > 0 && <section className="seed-card" aria-label="Your datasets">
             <h2>Your datasets</h2><p className="seed-muted">Open a dataset to view and manage its records.</p>
             <div className="seed-dataset-grid">{datasets.slice(0, 6).map(d => <button type="button" key={d._id} onClick={() => { setDs(d._id); showRecords(); }}>
-              <strong>{d.name}</strong><span>{Object.values(d.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records</span>
+              <strong>{d.name}</strong><span>{Object.values(d.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records · {d.namespace}</span>
               <small>{d.counts?.properties || 0} properties · {d.counts?.users || 0} users</small>
             </button>)}</div>
           </section>}
