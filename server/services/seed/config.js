@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { pakistanCatalog, pakistanCatalogCities, catalogProperties, collectedCatalogStatus, collectedCatalog } from "./pakistanCatalog.js";
+import { pakistanCatalog, pakistanCatalogCities, catalogProperties, collectedCatalogStatus, collectedCatalog, supervisorProperties } from "./pakistanCatalog.js";
 export class SeedError extends Error {
   constructor(message, status = 400) {
     super(message);
@@ -46,6 +46,7 @@ export const presetDescriptions = {
   mixed: "Mixed review examples",
   pakistan: "Real Pakistani properties",
   pakistanCollected: "Collected Pakistani properties",
+  supervisor: "Supervisor demo: 200 Pakistani hotels and mixed reviews",
   pakistan1500: "1500 Pakistani properties from multiple websites",
 };
 export const presets = Object.fromEntries(Object.entries({
@@ -68,7 +69,12 @@ export const presets = Object.fromEntries(Object.entries({
 }).map(([key, values]) => [key, { ...presetBase, ...values }]));
 export function getSeedPresets() {
   const c = collectedCatalogStatus();
-  return { ...presets, ...(c.available > 0 && { pakistanCollected: {
+  return { ...presets, ...(supervisorProperties(c.cities, c.digest).length >= 200 && { supervisor: {
+    ...presets.standard, propertySource: "pakistan_collected_v1", catalogDigest: c.digest,
+    supervisorDemo: true, owners: 25, guests: 100, properties: 200, reviews: 800,
+    positivePercent: 35, negativePercent: 25, neutralPercent: 15,
+    cities: c.cities, approvedPercent: 100,
+  } }), ...(c.available > 0 && { pakistanCollected: {
     ...presets.standard, propertySource: "pakistan_collected_v1", catalogDigest: c.digest,
     owners: 50, guests: 450, properties: c.available, reviews: c.available * 4,
     cities: c.cities, approvedPercent: 100,
@@ -107,6 +113,7 @@ export function recipe(input = {}) {
     "neutralPercent",
     "propertySource",
     "catalogDigest",
+    "supervisorDemo",
   ];
   assert(
     Object.keys(input).every((k) => allowed.includes(k)),
@@ -174,9 +181,13 @@ export function recipe(input = {}) {
     let catalog;
     try { catalog = collectedCatalog(result.catalogDigest); } catch { assert(false, "The selected collected catalog is missing or damaged. Restore its snapshot before retrying."); }
     assert(catalog.properties.length >= result.properties, "The collected catalog has fewer properties than requested.");
+    if (result.supervisorDemo) assert(supervisorProperties(result.cities, result.catalogDigest).length >= result.properties,
+      "The selected cities do not contain enough unique supervisor demo hotels.");
   } else assert(result.catalogDigest === undefined, "A catalog digest is only valid for collected properties.");
+  assert(result.supervisorDemo === undefined || (result.supervisorDemo === true && result.propertySource === "pakistan_collected_v1"),
+    "Supervisor demo requires the collected Pakistani property catalog.");
   if (["pakistan_v1", "pakistan_collected_v1"].includes(result.propertySource)) {
-    const available = catalogProperties(result.cities, result.propertySource, result.catalogDigest);
+    const available = result.supervisorDemo ? supervisorProperties(result.cities, result.catalogDigest) : catalogProperties(result.cities, result.propertySource, result.catalogDigest);
     assert(result.properties > 0 && result.properties <= available.length,
       `The selected cities contain ${available.length} catalog properties. Choose 1 to ${available.length} properties. Real hotel names are never repeated within a generation.`);
   }
@@ -246,11 +257,13 @@ export function safeError(error) {
 export const enabled = () =>
   process.env.SEED_DASHBOARD_ENABLED === "true" &&
   process.env.NODE_ENV !== "production";
-export function demoPassword() {
-  const password = process.env.SEED_DEMO_PASSWORD;
+export function demoPassword(role, supervisor = false) {
+  const password = supervisor && ["owner", "guest"].includes(role)
+    ? (process.env[`SEED_${role.toUpperCase()}_PASSWORD`] || (role === "owner" ? "owner**11**" : "guest11**"))
+    : process.env.SEED_DEMO_PASSWORD;
   assert(
     typeof password === "string" &&
-      password.length >= 10 &&
+      password.length >= (supervisor ? 8 : 10) &&
       Buffer.byteLength(password, "utf8") <= 72,
     "Set SEED_DEMO_PASSWORD to 10 or more characters and at most 72 UTF-8 bytes.",
   );

@@ -24,10 +24,10 @@ export function RecipeSummary({ recipe, title = "What you will create" }) {
 }
 
 export function SeedQuickStart({ presets, catalog, onChoose, disabled }) {
-  const propertyKey = presets?.pakistanCollected ? "pakistanCollected" : "pakistan";
+  const propertyKey = presets?.supervisor ? "supervisor" : presets?.pakistanCollected ? "pakistanCollected" : "pakistan";
   const cards = [
     { key: "small", title: "Quick demo", icon: Zap, hint: "Start small and see how seeding works.", badge: "Recommended first" },
-    { key: propertyKey, title: "Pakistani properties", icon: Hotel, hint: "Real property references and matching photographs.", badge: catalog?.available ? `${number(catalog.images)} photo references` : "Credited property photos" },
+    { key: propertyKey, title: propertyKey === "supervisor" ? "Supervisor demo" : "Pakistani properties", icon: Hotel, hint: propertyKey === "supervisor" ? "200 real hotel names across Pakistani cities with balanced demo reviews." : "Real property references and matching photographs.", badge: propertyKey === "supervisor" ? "200 hotels" : catalog?.available ? `${number(catalog.images)} photo references` : "Credited property photos" },
     { key: "users", title: "Demo accounts", icon: Users, hint: "Create guest and owner accounts without property records.", badge: "Users only" },
   ];
   return <section className="seed-quick-start" aria-label="Choose data to seed">

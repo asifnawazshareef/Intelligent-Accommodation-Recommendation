@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { presets, presetDescriptions, recipe } from '../services/seed/config.js';
+import { presets, presetDescriptions, recipe, getSeedPresets } from '../services/seed/config.js';
 import { buildDataset } from '../services/seed/generator.js';
 
 test('all 16 presets produce complete deterministic related records', () => {
@@ -75,4 +75,19 @@ test('every real property has distinct bundled photos, credits and demo labels',
     }
     if (entity === 'reviews') assert.match(payload.text, /^Demo review, not a real guest experience/);
   }
+});
+test('supervisor demo has 200 unique hotel names across cities and all review tones', () => {
+  const selected = getSeedPresets().supervisor;
+  assert.ok(selected, 'The packaged catalog must contain at least 200 distinct hotels');
+  const items = buildDataset('supervisor_demo', { ...selected, referenceDate: '2026-10-01' });
+  const hotels = items.filter(item => item.entity === 'properties');
+  const reviews = items.filter(item => item.entity === 'reviews');
+  assert.equal(hotels.length, 200);
+  assert.ok(hotels.every(item => /\bhotel\b/i.test(item.payload.title)));
+  assert.equal(new Set(hotels.map(item => item.payload.title.toLocaleLowerCase('en'))).size, 200);
+  assert.ok(new Set(hotels.map(item => item.payload.location.city)).size >= 10);
+  assert.equal(reviews.length, 800);
+  for (const sentiment of ['positive', 'negative', 'neutral', 'mixed'])
+    assert.ok(reviews.filter(item => item.payload.sentiment === sentiment).length >= 50);
+  assert.ok(reviews.every(item => item.payload.text.startsWith('Demo review, not a real guest experience.')));
 });

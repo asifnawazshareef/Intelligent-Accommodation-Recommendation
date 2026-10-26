@@ -743,7 +743,7 @@ export async function validationContext(ds, entries) {
   return context;
 }
 
-export async function saveGeneratedBatch(ds, items, { actor, job }) {
+export async function saveGeneratedBatch(ds, items, { actor, job, supervisorDemo = false }) {
   const prior = new Map(
     (
       await SeedRecord.find({
@@ -799,7 +799,7 @@ export async function saveGeneratedBatch(ds, items, { actor, job }) {
       );
       const doc = new models[entity](validated.data);
       if (entity === "users") {
-        doc.password = demoPassword();
+        doc.password = demoPassword(doc.role, supervisorDemo);
         // User.save is intentional: preserve the existing bcrypt password hook.
         await doc.save({ timestamps: false });
       }

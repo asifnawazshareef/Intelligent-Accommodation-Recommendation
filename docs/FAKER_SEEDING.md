@@ -17,6 +17,16 @@ If your checkout has newer changes, review any conflicts before continuing. Do n
 
 ## What is included
 
+### Supervisor demonstration
+
+Choose **Supervisor demo** on the Seed Data page. The packaged collected catalog supplies 200 unique hotel names from source pages across Pakistani cities, plus matching source photo references. The preset creates 25 owners, 100 guests, 200 properties, 800 historical demo bookings and 800 clearly labeled fictional reviews. It guarantees positive, negative, neutral and mixed example text. Select model analysis in the review step and run the Python sentiment service and worker to save actual model predictions, confidence and aspects; predictions may differ from the example labels. Prices, availability, accounts, bookings and reviews are invented and do not claim real customer experiences or hotel affiliation.
+
+Alternatively, use `npm.cmd run seed:faker -- --preset supervisor --namespace supervisor_demo --actor EXISTING_SUPER_ADMIN_ID --apply --analyze` from the project root after starting the sentiment service. Choose a new namespace for each fresh demo. The command exits with an error if analysis cannot finish. The dashboard shows the resulting job and per dataset model analysis counts.
+
+In the dedicated demonstration database, generated supervisor owners use `owner**11**` and generated guests use `guest11**` unless `SEED_OWNER_PASSWORD` and `SEED_GUEST_PASSWORD` are set. The initial demo admin setup script uses `admin11****` unless `ADMIN_PASSWORD` is set. Existing accounts retain their current passwords. These shared credentials are only for the demonstration environment; replace them for a shared or exposed instance.
+
+Owners can choose local JPG, PNG or WebP photos from their property edit page. A super admin can choose photos for a seeded listing using **Seed Data → Properties → Upload photos**. Both flows limit each property to five images of at most 5 MB each. Newly uploaded photos enter the normal image review flow. The packaged hotel source images remain remote references until an owner or admin replaces them with uploaded files.
+
 ### Replacing a previous seed
 
 Creating a new dataset adds records to the same demo application database; it does not overwrite an earlier dataset. Generate and check the new dataset first. Then open **Seed Data**, select the new dataset, and use **Old seed data → Remove old seed data** for each previous dataset. Preview the exact record counts, type that old dataset's name, and confirm. A dedicated worker job checks every record and related activity in batches before it starts deleting anything. The worker then deletes only records tracked by that dataset, including its related demo activity. The preview does not create thousands of plan items or wait for each dependency check. Keep the worker running until the job is complete. When the cleanup job completes, the old dataset disappears from the selector; its audit and job history remain for investigation. Untracked application records and the new dataset are preserved. If cleanup fails because a record has untracked edits or outside dependencies, the job shows the error and keeps the old dataset visible; resolve the dependency and retry the job. If cleanup is cancelled after deletion begins, some old records may already be gone; retry the same job to finish safely.

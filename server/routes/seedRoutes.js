@@ -41,6 +41,8 @@ import {
   csv,
 } from "../services/seed/management.js";
 import { controlJob } from "../services/seed/jobs.js";
+import { propertyUpload, handleMulterError } from "../middleware/uploadMiddleware.js";
+import { buildVerifiedImagesFromFiles, deleteUploadedImage } from "../utils/imageVerification.js";
 const router = express.Router();
 const handler = (fn) => async (req, res, next) => {
   try {
@@ -267,6 +269,46 @@ router.get(
   handler(async (req, res) =>
     res.json(await getRecord(req.params.ds, req.params.entity, req.params.id)),
   ),
+);
+router.post("/datasets/:ds/properties/:id/photos", (req, res, next) =>
+  propertyUpload(req, res, error => {
+    if (!error) return next();
+    for (const file of req.files || []) deleteUploadedImage(`/uploads/properties/${file.filename}`);
+    return handleMulterError(error, req, res, next);
+  }),
+  handler(async (req, res) => {
+    try {
+      const keep = JSON.parse(req.body.keepImageIds || "[]");
+      assert(Array.isArray(keep) && keep.every(id => typeof id === "string"), "Select the images to keep.");
+      const files = req.files || [];
+      const { updated, removed } = await transaction(async () => {
+        await superAdmin(req.user._id);
+        await idle(req.params.ds);
+        const record = await member(req.params.ds, "properties", req.params.id);
+        const property = await models.properties.findById(record.documentId);
+        assert(property, "Property not found.", 404);
+        const original = property.images.map(image => String(image._id));
+        assert(keep.every(id => original.includes(id)) && new Set(keep).size === keep.length, "The selected images changed. Refresh and try again.", 409);
+        const images = property.images.filter(image => keep.includes(String(image._id)))
+          .map(image => ({ ...image.toObject(), _id: String(image._id) }));
+        assert(images.length + files.length <= 5, "A property supports at most five images.");
+        images.push(...await buildVerifiedImagesFromFiles(files, property._id));
+        assert(images.length > 0, "Keep or upload at least one image.");
+        const updated = await saveRecord(req.params.ds, "properties", { images }, {
+          id: property._id, revision: integer(req.body.revision, "Revision"), actor: req.user._id,
+        });
+        return { updated, removed: property.images.filter(image => !keep.includes(String(image._id)))
+          .map(image => image.url).filter(url => url.startsWith("/uploads/properties/")) };
+      });
+      for (const url of removed) {
+        try { deleteUploadedImage(url); } catch { /* The database update has committed; keep the new photos available. */ }
+      }
+      res.json(updated);
+    } catch (error) {
+      for (const file of req.files || []) deleteUploadedImage(`/uploads/properties/${file.filename}`);
+      throw error;
+    }
+  }),
 );
 router.post(
   "/datasets/:ds/:entity",

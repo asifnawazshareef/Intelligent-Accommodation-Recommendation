@@ -246,6 +246,7 @@ export async function runNextJob({
             const result = await saveGeneratedBatch(ds._id, work, {
               actor: current.actor,
               job: current._id,
+              supervisorDemo: current.options.recipe.supervisorDemo === true,
             });
             current.succeeded += result.created;
             current.skipped += result.skipped;

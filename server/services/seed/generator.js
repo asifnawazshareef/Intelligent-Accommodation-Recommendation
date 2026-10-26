@@ -1,6 +1,6 @@
 import { Faker, en } from "@faker-js/faker";
 import { recipe, stableId } from "./config.js";
-import { catalogProperties } from "./pakistanCatalog.js";
+import { catalogProperties, supervisorProperties } from "./pakistanCatalog.js";
 const day = 86400000;
 const date = (base, offset) =>
   new Date(new Date(base).getTime() + offset * day).toISOString().slice(0, 10);
@@ -85,7 +85,8 @@ export function buildDataset(namespace, input, generation = "initial") {
         }),
       );
   }
-  const catalog = ["pakistan_v1", "pakistan_collected_v1"].includes(c.propertySource) ? catalogProperties(c.cities, c.propertySource, c.catalogDigest) : null;
+  const catalog = c.supervisorDemo ? supervisorProperties(c.cities, c.catalogDigest)
+    : ["pakistan_v1", "pakistan_collected_v1"].includes(c.propertySource) ? catalogProperties(c.cities, c.propertySource, c.catalogDigest) : null;
   for (let i = 0; i < c.properties; i++) {
     const real = catalog?.[i];
     const city = faker.helpers.arrayElement(c.cities);
@@ -157,7 +158,7 @@ export function buildDataset(namespace, input, generation = "initial") {
       p.price,
     );
     const roll = faker.number.int({ min: 0, max: 99 });
-    const sentiment =
+    const sentiment = c.supervisorDemo && i < 4 ? ["positive", "negative", "neutral", "mixed"][i] :
       roll < c.positivePercent
         ? "positive"
         : roll < c.positivePercent + c.negativePercent

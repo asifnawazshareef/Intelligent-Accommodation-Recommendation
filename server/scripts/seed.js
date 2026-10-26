@@ -11,7 +11,7 @@ const SEED_USERS = [
     defaults: {
       name: "System Admin",
       email: "admin@gmail.com",
-      password: "admin123",
+      password: process.env.SEED_DASHBOARD_ENABLED === "true" && process.env.NODE_ENV !== "production" ? "admin11****" : "admin123",
       phone: "",
       role: "admin",
       languagePref: "en",
@@ -23,7 +23,7 @@ const SEED_USERS = [
     defaults: {
       name: "Demo Guest",
       email: "guest@iars.com",
-      password: "Guest@123456",
+      password: "guest11**",
       phone: "03001234567",
       role: "guest",
       languagePref: "en",
@@ -35,7 +35,7 @@ const SEED_USERS = [
     defaults: {
       name: "Demo Owner",
       email: "owner@iars.com",
-      password: "Owner@123456",
+      password: "owner**11**",
       phone: "03007654321",
       role: "owner",
       languagePref: "en",
@@ -59,28 +59,18 @@ const upsertUser = async (config) => {
 
   if (existing) {
     console.log(`  ✓ ${config.role} already exists: ${existing.email}`);
-    return existing;
+    return { user: existing, password: "unchanged" };
   }
 
   if (config.role === "admin") {
     const existingAdmin = await User.findOne({ role: "admin" });
 
-    if (existingAdmin) {
-      existingAdmin.name = config.name;
-      existingAdmin.email = config.email;
-      existingAdmin.password = config.password;
-      existingAdmin.phone = config.phone;
-      existingAdmin.languagePref = config.languagePref;
-      existingAdmin.isVerified = config.isVerified;
-      await existingAdmin.save();
-      console.log(`  ↻ Updated admin account: ${config.email}`);
-      return existingAdmin;
-    }
+    if (existingAdmin) throw new Error("An admin account already exists with a different email. Configure ADMIN_EMAIL to match it; its password will stay unchanged.");
   }
 
   const user = await User.create(config);
   console.log(`  + Created ${config.role}: ${user.email}`);
-  return user;
+  return { user, password: config.password };
 };
 
 const seedSampleProperty = async (owner) => {
@@ -151,11 +141,11 @@ const seed = async () => {
   console.log("Users:");
   for (const seedUser of SEED_USERS) {
     const config = resolveUserConfig(seedUser);
-    const user = await upsertUser(config);
+    const { user, password } = await upsertUser(config);
     createdUsers.push({
       role: config.role,
       email: config.email,
-      password: config.password,
+      password,
     });
   }
 

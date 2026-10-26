@@ -11,6 +11,26 @@ export const pakistanCatalogCities = [...new Set(pakistanCatalog.map(p => p.city
 export const catalogProperties = (selectedCities, source = "pakistan_v1", digest) =>
   (source === "pakistan_collected_v1" ? collectedCatalog(digest).properties : pakistanCatalog)
     .filter(p => selectedCities.includes(p.city));
+// The PC hotel snapshot contains several incorrect city labels. Use the
+// other source snapshots for the supervisor demo and spread selection by city.
+export function supervisorProperties(selectedCities, digest) {
+  const seen = new Set();
+  const groups = new Map();
+  for (const property of catalogProperties(selectedCities, "pakistan_collected_v1", digest)) {
+    if (new URL(property.sourceUrl).hostname === "www.pchotels.com" || !/\bhotel\b/i.test(property.title)) continue;
+    const title = property.title.trim().toLocaleLowerCase("en");
+    if (seen.has(title)) continue;
+    seen.add(title);
+    if (!groups.has(property.city)) groups.set(property.city, []);
+    groups.get(property.city).push(property);
+  }
+  const result = [];
+  for (let index = 0; result.length < seen.size; index++) {
+    for (const group of groups.values())
+      if (group[index]) result.push(group[index]);
+  }
+  return result;
+}
 
 // Collected catalogs are immutable snapshots, pinned by their content digest.
 // A new collection can become active without changing existing dataset recipes.

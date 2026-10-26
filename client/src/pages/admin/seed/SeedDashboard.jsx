@@ -77,6 +77,8 @@ export default function SeedDashboard() {
     [rowVersion, setRowVersion] = useState(0),
     [sentimentStatus, setSentimentStatus] = useState(null),
     [confirmName, setConfirmName] = useState("");
+  const [photoFiles, setPhotoFiles] = useState([]);
+  const [keptPhotos, setKeptPhotos] = useState([]);
   const active = datasets.find((x) => x._id === ds);
   const activeTotal = Object.values(active?.counts || {}).reduce((n, count) => n + count, 0);
   const rows = rowsKey === `${ds}:${entity}` ? loadedRows : [];
@@ -191,6 +193,7 @@ export default function SeedDashboard() {
     setModal(null);
     setPreview(null);
     setConfirmName("");
+    setPhotoFiles([]);
   };
   const open = (type, data = {}) => {
     setError("");
@@ -231,6 +234,11 @@ export default function SeedDashboard() {
   const openRecord = (type, row) => {
     setDraft(row ? editable(entity, row) : defaults[entity]());
     open(type, { row });
+  };
+  const openPhotos = (row) => {
+    setKeptPhotos((row.images || []).map(photo => photo._id));
+    setPhotoFiles([]);
+    open("photos", { row });
   };
   const submitRecord = () =>
     run(async () => {
@@ -760,6 +768,7 @@ export default function SeedDashboard() {
                               >
                                 {tr("edit", "Edit")}
                               </button>
+                              {entity === "properties" && <button disabled={running || busy} onClick={() => openPhotos(r)}>Upload photos</button>}
                               <button
                                 disabled={running || busy}
                                 onClick={() => {
@@ -908,7 +917,7 @@ export default function SeedDashboard() {
         )}
         {modal && (
           <Modal
-            title={modal.type === "dataset" ? "Choose seed data" : modal.type === "generate" ? "Review and seed data" : tr(modal.type, { bulk: "Bulk action", detail: "Record details", password: "Reset demo password", edit: "Edit record", create: "Create record" }[modal.type])}
+            title={modal.type === "dataset" ? "Choose seed data" : modal.type === "generate" ? "Review and seed data" : tr(modal.type, { photos: "Property photos", bulk: "Bulk action", detail: "Record details", password: "Reset demo password", edit: "Edit record", create: "Create record" }[modal.type])}
             onClose={close}
           >
             {error && (
@@ -946,6 +955,7 @@ export default function SeedDashboard() {
                     recipe: { ...recipe, referenceDate: new Date().toISOString().slice(0, 10) },
                   })} />
                 <RecipeSummary recipe={draft.recipe} />
+                {draft.recipe.supervisorDemo && <p className="seed-muted">This demo creates 200 named hotels and 800 fictional reviews with positive, negative, neutral and mixed examples. Owners sign in with owner**11**, guests with guest11**. A new demo admin created by the setup script uses admin11****. Existing admin passwords stay unchanged.</p>}
                 <details>
                   <summary>Customize counts and settings (optional)</summary>
                 <GenerationFields
@@ -980,6 +990,7 @@ export default function SeedDashboard() {
                   <GenerationFields presets={cap.presets} value={draft} onChange={v => { setDraft(v); setPreview(null); }} />
                 </details>}
                 {modal.kind === "generate" && <p className="seed-muted">These are the settings saved for this dataset. Add more data lets you choose a different recipe later.</p>}
+                {draft.supervisorDemo && <p className="seed-muted">Demo owner password: owner**11**. Demo guest password: guest11**. Reviews are fictional examples; model predictions run after generation when analysis is selected.</p>}
                 {draft.reviews > 0 && <label className="seed-analysis-choice">
                   <input type="checkbox" disabled={busy} checked={modal.analyzeReviews !== false} onChange={e => setModal({ ...modal, analyzeReviews: e.target.checked, requestKey: crypto.randomUUID() })} />
                   <span>Analyze reviews with my sentiment model after generation</span>
@@ -1059,6 +1070,27 @@ export default function SeedDashboard() {
             {modal.type === "detail" && (
               <SeedRecordDetails entity={entity} row={modal.row} />
             )}
+            {modal.type === "photos" && <form onSubmit={e => {
+              e.preventDefault();
+              run(async () => {
+                const data = new FormData();
+                data.append("revision", String(modal.row.seedRevision));
+                data.append("keepImageIds", JSON.stringify(keptPhotos));
+                photoFiles.forEach(file => data.append("images", file));
+                await api.post(`${base}/datasets/${ds}/properties/${modal.row._id}/photos`, data);
+                setModal(null);
+                setPhotoFiles([]);
+              });
+            }}>
+              <p className="seed-muted">Keep the photos you want, then choose new images from your computer. New images go through the normal image review process.</p>
+              {(modal.row.images || []).map(photo => <label className="seed-inline" key={photo._id}>
+                <input type="checkbox" checked={keptPhotos.includes(photo._id)} onChange={e => setKeptPhotos(current => e.target.checked ? [...current, photo._id] : current.filter(id => id !== photo._id))} />
+                {photo.caption || photo.url}
+              </label>)}
+              <Field label="Choose property images"><input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={e => setPhotoFiles([...e.target.files])} /></Field>
+              <p className="seed-muted">Up to five images total, each up to 5 MB. {keptPhotos.length + photoFiles.length} selected.</p>
+              <div className="seed-actions"><button className="seed-primary" disabled={busy || keptPhotos.length + photoFiles.length < 1 || keptPhotos.length + photoFiles.length > 5}>Save photos</button></div>
+            </form>}
             {modal.type === "password" && (
               <form
                 onSubmit={(e) => {

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import express from "express";
 import jwt from "jsonwebtoken";
+import { getSeedPresets } from "../services/seed/config.js";
+import { deleteUploadedImage } from "../utils/imageVerification.js";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import {
   initialize,
@@ -628,6 +630,35 @@ test("cancelled cleanup retains its checkpoint and retry finishes the remaining 
   assert.equal(result.state, "completed", result.error);
   assert.equal(result.succeeded, cleanupPreview.count);
   assert.ok((await SeedDataset.findById(old._id)).archivedAt);
+});
+test("supervisor demo accounts use role passwords and admins can upload property photos", async () => {
+  const preset = getSeedPresets().supervisor;
+  const setup = { ...preset, owners: 1, guests: 1, properties: 1, reviews: 4, cities: [preset.cities[0]], referenceDate: "2026-10-01" };
+  const demo = await createDataset({ name: "Supervisor demo", namespace: `supervisor_${crypto.randomUUID().slice(0, 8)}`, recipe: setup }, admin._id);
+  const preview = await previewGeneration(demo._id, { recipe: setup }, admin._id);
+  const generation = await startJob(demo._id, { kind: "generate", recipe: setup, confirmation: preview.confirmation, requestKey: crypto.randomUUID() }, admin._id);
+  assert.equal((await runNextJob({ jobId: generation._id })).state, "completed");
+  const owner = (await queryRecords(demo._id, "users", { role: "owner" })).records[0];
+  const guest = (await queryRecords(demo._id, "users", { role: "guest" })).records[0];
+  assert.equal(await (await models.users.findById(owner._id).select("+password")).matchPassword("owner**11**"), true);
+  assert.equal(await (await models.users.findById(guest._id).select("+password")).matchPassword("guest11**"), true);
+  const property = (await queryRecords(demo._id, "properties")).records[0];
+  const form = new FormData();
+  form.append("revision", String(property.seedRevision));
+  form.append("keepImageIds", JSON.stringify(property.images.map(photo => photo._id)));
+  form.append("images", new Blob([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR+8AAAAASUVORK5CYII=", "base64")], { type: "image/png" }), "room.png");
+  const denied = await fetch(`${url}/admin/seed/datasets/${demo._id}/properties/${property._id}/photos`, {
+    method: "POST", headers: { Authorization: `Bearer ${jwt.sign({ id: ordinary._id }, process.env.JWT_SECRET)}` }, body: form,
+  });
+  assert.equal(denied.status, 403);
+  const result = await fetch(`${url}/admin/seed/datasets/${demo._id}/properties/${property._id}/photos`, {
+    method: "POST", headers: { Authorization: `Bearer ${jwt.sign({ id: admin._id }, process.env.JWT_SECRET)}` }, body: form,
+  });
+  const data = await result.json();
+  assert.equal(result.status, 200, JSON.stringify(data));
+  assert.ok(data.images.some(photo => photo.url.startsWith("/uploads/properties/")));
+  assert.ok(await SeedRecord.exists({ dataset: demo._id, entity: "properties", documentId: property._id, state: "active" }));
+  for (const photo of data.images) if (photo.url.startsWith("/uploads/properties/")) deleteUploadedImage(photo.url);
 });
 test(
   "standard 11500 record dataset generates and validates",
