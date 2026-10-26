@@ -30,6 +30,13 @@ export async function seedAppGuard(req, res, next) {
   // Read-only recommendation queries keep their existing parallel execution.
   if (!mayWrite && !req.path.startsWith("/api/payments/stripe")) return next();
   if (!(await SeedRecord.exists({ state: "active" }))) return next();
+  // Search results are read only. During a seed job, skip the optional
+  // history write so visitors can continue browsing the changing catalog.
+  if (req.method === "GET" && req.path === "/api/search" &&
+      await SeedJob.exists({ state: { $in: ["queued", "running", "cancel_requested"] } })) {
+    req.skipSeedSearchHistory = true;
+    return next();
+  }
   if (req.path.startsWith("/api/payments/stripe")) {
     const bookingId = req.body?.bookingId || req.query?.bookingId;
     if (

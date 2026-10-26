@@ -260,6 +260,19 @@ test("existing login, search, recommendations, owner lists, booking, payment and
     403,
   );
 });
+test("search remains available while a seed job runs and resumes tracking afterward", async () => {
+  const guest = (await queryRecords(ds._id, "users", { role: "guest" })).records[0];
+  const before = await models.searches.countDocuments({ user: guest._id });
+  const queued = await new SeedJob({ dataset: ds._id, actor: admin._id, kind: "generate", state: "running", requestKey: crypto.randomUUID(), total: 1 }).save();
+  try {
+    const result = await api("/search?city=Gilgit", guest);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.ok(Array.isArray(result.body.data));
+    assert.equal(await models.searches.countDocuments({ user: guest._id }), before);
+  } finally { await SeedJob.deleteOne({ _id: queued._id }); }
+  ok(await api("/search?city=Gilgit", guest));
+  assert.equal(await models.searches.countDocuments({ user: guest._id }), before + 1);
+});
 test("ordinary search history pruning preserves valid seed tracking", async () => {
   const guest = (await queryRecords(ds._id, "users", { role: "guest" }))
     .records[0];
