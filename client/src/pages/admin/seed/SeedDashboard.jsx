@@ -80,6 +80,7 @@ export default function SeedDashboard() {
   const [photoFiles, setPhotoFiles] = useState([]);
   const [keptPhotos, setKeptPhotos] = useState([]);
   const active = datasets.find((x) => x._id === ds);
+  const removalTarget = modal?.datasetDelete ? datasets.find(x => x._id === modal.datasetId) : null;
   const activeTotal = Object.values(active?.counts || {}).reduce((n, count) => n + count, 0);
   const rows = rowsKey === `${ds}:${entity}` ? loadedRows : [];
   const datasetJobs = jobs.filter(j => String(j.dataset) === ds);
@@ -209,9 +210,8 @@ export default function SeedDashboard() {
     open("dataset", { presetKey });
   };
   const removeDataset = (datasetId) => {
-    setDs(datasetId);
     setDraft({ action: "delete", cascade: true });
-    open("bulk", { datasetDelete: true });
+    open("bulk", { datasetDelete: true, datasetId });
   };
   const showRecords = (nextEntity = entity) => {
     setEntity(nextEntity); setView("records"); setPage(1); setFilters({});
@@ -253,7 +253,7 @@ export default function SeedDashboard() {
   const bulkPreview = () =>
     run(async () => {
       if (modal.datasetDelete) {
-        setPreview((await api.post(`${base}/datasets/${ds}/cleanup/preview`)).data);
+        setPreview((await api.post(`${base}/datasets/${modal.datasetId}/cleanup/preview`)).data);
         return;
       }
       let body = {
@@ -286,7 +286,7 @@ export default function SeedDashboard() {
   const execute = () =>
     run(async () => {
       if (modal.datasetDelete)
-        await api.post(`${base}/datasets/${ds}/cleanup/execute`, {
+        await api.post(`${base}/datasets/${modal.datasetId}/cleanup/execute`, {
           confirmation: preview.confirmation, confirmName, requestKey: modal.requestKey,
         });
       else await api.post(`${base}/datasets/${ds}/bulk/execute`, {
@@ -296,6 +296,7 @@ export default function SeedDashboard() {
       setPreview(null);
       setSelected([]);
       setAll(false);
+      if (modal.datasetDelete) setDs(modal.datasetId);
       setView("jobs");
     });
   const download = (format) =>
@@ -432,7 +433,7 @@ export default function SeedDashboard() {
               <details className="seed-more-actions"><summary>More dataset actions</summary><div className="seed-inline">
                 <button disabled={running || busy} onClick={() => run(() => api.post(`${base}/datasets/${ds}/jobs`, { kind: "validate", requestKey: crypto.randomUUID() }))}>{tr("validate", "Validate")}</button>
                 <button disabled={running || busy} onClick={() => run(() => api.post(`${base}/datasets/${ds}/jobs`, { kind: "recalculate", requestKey: crypto.randomUUID() }))}>{tr("recalculate", "Recalculate summaries")}</button>
-                <button className="seed-danger" disabled={running || busy} onClick={() => removeDataset(ds)}>{tr("deleteDataset", "Remove this dataset and its records")}</button>
+                <button className="seed-danger" disabled={running || busy} onClick={() => removeDataset(ds)}>Remove selected dataset ({active.name})</button>
               </div></details>
             </div>
             {datasets.some(d => d._id !== ds && Object.values(d.counts || {}).some(count => count > 0)) && <section className="seed-card" aria-label="Old seed datasets">
@@ -441,7 +442,7 @@ export default function SeedDashboard() {
                 <span>{d.name} · {Object.values(d.counts || {}).reduce((n, count) => n + count, 0).toLocaleString()} records · {d.namespace}</span>
                 <button type="button" className="seed-danger" disabled={busy || running || !cap?.transactions || jobs.some(j => String(j.dataset) === d._id && ["queued", "running", "cancel_requested"].includes(j.state))} onClick={() => removeDataset(d._id)}>Remove old seed data</button>
               </div>)}
-              <p className="seed-muted">Review the records and type the dataset name before deletion. Only records tracked in that dataset are removed.</p>
+              <p className="seed-muted">Choose the old dataset on its row, review its records, then type REMOVE to confirm. The current dataset is preserved.</p>
             </section>}
             <div className="seed-tabs">
               {["records", "jobs", "history"].map((v) => (
@@ -917,7 +918,7 @@ export default function SeedDashboard() {
         )}
         {modal && (
           <Modal
-            title={modal.type === "dataset" ? "Choose seed data" : modal.type === "generate" ? "Review and seed data" : tr(modal.type, { photos: "Property photos", bulk: "Bulk action", detail: "Record details", password: "Reset demo password", edit: "Edit record", create: "Create record" }[modal.type])}
+            title={modal.type === "dataset" ? "Choose seed data" : modal.type === "generate" ? "Review and seed data" : modal.datasetDelete ? "Remove seed dataset" : tr(modal.type, { photos: "Property photos", bulk: "Bulk action", detail: "Record details", password: "Reset demo password", edit: "Edit record", create: "Create record" }[modal.type])}
             onClose={close}
           >
             {error && (
@@ -1127,6 +1128,7 @@ export default function SeedDashboard() {
             )}
             {modal.type === "bulk" && (
               <>
+                {modal.datasetDelete && <p className="seed-muted">You are removing <strong>{removalTarget?.name || "the selected dataset"}</strong> ({removalTarget?.namespace}). The current dataset stays available if you chose an old dataset below.</p>}
                 {!modal.datasetDelete && draft.action !== "create" && (
                   <Field label={tr("action", "Action")}>
                     <select
@@ -1406,7 +1408,7 @@ export default function SeedDashboard() {
                     </details>
                     {preview.action === "delete" && (
                       <Field
-                        label={`${tr("typeName", "Type the dataset name")}: ${active.name}`}
+                        label={modal.datasetDelete ? "Type REMOVE to confirm this dataset" : `${tr("typeName", "Type the dataset name")}: ${active.name}`}
                       >
                         <input
                           value={confirmName}
@@ -1428,7 +1430,7 @@ export default function SeedDashboard() {
                       busy ||
                       !preview ||
                       (preview.action === "delete" &&
-                        confirmName !== active.name)
+                        confirmName !== (modal.datasetDelete ? "REMOVE" : active.name))
                     }
                     onClick={execute}
                   >

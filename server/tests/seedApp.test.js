@@ -569,7 +569,7 @@ test("removing an old seed dataset deletes its tracked records and hides its nam
   const deletion = ok(await api(`/admin/seed/datasets/${old._id}/cleanup/preview`, admin, "POST"));
   assert.equal(deletion.count, ids.length);
   const cleanup = ok(await api(`/admin/seed/datasets/${old._id}/cleanup/execute`, admin, "POST", {
-    confirmation: deletion.confirmation, confirmName: old.name, requestKey: crypto.randomUUID(),
+    confirmation: deletion.confirmation, confirmName: "REMOVE", requestKey: crypto.randomUUID(),
   }), 202);
   const result = await runNextJob({ jobId: cleanup._id, batchSize: 4 });
   assert.equal(result.state, "completed", result.error);
@@ -590,6 +590,9 @@ test("cleanup preflight blocks outside activity before deleting any records and 
   const outside = await models.views.create({ user: admin._id, property: property.documentId });
   const before = await SeedRecord.countDocuments({ dataset: old._id, state: "active" });
   const preview = await previewCleanup(old._id, admin._id);
+  await assert.rejects(() => startCleanup(old._id, {
+    confirmation: preview.confirmation, confirmName: "wrong name", requestKey: crypto.randomUUID(),
+  }, admin._id), /Type REMOVE/);
   await assert.rejects(() => startCleanup(old._id, {
     confirmation: "invalid", confirmName: old.name, requestKey: crypto.randomUUID(),
   }, admin._id), /changed/);

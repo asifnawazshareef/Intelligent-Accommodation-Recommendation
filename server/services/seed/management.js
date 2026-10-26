@@ -646,7 +646,7 @@ export async function startCleanup(ds, input, actor) {
     }
     const d = await dataset(ds);
     await idle(ds);
-    assert(input.confirmName === d.name, "Enter the dataset name to confirm deletion.");
+    assert(input.confirmName === "REMOVE" || input.confirmName === d.name, "Type REMOVE to confirm deletion of the selected dataset.");
     const count = await SeedRecord.countDocuments({ dataset: ds, state: "active" });
     assert(count > 0 && count <= 50000, "Preview the active seed records before cleanup.");
     assert(input.confirmation === digest({ action: "cleanup", dataset: String(ds), revision: d.revision, count, actor: String(actor) }), "The dataset changed. Preview cleanup again.", 409);
