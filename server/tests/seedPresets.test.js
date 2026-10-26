@@ -69,7 +69,8 @@ test('every real property has distinct bundled photos, credits and demo labels',
   }
   for (const { entity, payload } of generated) {
     if (entity === 'properties') {
-      assert.match(payload.description, /FYP DEMO/);
+      assert.ok(payload.description.length > 0);
+      assert.doesNotMatch(payload.description, /FYP DEMO/);
       assert.ok(payload.seedCatalog.sourceUrl);
       assert.ok(payload.images.length >= 2 && payload.images.length <= 5);
     }
@@ -87,6 +88,19 @@ test('supervisor demo has 200 unique hotel names across cities and all review to
   assert.equal(new Set(hotels.map(item => item.payload.title.toLocaleLowerCase('en'))).size, 200);
   assert.ok(new Set(hotels.map(item => item.payload.location.city)).size >= 10);
   assert.equal(reviews.length, 800);
+  const perProperty = new Map();
+  for (const review of reviews) perProperty.set(String(review.payload.property), (perProperty.get(String(review.payload.property)) || 0) + 1);
+  assert.equal(perProperty.size, 200);
+  assert.equal([...perProperty.values()].reduce((sum, count) => sum + count, 0), 800);
+  assert.ok([...perProperty.values()].some(count => count < 4));
+  assert.ok([...perProperty.values()].some(count => count > 4));
+  assert.ok(Math.max(...perProperty.values()) <= 8);
+  const bookings = items.filter(item => item.entity === 'bookings');
+  for (const property of hotels) {
+    const stays = bookings.filter(item => String(item.payload.property) === String(property.payload._id))
+      .sort((a, b) => a.payload.startDate.localeCompare(b.payload.startDate));
+    for (let i = 1; i < stays.length; i++) assert.ok(stays[i - 1].payload.endDate < stays[i].payload.startDate);
+  }
   for (const sentiment of ['positive', 'negative', 'neutral', 'mixed'])
     assert.ok(reviews.filter(item => item.payload.sentiment === sentiment).length >= 50);
   assert.ok(reviews.every(item => item.payload.text.startsWith('Demo review, not a real guest experience.')));

@@ -232,17 +232,6 @@ const PropertyDetailPage = () => {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-8">
         <div className="min-w-0 space-y-5">
           <PropertyImageGallery images={displayImages} title={property.title} />
-          {property.seedCatalog && (
-            <aside className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-              <p><strong>FYP demo listing based on a real property.</strong> Prices,
-                availability, owners, bookings and reviews are generated examples.
-                This app is not affiliated with the hotel.</p>
-              <p>Public information checked: {property.seedCatalog.checkedAt}.{" "}
-                {/^https:\/\//.test(property.seedCatalog.sourceUrl || "") && <a className="underline"
-                  href={property.seedCatalog.sourceUrl} target="_blank" rel="noopener noreferrer">Property reference source</a>}
-              </p>
-            </aside>
-          )}
 
 
           <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5 lg:hidden">

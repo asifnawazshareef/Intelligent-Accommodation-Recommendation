@@ -55,7 +55,8 @@ export function buildDataset(namespace, input, generation = "initial") {
   const guests = [];
   const properties = [];
   const approved = Math.floor((c.properties * c.approvedPercent) / 100);
-  const earliest = -(Math.ceil(c.reviews / Math.max(approved, 1)) * 7 + 60);
+  const reviewLimit = c.supervisorDemo ? Math.max(8, Math.ceil(c.reviews / Math.max(approved, 1)) * 2) : 0;
+  const earliest = -((c.supervisorDemo ? reviewLimit : Math.ceil(c.reviews / Math.max(approved, 1))) * 7 + 60);
   const add = (entity, key, payload, rate) => {
     const logicalKey = `${generation}:${key}`;
     const item = {
@@ -118,7 +119,7 @@ export function buildDataset(namespace, input, generation = "initial") {
         ],
         ...(real && {
           title: real.title,
-          description: `FYP DEMO: Real property reference. Prices, availability, owners, bookings and reviews are synthetic. No affiliation with this hotel. ${real.description}`,
+          description: real.description,
           location: { address: real.address, city: real.city, country: "Pakistan" },
           seedCatalog: { id: real.id, sourceUrl: real.sourceUrl, checkedAt: real.checkedAt },
           images: real.images.map(({ url, caption, credit }) => ({
@@ -133,10 +134,26 @@ export function buildDataset(namespace, input, generation = "initial") {
       }),
     );
   }
+  const assignments = [];
+  if (c.supervisorDemo) {
+    const counts = Array(approved).fill(0);
+    for (let i = 0; i < Math.min(c.reviews, approved); i++) {
+      assignments.push(i);
+      counts[i]++;
+    }
+    while (assignments.length < c.reviews) {
+      const index = faker.number.int({ min: 0, max: approved - 1 });
+      if (counts[index] >= reviewLimit) continue;
+      assignments.push(index);
+      counts[index]++;
+    }
+  }
+  const previousReviews = Array(approved).fill(0);
   for (let i = 0; i < c.reviews; i++) {
-    const p = properties[i % approved];
+    const propertyIndex = c.supervisorDemo ? assignments[i] : i % approved;
+    const p = properties[propertyIndex];
     const guest = guests[i % guests.length];
-    const offset = -(Math.floor(i / approved) * 7 + 14);
+    const offset = -(previousReviews[propertyIndex]++ * 7 + 14);
     const nights = faker.number.int({ min: 1, max: 5 });
     const booking = add(
       "bookings",
