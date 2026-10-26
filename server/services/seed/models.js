@@ -41,7 +41,7 @@ export const SeedJob = model(
     actor: id,
     kind: {
       type: String,
-      enum: ["generate", "append", "bulk", "validate", "recalculate", "analyze_reviews"],
+      enum: ["generate", "append", "bulk", "cleanup", "validate", "recalculate", "analyze_reviews"],
       required: true,
     },
     requestKey: { type: String, required: true },

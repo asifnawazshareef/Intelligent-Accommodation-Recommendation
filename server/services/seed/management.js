@@ -621,6 +621,40 @@ export async function executeBulk(ds, input, actor) {
     return j;
   });
 }
+export async function previewCleanup(ds, actor) {
+  const d = await dataset(ds);
+  await idle(ds);
+  const summary = await counts(ds);
+  const count = Object.values(summary).reduce((sum, value) => sum + value, 0);
+  assert(count > 0, "This dataset has no active seed records.");
+  assert(count <= 50000, "This dataset is too large for one cleanup job.");
+  return {
+    action: "delete",
+    entity: "all",
+    count,
+    summary,
+    confirmation: digest({ action: "cleanup", dataset: String(ds), revision: d.revision, count, actor: String(actor) }),
+  };
+}
+export async function startCleanup(ds, input, actor) {
+  return transaction(async () => {
+    await superAdmin(actor);
+    const existing = await SeedJob.findOne({ dataset: ds, requestKey: input.requestKey });
+    if (existing) {
+      assert(existing.kind === "cleanup" && String(existing.actor) === String(actor), "Request key belongs to another job.", 409);
+      return existing;
+    }
+    const d = await dataset(ds);
+    await idle(ds);
+    assert(input.confirmName === d.name, "Enter the dataset name to confirm deletion.");
+    const count = await SeedRecord.countDocuments({ dataset: ds, state: "active" });
+    assert(count > 0 && count <= 50000, "Preview the active seed records before cleanup.");
+    assert(input.confirmation === digest({ action: "cleanup", dataset: String(ds), revision: d.revision, count, actor: String(actor) }), "The dataset changed. Preview cleanup again.", 409);
+    const job = await SeedJob.create({ dataset: ds, actor, kind: "cleanup", requestKey: input.requestKey, options: { count }, total: count * 2 });
+    await audit({ dataset: ds, actor, action: "queue_cleanup", job: job._id });
+    return job;
+  });
+}
 export async function applyItem(ds, item, actor, job) {
   if (item.action === "delete")
     return deleteRecord(

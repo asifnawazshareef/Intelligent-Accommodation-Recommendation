@@ -244,19 +244,16 @@ export default function SeedDashboard() {
     });
   const bulkPreview = () =>
     run(async () => {
+      if (modal.datasetDelete) {
+        setPreview((await api.post(`${base}/datasets/${ds}/cleanup/preview`)).data);
+        return;
+      }
       let body = {
         entity,
         action: draft.action,
         selection: modal.selection || selection(),
         cascade: draft.cascade,
       };
-      if (modal.datasetDelete)
-        body = {
-          entity: "all",
-          action: "delete",
-          selection: { all: true },
-          cascade: true,
-        };
       if (draft.action === "update") {
         let value = draft.value;
         if (["price", "rating", "guests"].includes(draft.field))
@@ -280,14 +277,18 @@ export default function SeedDashboard() {
     });
   const execute = () =>
     run(async () => {
-      await api.post(`${base}/datasets/${ds}/bulk/execute`, {
-        planId: preview._id,
-        confirmName,
+      if (modal.datasetDelete)
+        await api.post(`${base}/datasets/${ds}/cleanup/execute`, {
+          confirmation: preview.confirmation, confirmName, requestKey: modal.requestKey,
+        });
+      else await api.post(`${base}/datasets/${ds}/bulk/execute`, {
+        planId: preview._id, confirmName,
       });
       setModal(null);
       setPreview(null);
       setSelected([]);
       setAll(false);
+      setView("jobs");
     });
   const download = (format) =>
     run(async () => {

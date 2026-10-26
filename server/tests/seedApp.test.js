@@ -18,8 +18,10 @@ import {
   previewBulk,
   executeBulk,
   queryRecords,
+  previewCleanup,
+  startCleanup,
 } from "../services/seed/management.js";
-import { runNextJob } from "../services/seed/jobs.js";
+import { runNextJob, controlJob } from "../services/seed/jobs.js";
 import { SeedRecord, SeedJob, SeedDataset } from "../services/seed/models.js";
 import { seedAppGuard } from "../services/seed/appGuard.js";
 import seedRoutes from "../routes/seedRoutes.js";
@@ -562,12 +564,11 @@ test("removing an old seed dataset deletes its tracked records and hides its nam
   assert.equal((await runNextJob({ jobId: job._id })).state, "completed");
   const ids = await SeedRecord.find({ dataset: old._id, state: "active" }).lean();
   assert.ok(ids.length > 0);
-  const deletion = await previewBulk(old._id, {
-    entity: "all", action: "delete", selection: { all: true }, cascade: true,
-  }, admin._id);
-  const cleanup = await executeBulk(old._id, {
-    planId: deletion._id, confirmName: old.name,
-  }, admin._id);
+  const deletion = ok(await api(`/admin/seed/datasets/${old._id}/cleanup/preview`, admin, "POST"));
+  assert.equal(deletion.count, ids.length);
+  const cleanup = ok(await api(`/admin/seed/datasets/${old._id}/cleanup/execute`, admin, "POST", {
+    confirmation: deletion.confirmation, confirmName: old.name, requestKey: crypto.randomUUID(),
+  }), 202);
   const result = await runNextJob({ jobId: cleanup._id, batchSize: 4 });
   assert.equal(result.state, "completed", result.error);
   assert.equal(await SeedRecord.countDocuments({ dataset: old._id, state: "active" }), 0);
@@ -577,6 +578,56 @@ test("removing an old seed dataset deletes its tracked records and hides its nam
   assert.equal((await api(`/admin/seed/datasets/${old._id}/users`)).status, 404);
   assert.ok(await models.users.findById(admin._id));
   assert.ok(await SeedRecord.exists({ dataset: ds._id, state: "active" }));
+});
+test("cleanup preflight blocks outside activity before deleting any records and can be retried", async () => {
+  const old = await createDataset({ name: "Old with activity", namespace: `old_${crypto.randomUUID().slice(0, 8)}`, recipe: config }, admin._id);
+  const generation = await previewGeneration(old._id, { recipe: config }, admin._id);
+  const job = await startJob(old._id, { kind: "generate", recipe: config, confirmation: generation.confirmation, requestKey: crypto.randomUUID() }, admin._id);
+  assert.equal((await runNextJob({ jobId: job._id })).state, "completed");
+  const property = await SeedRecord.findOne({ dataset: old._id, entity: "properties", state: "active" });
+  const outside = await models.views.create({ user: admin._id, property: property.documentId });
+  const before = await SeedRecord.countDocuments({ dataset: old._id, state: "active" });
+  const preview = await previewCleanup(old._id, admin._id);
+  await assert.rejects(() => startCleanup(old._id, {
+    confirmation: "invalid", confirmName: old.name, requestKey: crypto.randomUUID(),
+  }, admin._id), /changed/);
+  const cleanup = await startCleanup(old._id, { confirmation: preview.confirmation, confirmName: old.name, requestKey: crypto.randomUUID() }, admin._id);
+  assert.equal(String((await startCleanup(old._id, {
+    confirmation: preview.confirmation, confirmName: old.name, requestKey: cleanup.requestKey,
+  }, admin._id))._id), String(cleanup._id));
+  const blocked = await runNextJob({ jobId: cleanup._id, batchSize: 3 });
+  assert.equal(blocked.state, "failed");
+  assert.match(blocked.error, /outside this seed dataset/);
+  assert.equal(await SeedRecord.countDocuments({ dataset: old._id, state: "active" }), before);
+  await models.views.deleteOne({ _id: outside._id });
+  await controlJob(cleanup._id, "retry", admin._id);
+  const result = await runNextJob({ jobId: cleanup._id, batchSize: 5 });
+  assert.equal(result.state, "completed", result.error);
+  assert.equal(await SeedRecord.countDocuments({ dataset: old._id, state: "active" }), 0);
+});
+test("cancelled cleanup retains its checkpoint and retry finishes the remaining records", async () => {
+  const old = await createDataset({ name: "Interrupted cleanup", namespace: `cancel_${crypto.randomUUID().slice(0, 8)}`, recipe: config }, admin._id);
+  const preview = await previewGeneration(old._id, { recipe: config }, admin._id);
+  const generation = await startJob(old._id, { kind: "generate", recipe: config, confirmation: preview.confirmation, requestKey: crypto.randomUUID() }, admin._id);
+  assert.equal((await runNextJob({ jobId: generation._id })).state, "completed");
+  const cleanupPreview = await previewCleanup(old._id, admin._id);
+  const cleanup = await startCleanup(old._id, {
+    confirmation: cleanupPreview.confirmation, confirmName: old.name, requestKey: crypto.randomUUID(),
+  }, admin._id);
+  const stopped = await runNextJob({ jobId: cleanup._id, batchSize: 4,
+    afterBatch: async j => {
+      if (j.succeeded === 4) await controlJob(j._id, "cancel", admin._id);
+    },
+  });
+  assert.equal(stopped.state, "cancelled");
+  assert.equal(stopped.succeeded, 4);
+  assert.equal(await SeedRecord.countDocuments({ dataset: old._id, state: "active" }), cleanupPreview.count - 4);
+  assert.equal((await SeedDataset.findById(old._id)).archivedAt, undefined);
+  await controlJob(cleanup._id, "retry", admin._id);
+  const result = await runNextJob({ jobId: cleanup._id, batchSize: 5 });
+  assert.equal(result.state, "completed", result.error);
+  assert.equal(result.succeeded, cleanupPreview.count);
+  assert.ok((await SeedDataset.findById(old._id)).archivedAt);
 });
 test(
   "standard 11500 record dataset generates and validates",
@@ -622,5 +673,20 @@ test(
     const report = await runNextJob({ jobId: validation._id });
     assert.equal(report.state, "completed", report.error);
     assert.equal(report.report.valid, true, JSON.stringify(report.report));
+    const cleanupPreview = await previewCleanup(large._id, admin._id);
+    assert.equal(cleanupPreview.count, 11500);
+    const cleanup = await startCleanup(large._id, {
+      confirmation: cleanupPreview.confirmation, confirmName: large.name,
+      requestKey: crypto.randomUUID(),
+    }, admin._id);
+    const removed = await runNextJob({ jobId: cleanup._id, batchSize: 50,
+      afterBatch: async j => {
+        if (j.cursor % 1000 === 0)
+          console.log(`Load test cleanup: ${j.cursor}/${j.total}`);
+      },
+    });
+    assert.equal(removed.state, "completed", removed.error);
+    assert.equal(removed.succeeded, 11500);
+    assert.equal(await SeedRecord.countDocuments({ dataset: large._id, state: "active" }), 0);
   },
 );

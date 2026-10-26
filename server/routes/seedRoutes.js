@@ -35,6 +35,8 @@ import {
   startJob,
   previewBulk,
   executeBulk,
+  previewCleanup,
+  startCleanup,
   idle,
   csv,
 } from "../services/seed/management.js";
@@ -148,6 +150,14 @@ router.post(
   handler(async (req, res) =>
     res.status(202).json(await startJob(req.params.ds, req.body, req.user._id)),
   ),
+);
+router.post(
+  "/datasets/:ds/cleanup/preview",
+  handler(async (req, res) => res.json(await previewCleanup(req.params.ds, req.user._id))),
+);
+router.post(
+  "/datasets/:ds/cleanup/execute",
+  handler(async (req, res) => res.status(202).json(await startCleanup(req.params.ds, req.body, req.user._id))),
 );
 router.post(
   "/datasets/:ds/bulk/preview",

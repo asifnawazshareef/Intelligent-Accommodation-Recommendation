@@ -48,15 +48,18 @@ export function SeedJobSummary({ job, onJobs, onRecords }) {
   if (!job) return null;
   const percent = Math.min(100, Math.max(0, Math.round((job.cursor || 0) / (job.total || 1) * 100)));
   const analysis = job.kind === "analyze_reviews";
-  const title = { queued: analysis ? "Review analysis is queued" : "Your data is queued", running: analysis ? "Analyzing reviews with your model" : "Generating your data", cancel_requested: "Stopping after the current batch", completed: analysis ? "Model analysis is complete" : "Your job is complete", failed: analysis ? "Sentiment analysis needs attention" : "This job needs attention", cancelled: "This job was cancelled" }[job.state] || job.state;
+  const cleanup = job.kind === "cleanup";
+  const title = cleanup
+    ? { queued: "Old seed cleanup is queued", running: job.cursor < job.options.count ? "Checking old seed records" : "Removing old seed records", cancel_requested: "Stopping after the current batch", completed: "Old seed data removed", failed: "Old seed cleanup needs attention", cancelled: "Old seed cleanup was cancelled" }[job.state] || job.state
+    : { queued: analysis ? "Review analysis is queued" : "Your data is queued", running: analysis ? "Analyzing reviews with your model" : "Generating your data", cancel_requested: "Stopping after the current batch", completed: analysis ? "Model analysis is complete" : "Your job is complete", failed: analysis ? "Sentiment analysis needs attention" : "This job needs attention", cancelled: "This job was cancelled" }[job.state] || job.state;
   return <section className={`seed-card seed-progress-card seed-job-${job.state}`} aria-label="Latest seed job">
     <SeedSteps step={3} />
     <div className="seed-section-heading"><div><span className="seed-eyebrow">Latest activity</span><h2>{title}</h2></div><strong>{percent}%</strong></div>
     <progress aria-label="Seed job progress" max={job.total || 1} value={job.cursor || 0} />
-    <p role="status">{number(job.cursor)} of {number(job.total)} records processed · {number(job.succeeded)} succeeded · {number(job.skipped)} skipped</p>
+    <p role="status">{cleanup ? `${number(Math.min(job.cursor, job.options.count))} of ${number(job.options.count)} checked · ${number(job.succeeded)} removed` : `${number(job.cursor)} of ${number(job.total)} records processed · ${number(job.succeeded)} succeeded · ${number(job.skipped)} skipped`}</p>
     {job.state === "queued" && <p className="seed-muted">Waiting for a worker. Keep <code>npm.cmd run seed:worker</code> running in another terminal.</p>}
     {job.error && <p className="seed-error">{job.error}</p>}
-    <div className="seed-actions"><button type="button" onClick={onJobs}>View job details</button>{job.state === "completed" && <button type="button" className="seed-primary" onClick={onRecords}>View seeded records</button>}</div>
+    <div className="seed-actions"><button type="button" onClick={onJobs}>View job details</button>{job.state === "completed" && !cleanup && <button type="button" className="seed-primary" onClick={onRecords}>View seeded records</button>}</div>
   </section>;
 }
 
