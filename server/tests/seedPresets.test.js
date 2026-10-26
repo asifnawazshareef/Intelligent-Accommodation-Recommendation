@@ -84,6 +84,7 @@ test('supervisor demo has 200 unique hotel names across cities and all review to
   const hotels = items.filter(item => item.entity === 'properties');
   const reviews = items.filter(item => item.entity === 'reviews');
   assert.equal(hotels.length, 200);
+  assert.ok(hotels.every(item => item.payload.availabilityCalendar[0].endDate === '2027-02-28'));
   assert.ok(hotels.every(item => /\bhotel\b/i.test(item.payload.title)));
   assert.equal(new Set(hotels.map(item => item.payload.title.toLocaleLowerCase('en'))).size, 200);
   assert.ok(new Set(hotels.map(item => item.payload.location.city)).size >= 10);
@@ -104,4 +105,14 @@ test('supervisor demo has 200 unique hotel names across cities and all review to
   for (const sentiment of ['positive', 'negative', 'neutral', 'mixed'])
     assert.ok(reviews.filter(item => item.payload.sentiment === sentiment).length >= 50);
   assert.ok(reviews.every(item => item.payload.text.startsWith('Demo review, not a real guest experience.')));
+});
+test('new collected property datasets also vary reviews across properties', () => {
+  const collected = getSeedPresets().pakistanCollected;
+  const values = { ...collected, properties: 20, reviews: 80, referenceDate: '2026-10-01' };
+  const reviews = buildDataset('collected_varied', values).filter(item => item.entity === 'reviews');
+  const counts = new Map();
+  for (const review of reviews) counts.set(String(review.payload.property), (counts.get(String(review.payload.property)) || 0) + 1);
+  assert.equal(counts.size, 20);
+  assert.ok([...counts.values()].some(count => count < 4));
+  assert.ok([...counts.values()].some(count => count > 4));
 });

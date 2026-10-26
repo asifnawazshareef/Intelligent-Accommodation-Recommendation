@@ -55,8 +55,9 @@ export function buildDataset(namespace, input, generation = "initial") {
   const guests = [];
   const properties = [];
   const approved = Math.floor((c.properties * c.approvedPercent) / 100);
-  const reviewLimit = c.supervisorDemo ? Math.max(8, Math.ceil(c.reviews / Math.max(approved, 1)) * 2) : 0;
-  const earliest = -((c.supervisorDemo ? reviewLimit : Math.ceil(c.reviews / Math.max(approved, 1))) * 7 + 60);
+  const variedReviews = c.supervisorDemo || c.propertySource === "pakistan_collected_v1";
+  const reviewLimit = variedReviews ? Math.max(8, Math.ceil(c.reviews / Math.max(approved, 1)) * 2) : 0;
+  const earliest = -((variedReviews ? reviewLimit : Math.ceil(c.reviews / Math.max(approved, 1))) * 7 + 60);
   const add = (entity, key, payload, rate) => {
     const logicalKey = `${generation}:${key}`;
     const item = {
@@ -114,7 +115,7 @@ export function buildDataset(namespace, input, generation = "initial") {
         availabilityCalendar: [
           {
             startDate: date(c.referenceDate, earliest),
-            endDate: date(c.referenceDate, 365),
+            endDate: c.supervisorDemo ? "2027-02-28" : date(c.referenceDate, 365),
           },
         ],
         ...(real && {
@@ -135,7 +136,7 @@ export function buildDataset(namespace, input, generation = "initial") {
     );
   }
   const assignments = [];
-  if (c.supervisorDemo) {
+  if (variedReviews) {
     const counts = Array(approved).fill(0);
     for (let i = 0; i < Math.min(c.reviews, approved); i++) {
       assignments.push(i);
@@ -150,7 +151,7 @@ export function buildDataset(namespace, input, generation = "initial") {
   }
   const previousReviews = Array(approved).fill(0);
   for (let i = 0; i < c.reviews; i++) {
-    const propertyIndex = c.supervisorDemo ? assignments[i] : i % approved;
+    const propertyIndex = variedReviews ? assignments[i] : i % approved;
     const p = properties[propertyIndex];
     const guest = guests[i % guests.length];
     const offset = -(previousReviews[propertyIndex]++ * 7 + 14);

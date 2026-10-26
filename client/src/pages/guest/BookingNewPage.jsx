@@ -133,6 +133,9 @@ const BookingNewPage = () => {
   );
 
   const coverUrl = property?.images?.[0]?.url;
+  const lastAvailableDate = property?.availabilityCalendar?.reduce(
+    (latest, range) => range.endDate > latest ? range.endDate : latest, "",
+  ) || undefined;
 
   const showAlreadyBookedToast = (bookingId, needsPayment) => {
     notify.withAction(
@@ -313,6 +316,7 @@ const BookingNewPage = () => {
                       value={formData.startDate}
                       onChange={handleChange}
                       min={minDate}
+                      max={lastAvailableDate}
                       required
                       disabled={submitting}
                       className="h-10 bg-background/80"
@@ -329,6 +333,7 @@ const BookingNewPage = () => {
                       value={formData.endDate}
                       onChange={handleChange}
                       min={formData.startDate || minDate}
+                      max={lastAvailableDate}
                       required
                       disabled={submitting || !formData.startDate}
                       className="h-10 bg-background/80"

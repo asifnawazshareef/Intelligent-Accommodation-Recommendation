@@ -163,6 +163,8 @@ export function recipe(input = {}) {
     result.referenceDate <= new Date().toISOString().slice(0, 10),
     "Reference date cannot be in the future.",
   );
+  assert(!result.supervisorDemo || result.referenceDate < "2027-02-28",
+    "The supervisor booking window ends in February 2027. Choose an earlier reference date.");
   assert(
     Array.isArray(result.cities) &&
       result.cities.length > 0 &&
