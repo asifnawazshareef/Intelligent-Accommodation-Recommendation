@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema(
       enum: ["guest", "owner", "admin"],
       default: "guest",
     },
+    isSuperAdmin: { type: Boolean, default: false },
     languagePref: {
       type: String,
       default: "en",

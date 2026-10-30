@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -7,9 +8,11 @@ import SentimentBadge from "@/components/reviews/SentimentBadge";
 import StarRatingRow from "@/components/reviews/StarRatingDisplay";
 import { formatDate } from "@/lib/formatters";
 import { normalizeAspectInsights } from "@/lib/reviewAspects";
+import { isPendingReviewAnalysis } from "@/lib/reviewAnalysis";
 
-const ReviewsList = ({ reviews = [] }) => {
+const ReviewsList = ({ reviews = [], canManageSeed = false }) => {
   const { t, i18n } = useTranslation();
+  const pendingCount = reviews.filter(isPendingReviewAnalysis).length;
 
   return (
     <Card className="glass-card border-border/60">
@@ -17,12 +20,18 @@ const ReviewsList = ({ reviews = [] }) => {
         <CardTitle>{t("review.reviews")}</CardTitle>
       </CardHeader>
       <CardContent>
+        {pendingCount > 0 && <div className="mb-4 rounded-lg border border-amber-300/50 bg-amber-50/50 p-3 text-sm text-foreground" role="status">
+          <p>{t("review.pendingCount", { count: pendingCount, defaultValue: "{{count}} reviews are awaiting model analysis." })}</p>
+          {canManageSeed && <><p className="mt-1">{t("review.startServices", "Start all services to process older demo reviews:")} <code>npm.cmd run dev:seed</code></p>
+            <Link className="mt-2 inline-block font-medium text-primary underline" to="/admin/seed">{t("review.openSeedData", "Open Seed Data for progress and errors")}</Link></>}
+        </div>}
         {reviews.length ? (
           <div className="space-y-4">
             {reviews.map((review) => {
               const guestName =
                 review.guest?.name || t("review.anonymousGuest");
               const aspectInsights = normalizeAspectInsights(review);
+              const pending = isPendingReviewAnalysis(review);
 
               return (
                 <article
@@ -38,7 +47,9 @@ const ReviewsList = ({ reviews = [] }) => {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <SentimentBadge sentiment={review.sentiment} />
+                      {!pending && <SentimentBadge sentiment={review.sentiment} />}
+                      {review.sentimentAnalysis?.source === "model" && review.sentimentAnalysis?.status === "completed" && <span className="text-xs text-muted-foreground">{t("review.modelAnalyzed", "Model analyzed")}</span>}
+                      {pending && <span className="text-xs text-muted-foreground">{t("review.awaitingAnalysis", "Awaiting model analysis")}</span>}
                       {review.sentimentScore > 0 ? (
                         <p className="text-xs text-muted-foreground" dir="ltr">
                           {t("review.confidence", {

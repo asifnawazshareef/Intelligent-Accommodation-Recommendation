@@ -19,7 +19,7 @@ import PropertyCoverImage from "@/components/properties/PropertyCoverImage";
 import ReviewSubmittedBanner from "@/components/reviews/ReviewSubmittedBanner";
 import { formatDate, formatPrice } from "@/lib/formatters";
 import notify from "@/lib/notify";
-import { getBookingById } from "@/services/bookingService";
+import { confirmDemoPayment, getBookingById } from "@/services/bookingService";
 import { createStripeCheckoutSession } from "@/services/paymentService";
 import { Button } from "@/components/ui/button";
 import ActionLink from "@/components/ui/action-link";
@@ -40,7 +40,7 @@ const BookingPaymentPage = () => {
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [redirectingStripe, setRedirectingStripe] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [error, setError] = useState("");
 
   const fetchBooking = useCallback(async () => {
@@ -65,11 +65,19 @@ const BookingPaymentPage = () => {
     fetchBooking();
   }, [fetchBooking]);
 
-  const handleStripePayment = async () => {
-    setRedirectingStripe(true);
+  const handlePayment = async () => {
+    if (processingPayment) return;
+    setProcessingPayment(true);
     setError("");
 
     try {
+      if (booking.paymentMode === "demo") {
+        const response = await confirmDemoPayment(bookingId);
+        setBooking({ ...response.data.data, paymentMode: "demo" });
+        notify.success(t("bookingPage.demoPaymentSuccess"));
+        setProcessingPayment(false);
+        return;
+      }
       const response = await createStripeCheckoutSession(bookingId);
       const checkoutUrl = response.data.data?.url;
 
@@ -83,7 +91,7 @@ const BookingPaymentPage = () => {
         err.response?.data?.message || t("bookingPage.stripeCheckoutError");
       setError(message);
       notify.error(message);
-      setRedirectingStripe(false);
+      setProcessingPayment(false);
     }
   };
 
@@ -115,7 +123,8 @@ const BookingPaymentPage = () => {
   const property = booking.property;
   const isPaid = booking.paymentStatus === "confirmed";
   const isCancelled = booking.status === "cancelled";
-  const isBusy = redirectingStripe;
+  const isDemoPayment = booking.paymentMode === "demo";
+  const isBusy = processingPayment;
   const currentStep = isPaid ? 3 : 2;
   const coverUrl = property?.images?.[0]?.url;
   const displayAmount = booking.totalAmount ?? property?.price ?? 0;
@@ -169,7 +178,7 @@ const BookingPaymentPage = () => {
                   />
                 </div>
               </div>
-              <CardDescription>{t("bookingPage.reviewAndPayHint")}</CardDescription>
+              <CardDescription>{t(isDemoPayment ? "bookingPage.demoPaymentHint" : "bookingPage.reviewAndPayHint")}</CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4 pt-0">
@@ -211,7 +220,7 @@ const BookingPaymentPage = () => {
                   {formatPrice(displayAmount, t("common.currency"))}
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {t("bookingPage.secureCheckoutHint")}
+                  {t(isDemoPayment ? "bookingPage.demoPaymentFooter" : "bookingPage.secureCheckoutHint")}
                 </p>
               </div>
             </CardContent>
@@ -222,10 +231,10 @@ const BookingPaymentPage = () => {
                   <Button
                     size="lg"
                     disabled={isBusy}
-                    onClick={handleStripePayment}
+                    onClick={handlePayment}
                     className="h-12 w-full gap-2.5 rounded-lg bg-[#635BFF] text-base font-semibold text-white shadow-md transition-colors hover:bg-[#5851E3] disabled:opacity-70"
                   >
-                    {redirectingStripe ? (
+                    {processingPayment ? (
                       <>
                         <Loader2 className="size-5 shrink-0 animate-spin" />
                         <span>{t("bookingPage.processingPayment")}</span>
@@ -233,7 +242,7 @@ const BookingPaymentPage = () => {
                     ) : (
                       <>
                         <Lock className="size-4 shrink-0 opacity-90" />
-                        <span>{t("bookingPage.payNow")}</span>
+                        <span>{t(isDemoPayment ? "bookingPage.confirmDemoPayment" : "bookingPage.payNow")}</span>
                         <span
                           className="rounded-md bg-white/15 px-2 py-0.5 text-sm font-bold"
                           dir="ltr"
@@ -246,7 +255,7 @@ const BookingPaymentPage = () => {
 
                   <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
                     <Lock className="size-3 shrink-0" />
-                    {t("bookingPage.securePaymentFooter")}
+                    {t(isDemoPayment ? "bookingPage.demoPaymentFooter" : "bookingPage.securePaymentFooter")}
                   </p>
                 </>
               )}
@@ -316,7 +325,7 @@ const BookingPaymentPage = () => {
                     {formatPrice(displayAmount, t("common.currency"))}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    {t("bookingPage.secureCheckoutHint")}
+                    {t(isDemoPayment ? "bookingPage.demoPaymentFooter" : "bookingPage.secureCheckoutHint")}
                   </p>
                 </div>
 

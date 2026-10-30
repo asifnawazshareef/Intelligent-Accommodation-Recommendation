@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { isPendingReviewAnalysis } from "@/lib/reviewAnalysis";
 
 const SECTION_IDS = ["about", "location", "availability", "reviews"];
 
@@ -67,6 +68,7 @@ const PropertyDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSection, setActiveSection] = useState("about");
+  const hasPendingAnalysis = reviews.some(isPendingReviewAnalysis);
 
   const makeBookingPath = !isAuthenticated
     ? `/login?from=${encodeURIComponent(`/bookings/new/${id}`)}`
@@ -118,6 +120,28 @@ const PropertyDetailPage = () => {
 
     fetchPropertyDetails();
   }, [id, t, isAuthenticated, user?.role]);
+
+  useEffect(() => {
+    if (!hasPendingAnalysis || property?._id !== id) return;
+    let alive = true, refreshing = false;
+    const refresh = async () => {
+      if (!alive || refreshing || document.hidden) return;
+      refreshing = true;
+      try {
+        const [reviewResult, summaryResult, propertyResult] = await Promise.all([
+          getPropertyReviews(id), getPropertySentimentSummary(id), getPropertyById(id),
+        ]);
+        if (!alive) return;
+        setReviews(reviewResult.data.data || []);
+        setSummary(summaryResult.data.data || null);
+        setProperty(propertyResult.data.data);
+      } catch { /* Keep the current reviews during a temporary connection failure. */ }
+      finally { refreshing = false; }
+    };
+    const timer = setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    return () => { alive = false; clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [hasPendingAnalysis, id, property?._id]);
 
   useEffect(() => {
     const observers = SECTION_IDS.map((sectionId) => {
@@ -208,6 +232,7 @@ const PropertyDetailPage = () => {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-8">
         <div className="min-w-0 space-y-5">
           <PropertyImageGallery images={displayImages} title={property.title} />
+
 
           <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5 lg:hidden">
             <h1 className="text-2xl font-bold tracking-tight">{property.title}</h1>
@@ -324,7 +349,7 @@ const PropertyDetailPage = () => {
               <ReviewForm propertyId={id} onReviewCreated={refreshReviewData} />
             )}
 
-            <ReviewsList reviews={reviews} />
+            <ReviewsList reviews={reviews} canManageSeed={user?.isSuperAdmin} />
           </section>
         </div>
 

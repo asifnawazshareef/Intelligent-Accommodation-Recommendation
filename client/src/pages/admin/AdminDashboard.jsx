@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
 import {
   ClipboardList,
@@ -39,6 +40,18 @@ const ADMIN_TASKS = [
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const tasks = user?.isSuperAdmin
+    ? [
+        ...ADMIN_TASKS,
+        {
+          to: "/admin/seed",
+          icon: ClipboardList,
+          titleKey: "seed.title",
+          descKey: "seed.subtitle",
+        },
+      ]
+    : ADMIN_TASKS;
 
   return (
     <DashboardLayout>
@@ -54,7 +67,7 @@ const AdminDashboard = () => {
         />
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {ADMIN_TASKS.map((task) => {
+          {tasks.map((task) => {
             const Icon = task.icon;
 
             return (
