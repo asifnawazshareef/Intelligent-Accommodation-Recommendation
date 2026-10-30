@@ -42,7 +42,7 @@ export async function seedAppGuard(req, res, next) {
     if (
       bookingId &&
       mongoose.isValidObjectId(bookingId) &&
-      (await SeedRecord.exists({ entity: "bookings", documentId: bookingId }))
+      (await SeedRecord.exists({ entity: "bookings", documentId: bookingId, state: "active" }))
     )
       return res.status(409).json({
         success: false,

@@ -30,6 +30,7 @@ import seedRoutes from "../routes/seedRoutes.js";
 import authRoutes from "../routes/authRoutes.js";
 import propertyRoutes from "../routes/propertyRoutes.js";
 import bookingRoutes from "../routes/bookingRoutes.js";
+import stripePaymentRoutes from "../routes/stripePaymentRoutes.js";
 import reviewRoutes from "../routes/reviewRoutes.js";
 import searchRoutes from "../routes/searchRoutes.js";
 import adminRoutes from "../routes/adminRoutes.js";
@@ -100,6 +101,7 @@ before(async () => {
   app.use("/api/auth", authRoutes);
   app.use("/api/properties", propertyRoutes);
   app.use("/api/bookings", bookingRoutes);
+  app.use("/api/payments/stripe", stripePaymentRoutes);
   app.use("/api/reviews", reviewRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api", searchRoutes);
@@ -220,14 +222,36 @@ test("existing login, search, recommendations, owner lists, booking, payment and
   });
   assert.equal(duplicate.status, 400);
   assert.equal(duplicate.body.code, "BOOKING_ALREADY_EXISTS");
-  ok(
+  const paymentPage = ok(await api(`/bookings/${booking._id}`, guest)).data;
+  assert.equal(paymentPage.paymentMode, "demo");
+  const stripeBlocked = await api("/payments/stripe/create-checkout-session", guest, "POST", { bookingId: booking._id });
+  assert.equal(stripeBlocked.status, 409);
+  assert.match(stripeBlocked.body.message, /demo payments only/);
+  assert.equal((await api(`/bookings/${booking._id}/confirm-demo-payment`, owner, "PUT", {})).status, 403);
+  const otherGuest = (await queryRecords(ds._id, "users", { role: "guest" })).records.find(user => String(user._id) !== String(guest._id));
+  assert.equal((await api(`/bookings/${booking._id}/confirm-demo-payment`, otherGuest, "PUT", {})).status, 403);
+  assert.equal((await api(`/bookings/${booking._id}`, otherGuest)).status, 403);
+  const paid = ok(
     await api(
       `/bookings/${booking._id}/confirm-demo-payment`,
       guest,
       "PUT",
       {},
     ),
-  );
+  ).data;
+  assert.equal(paid.status, "confirmed");
+  assert.equal(paid.paymentStatus, "confirmed");
+  assert.equal(paid.paymentMethod, "demo");
+  assert.ok(paid.paymentConfirmedAt);
+  assert.equal(ok(await api(`/bookings/${booking._id}`, guest)).data.paymentStatus, "confirmed");
+  assert.equal((await api(`/bookings/${booking._id}/confirm-demo-payment`, guest, "PUT", {})).status, 400);
+  // Ordinary bookings retain Stripe checkout, even while seed management is on.
+  const regular = await models.bookings.create({
+    guest: guest._id, property: property._id, startDate: start, endDate: end,
+    guests: 1, totalAmount: 1000,
+  });
+  assert.equal(ok(await api(`/bookings/${regular._id}`, guest)).data.paymentMode, "stripe_test");
+  await models.bookings.deleteOne({ _id: regular._id });
   const priorService = process.env.SENTIMENT_API_URL;
   try {
     process.env.SENTIMENT_API_URL = "http://127.0.0.1:1";
