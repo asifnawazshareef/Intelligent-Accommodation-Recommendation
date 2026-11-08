@@ -22,6 +22,7 @@ import {
   safeError,
   integer,
   fingerprint,
+  demoPassword,
   getSeedPresets,
   presetDescriptions,
   cities,
@@ -212,6 +213,37 @@ router.post(
         .attachment(`seed_${entity}.csv`)
         .send(csv(records));
     return res.attachment(`seed_${entity}.json`).json(records);
+  }),
+);
+router.post(
+  "/datasets/:ds/users/:id/owner-credential",
+  handler(async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const { ds, id } = req.params;
+    const field = req.body?.field;
+    assert(field === "email" || field === "password", "Choose a credential to copy.");
+    const record = await member(ds, "users", id);
+    const owner = await models.users
+      .findOne({ _id: record.documentId, role: "owner", isSuperAdmin: { $ne: true } })
+      .select(field === "password" ? "+password" : "email");
+    assert(owner, "Seed owner account not found.", 404);
+    if (field === "email") return res.json({ value: owner.email });
+
+    const job = record.job && await SeedJob.findById(record.job).select("options.recipe.supervisorDemo");
+    const password = demoPassword("owner", job?.options?.recipe?.supervisorDemo === true);
+    assert(
+      await owner.matchPassword(password),
+      "The configured demo password does not match this owner account.",
+      409,
+    );
+    await audit({
+      dataset: ds,
+      actor: req.user._id,
+      action: "owner_demo_password_access",
+      entity: "users",
+      documentId: owner._id,
+    });
+    res.json({ value: password });
   }),
 );
 router.post(

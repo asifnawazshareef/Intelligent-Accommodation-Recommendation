@@ -120,6 +120,68 @@ export function ReferenceSelect({
     </div>
   );
 }
+export function OwnerCredentialActions({ dataset, owner }) {
+  const { t } = useTranslation();
+  const [copying, setCopying] = useState(false);
+  const [message, setMessage] = useState("");
+  const pending = useRef(null);
+  useEffect(() => () => pending.current?.abort(), []);
+
+  async function copy(field) {
+    if (!navigator.clipboard?.writeText) {
+      setMessage(t("seed.clipboardUnavailable", "Clipboard access is unavailable in this browser."));
+      return;
+    }
+
+    const request = new AbortController();
+    pending.current = request;
+    setCopying(true);
+    setMessage("");
+    try {
+      const credential = api.post(
+        `/admin/seed/datasets/${dataset}/users/${owner}/owner-credential`,
+        { field },
+        { signal: request.signal },
+      ).then(({ data }) => {
+        request.signal.throwIfAborted();
+        return data.value;
+      });
+      if (navigator.clipboard.write && typeof ClipboardItem === "function") {
+        // Start the write during the click, even when the credential needs a network request.
+        const text = credential.then((value) => new Blob([value], { type: "text/plain" }));
+        await Promise.all([
+          credential,
+          navigator.clipboard.write([new ClipboardItem({ "text/plain": text })]),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(await credential);
+      }
+      setMessage(field === "email"
+        ? t("seed.ownerEmailCopied", "Owner email copied.")
+        : t("seed.ownerPasswordCopied", "Demo owner password copied."));
+    } catch (error) {
+      if (!request.signal.aborted) {
+        setMessage(error.response?.data?.message || t("seed.credentialCopyFailed", "Could not copy the owner credential."));
+      }
+    } finally {
+      if (!request.signal.aborted) setCopying(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="seed-actions">
+        <button type="button" disabled={copying} onClick={() => copy("email")}>
+          {t("seed.copyOwnerEmail", "Copy owner email")}
+        </button>
+        <button type="button" disabled={copying} onClick={() => copy("password")}>
+          {t("seed.copyOwnerPassword", "Copy owner password")}
+        </button>
+      </div>
+      <p className="seed-muted" role="status">{message}</p>
+    </div>
+  );
+}
 export function RecordFields({ dataset, entity, value, onChange }) {
   const { t } = useTranslation();
   const tr = (key, fallback) => t(`seed.${key}`, fallback);
