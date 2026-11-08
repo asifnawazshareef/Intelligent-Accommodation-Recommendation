@@ -176,6 +176,44 @@ test("generation creates valid relationships and passwords, preserving existing 
   assert.equal(await user.matchPassword(process.env.SEED_DEMO_PASSWORD), true);
   assert.deepEqual(await models.users.findById(ordinary._id).lean(), before);
 });
+test("only the super admin can copy a seed owner's current demo credentials", async () => {
+  const property = (await queryRecords(ds._id, "properties")).records[0];
+  const owner = await models.users.findById(property.owner);
+  const request = (id, field, actor = admin) => fetch(
+    `${url}/datasets/${ds._id}/users/${id}/owner-credential`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(actor && { Authorization: `Bearer ${jwt.sign({ id: actor._id }, process.env.JWT_SECRET)}` }),
+      },
+      body: JSON.stringify({ field }),
+    },
+  );
+
+  assert.equal((await request(owner._id, "password", null)).status, 401);
+  assert.equal((await request(owner._id, "password", ordinary)).status, 403);
+  assert.equal((await request(ordinary._id, "password")).status, 404);
+
+  const email = await request(owner._id, "email");
+  assert.equal(email.status, 200);
+  assert.deepEqual(await email.json(), { value: owner.email });
+
+  const password = await request(owner._id, "password");
+  assert.equal(password.status, 200);
+  assert.equal(password.headers.get("cache-control"), "no-store");
+  const configured = process.env.SEED_DEMO_PASSWORD;
+  assert.deepEqual(await password.json(), { value: configured });
+
+  process.env.SEED_DEMO_PASSWORD = "DifferentDemoPassword123!";
+  try {
+    const mismatch = await request(owner._id, "password");
+    assert.equal(mismatch.status, 409);
+    assert.equal(Object.hasOwn(await mismatch.json(), "value"), false);
+  } finally {
+    process.env.SEED_DEMO_PASSWORD = configured;
+  }
+});
 test("repeated generation creates zero duplicates", async () => {
   const result = await generate();
   assert.equal(result.succeeded, 0);

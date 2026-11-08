@@ -9,6 +9,7 @@ import {
   Field,
   Modal,
   RecordFields,
+  OwnerCredentialActions,
   GenerationFields,
   PresetPicker,
   ReferenceSelect,
@@ -1061,6 +1062,9 @@ export default function SeedDashboard() {
                   value={draft}
                   onChange={setDraft}
                 />
+                {modal.type === "edit" && entity === "properties" && draft.owner && (
+                  <OwnerCredentialActions key={`${ds}:${draft.owner}`} dataset={ds} owner={draft.owner} />
+                )}
                 <div className="seed-actions">
                   <button className="seed-primary" disabled={busy}>
                     {tr("save", "Save")}
