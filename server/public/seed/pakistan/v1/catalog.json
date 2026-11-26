@@ -1,0 +1,309 @@
+{
+  "version": "pakistan_v1",
+  "properties": [
+    {
+      "id": "pc_bhurban",
+      "title": "Pearl Continental Hotel Bhurban",
+      "city": "Bhurban",
+      "address": "Bhurban, Murree Hills, Punjab",
+      "sourceUrl": "https://www.pchotels.com/hotel-and-resort/pearl-continental-hotel-bhurban",
+      "description": "A hill resort in Bhurban with gardens and views across the surrounding hills.",
+      "images": [
+        {
+          "url": "/seed/pakistan/v1/pc_bhurban_1.jpg",
+          "caption": "Hotel exterior and swimming pool",
+          "credit": {
+            "title": "Bhurban PC.JPG",
+            "author": "Khurrumkamran",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bhurban_PC.JPG",
+            "license": "CC BY-SA 3.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+            "capturedAt": "2013-12-29 14:29:39",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "9891bc3a7893e789edf7e75592ec2eb5a0e141aff9e10c53ea186261b1dac456"
+        },
+        {
+          "url": "/seed/pakistan/v1/pc_bhurban_2.jpg",
+          "caption": "Hotel gardens viewed from a terrace",
+          "credit": {
+            "title": "Pearl Continental Hotel, Bhurban.jpg",
+            "author": "Maha Amir",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Pearl_Continental_Hotel,_Bhurban.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2018-05-11 14:28:07",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "a522a322708fe16250fae4d19b19983ec3877088f4b80a9f49b911caeebfeaa5"
+        },
+        {
+          "url": "/seed/pakistan/v1/pc_bhurban_3.jpg",
+          "caption": "Hotel grounds",
+          "credit": {
+            "title": "PC Hotel Bhurban beautiful view.jpg",
+            "author": "Ghazanfar Ali Riaz",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:PC_Hotel_Bhurban_beautiful_view.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2018-02-10 09:05:32",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "b4ecca6d0c006d01f79edf02633e1140ada3c4085ec6355a3ad502f83a75a3b6"
+        },
+        {
+          "url": "/seed/pakistan/v1/pc_bhurban_4.jpg",
+          "caption": "Hotel parking area",
+          "credit": {
+            "title": "Pearl Continental Hotel Bhurban.jpg",
+            "author": "M Nouman Zafar",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Pearl_Continental_Hotel_Bhurban.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2017-07-14 18:05:49",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "91cd151a36f8444eeed6b860e55894aa8a2ce6f9072679711327042bfd02633f"
+        }
+      ],
+      "checkedAt": "2026-10-24"
+    },
+    {
+      "id": "falettis_lahore",
+      "title": "Faletti's Hotel Lahore",
+      "city": "Lahore",
+      "address": "24 Egerton Road, Lahore 54000",
+      "sourceUrl": "https://falettishotel.com.pk/contact-us/",
+      "description": "A historic hotel on Egerton Road in central Lahore, with heritage architecture and guest suites.",
+      "images": [
+        {
+          "url": "/seed/pakistan/v1/falettis_lahore_1.jpg",
+          "caption": "Hotel corridor",
+          "credit": {
+            "title": "The Faletti's Hotel, Lahore. 03.jpg",
+            "author": "Shehzad.abbasi",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_Faletti%27s_Hotel,_Lahore._03.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2018-05-20",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "b127c4df79cc8a8a9f7d81ed2d1db0d4496338c616ac7c1fa157710980b98e1e"
+        },
+        {
+          "url": "/seed/pakistan/v1/falettis_lahore_2.jpg",
+          "caption": "Hotel doorway",
+          "credit": {
+            "title": "The Faletti's Hotel, Lahore. 02.jpg",
+            "author": "Shehzad.abbasi",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_Faletti%27s_Hotel,_Lahore._02.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2018-05-20",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "2e4a79ff90649d5ddb5b63b7a4efc811c327bd04639674756b44eefff8434be1"
+        },
+        {
+          "url": "/seed/pakistan/v1/falettis_lahore_3.jpg",
+          "caption": "Historical display inside the hotel",
+          "credit": {
+            "title": "The Faletti's Hotel, Lahore. 01.jpg",
+            "author": "Shehzad.abbasi",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:The_Faletti%27s_Hotel,_Lahore._01.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2018-05-20",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "9872d33023faaef870fa60249b2f7c6a61dda6cab254ce2abeeac3c1f1654f2f"
+        }
+      ],
+      "checkedAt": "2026-10-24"
+    },
+    {
+      "id": "serena_islamabad",
+      "title": "Islamabad Serena Hotel",
+      "city": "Islamabad",
+      "address": "Khayaban e Suhrwardy, opposite Convention Centre, Islamabad 44000",
+      "sourceUrl": "https://www.serenahotels.com/islamabad",
+      "description": "A hotel in Islamabad near the Convention Centre, with landscaped gardens and architecture influenced by traditional regional design.",
+      "images": [
+        {
+          "url": "/seed/pakistan/v1/serena_islamabad_1.jpg",
+          "caption": "Hotel interior corridor, photographed in 2010",
+          "credit": {
+            "title": "Hotel Serena Indside after heavy rain on August 2010 - panoramio.jpg",
+            "author": "atifullahkhan",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hotel_Serena_Indside_after_heavy_rain_on_August_2010_-_panoramio.jpg",
+            "license": "CC BY 3.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+            "capturedAt": "Taken on 30 July 2010",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "f31fb9cd0278437a3cadcb9d2214d995778ff069e7b3a507ee9a4c337a146938"
+        },
+        {
+          "url": "/seed/pakistan/v1/serena_islamabad_2.jpg",
+          "caption": "Hotel ceiling detail",
+          "credit": {
+            "title": "Close snapshot of ceiling Serena Hotel in Islamabad - panoramio.jpg",
+            "author": "atifullahkhan",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Close_snapshot_of_ceiling_Serena_Hotel_in_Islamabad_-_panoramio.jpg",
+            "license": "CC BY 3.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+            "capturedAt": "Taken on 30 July 2010",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "b340edb69cfa615caa51867f573c07bf21c88fd99396b01b56a6b2d85397ac7a"
+        }
+      ],
+      "checkedAt": "2026-10-24"
+    },
+    {
+      "id": "serena_gilgit",
+      "title": "Gilgit Serena Hotel",
+      "city": "Gilgit",
+      "address": "Sherullah Baig Road, Jutial, Gilgit 15100",
+      "sourceUrl": "https://www.serenahotels.com/gilgit",
+      "description": "A hotel in Jutial, Gilgit, surrounded by gardens and mountain scenery. Photos show views from the hotel grounds.",
+      "images": [
+        {
+          "url": "/seed/pakistan/v1/serena_gilgit_1.jpg",
+          "caption": "Garden and mountain view at Gilgit Serena",
+          "credit": {
+            "title": "BEAUTIFUL WEATHER.jpg",
+            "author": "Happyluck 07",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:BEAUTIFUL_WEATHER.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2016-08-19",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "2a7240fb83835eee2d4803ed9d5488335fe5d7b64fe02fc9f0b7b8971c694e0c"
+        },
+        {
+          "url": "/seed/pakistan/v1/serena_gilgit_2.jpg",
+          "caption": "View of Gilgit city from the hotel",
+          "credit": {
+            "title": "Gilgit City a View from Gilgit serena hotel.jpg",
+            "author": "Fehd.raza @fehd.raza",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Gilgit_City_a_View_from_Gilgit_serena_hotel.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2016-04-01 08:03:46",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "19eee3d1555fc538d68c90a9ca7e8fc90338207ad6ec972967198f99d49036ab"
+        }
+      ],
+      "checkedAt": "2026-10-24"
+    },
+    {
+      "id": "serena_shigar",
+      "title": "Serena Shigar Fort",
+      "city": "Shigar",
+      "address": "Shigar Fort, Shigar, Gilgit Baltistan",
+      "sourceUrl": "https://www.serenahotels.com/shigar-fort",
+      "description": "A restored fort and heritage hotel in the Shigar Valley, with traditional stone and timber architecture.",
+      "images": [
+        {
+          "url": "/seed/pakistan/v1/serena_shigar_1.jpg",
+          "caption": "Bara Dari at Shigar Fort",
+          "credit": {
+            "title": "Shigar Fort, Shigar Valley, Bara Dari Front.JPG",
+            "author": "گمنام سپاهى",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shigar_Fort,_Shigar_Valley,_Bara_Dari_Front.JPG",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2015-09-02 14:20:03",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "e2c1fdd7eadcc7ca1a60d815fc3e1ad335ec393ccd2c279100c53245a83b6308"
+        },
+        {
+          "url": "/seed/pakistan/v1/serena_shigar_2.jpg",
+          "caption": "Shigar Fort Residence sign",
+          "credit": {
+            "title": "Phoonk Residence aka Shigar Fort.jpg",
+            "author": "Usmanzfr1992",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Phoonk_Residence_aka_Shigar_Fort.jpg",
+            "license": "CC BY-SA 3.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+            "capturedAt": "2014-08-05 16:34:11",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "0ec69b6d79b7e115127b74325b1c2a166e7f3ee774d1de459780c5893c55250f"
+        },
+        {
+          "url": "/seed/pakistan/v1/serena_shigar_3.jpg",
+          "caption": "Traditional timber details on the fort roof",
+          "credit": {
+            "title": "Shigar Fort, Shigar Valley, roof.JPG",
+            "author": "گمنام سپاهى",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shigar_Fort,_Shigar_Valley,_roof.JPG",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2015-09-02 14:02:12",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "17ae2b4fe6f683b04614b28cfcad027fd3bda22a18423b7a13c30c45ac677435"
+        }
+      ],
+      "checkedAt": "2026-10-24"
+    },
+    {
+      "id": "serena_khaplu",
+      "title": "Serena Khaplu Palace",
+      "city": "Khaplu",
+      "address": "Khaplu Palace, Khaplu, Ghanche, Gilgit Baltistan",
+      "sourceUrl": "https://www.serenahotels.com/khaplu-palace",
+      "description": "A restored royal residence operated as a heritage hotel in Khaplu, featuring traditional balconies, courtyards and mountain surroundings.",
+      "images": [
+        {
+          "url": "/seed/pakistan/v1/serena_khaplu_1.jpg",
+          "caption": "Palace exterior",
+          "credit": {
+            "title": "KhapluPalace.jpg",
+            "author": "Yawar.talib",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:KhapluPalace.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2015-06-14 05:43:10",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "887dbea19f058a280babf13cbf84699ee5bbfdb6e42e49672a153cdd205c16dc"
+        },
+        {
+          "url": "/seed/pakistan/v1/serena_khaplu_2.jpg",
+          "caption": "Palace facade",
+          "credit": {
+            "title": "Khaplu palace.jpg",
+            "author": "Shaguftakarim",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Khaplu_palace.jpg",
+            "license": "CC BY-SA 3.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+            "capturedAt": "2014-08-07 02:33:01",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "e315289c6e0516403080d07f711f2b58c0dd9b9ddf570194ca53e482c6b9f728"
+        },
+        {
+          "url": "/seed/pakistan/v1/serena_khaplu_3.jpg",
+          "caption": "Full view of the palace",
+          "credit": {
+            "title": "Khaplu Palace, Full view.jpg",
+            "author": "Omer Awan",
+            "sourceUrl": "https://commons.wikimedia.org/wiki/File:Khaplu_Palace,_Full_view.jpg",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+            "capturedAt": "2017-07-11 13:53:33",
+            "changes": "Wikimedia thumbnail where supplied. Displayed with cropping in the gallery."
+          },
+          "sha256": "1e408c87be8bbcbf471cf2724b113afeea97f72dda9a779786d81d394e271071"
+        }
+      ],
+      "checkedAt": "2026-10-24"
+    }
+  ]
+}

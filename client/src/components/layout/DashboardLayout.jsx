@@ -112,7 +112,23 @@ const DashboardLayout = ({ children }) => {
     [t],
   );
 
-  const config = roleConfig[user?.role] || roleConfig.guest;
+  const baseConfig = roleConfig[user?.role] || roleConfig.guest;
+  const config =
+    user?.role === "admin" && user.isSuperAdmin
+      ? {
+          ...baseConfig,
+          label: t("seed.superAdmin", "Super admin"),
+          nav: [
+            ...baseConfig.nav,
+            {
+              to: "/admin/seed",
+              label: t("seed.title", "Seed Data"),
+              icon: ClipboardList,
+              matchPrefix: true,
+            },
+          ],
+        }
+      : baseConfig;
   const RoleIcon = config.icon;
 
   const handleLogout = () => {

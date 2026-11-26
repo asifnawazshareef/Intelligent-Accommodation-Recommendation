@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Booking from "../models/Booking.js";
 import Property from "../models/Property.js";
+import { enabled as seedEnabled } from "../services/seed/config.js";
+import { SeedRecord } from "../services/seed/models.js";
 import { calculateBookingTotal } from "../utils/bookingAmount.js";
 import { attachHasReviewToBookings } from "../utils/bookingReviewStatus.js";
 
@@ -244,10 +246,17 @@ export const getBookingById = async (req, res, next) => {
     }
 
     const data = await attachHasReviewToBookings(booking);
+    // The server selects the payment flow using the same ownership rules as
+    // seedAppGuard. Newly created demo interactions are tracked as well.
+    const isSeedBooking = seedEnabled() &&
+      process.env.SEED_DATABASE_NAME === mongoose.connection.name &&
+      await SeedRecord.exists({
+        entity: "bookings", documentId: booking._id, state: "active",
+      });
 
     res.json({
       success: true,
-      data,
+      data: { ...data, paymentMode: isSeedBooking ? "demo" : "stripe_test" },
     });
   } catch (error) {
     next(error);

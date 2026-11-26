@@ -162,7 +162,7 @@ export const searchProperties = async (req, res, next) => {
 
     const data = await attachReviewStats(properties);
 
-    await saveSearchHistory(req.user, params);
+    if (!req.skipSeedSearchHistory) await saveSearchHistory(req.user, params);
 
     res.json({
       success: true,

@@ -15,15 +15,26 @@
     "seed:demo:full": "node scripts/seedProperties.js --demo && node scripts/seedDemoReviews.js --demo",
     "sync:sentiment": "node scripts/syncPropertySentiment.js",
     "clear:listings": "node scripts/clearListings.js",
-    "reanalyze:reviews": "node scripts/reanalyzeReviews.js"
+    "reanalyze:reviews": "node scripts/reanalyzeReviews.js",
+    "seed:faker": "node scripts/seedFaker.js",
+    "seed:worker": "node scripts/seedWorker.js",
+    "seed:grant": "node scripts/grantSuperAdmin.js",
+    "test:seed": "node --test --test-concurrency=1 tests/seed*.test.js",
+    "seed:pakistan": "node scripts/seedFaker.js --preset pakistan",
+    "seed:collect:pakistan": "node scripts/collectPakistanProperties.js",
+    "seed:pakistan1500": "node scripts/seedFaker.js --preset pakistan1500",
+    "seed:pakistan:collected": "node scripts/seedFaker.js --preset pakistanCollected",
+    "seed:check": "node scripts/checkSeedSetup.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@faker-js/faker": "10.6.0",
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
+    "cheerio": "1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -32,5 +43,8 @@
     "multer": "^2.2.0",
     "nodemon": "^3.1.14",
     "stripe": "^22.3.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "11.3.0"
   }
 }

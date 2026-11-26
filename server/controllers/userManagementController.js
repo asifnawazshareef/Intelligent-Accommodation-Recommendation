@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import { SeedRecord } from "../services/seed/models.js";
 
 const VALID_ROLES = ["guest", "owner", "admin"];
-const USER_FIELDS = "name email phone role isVerified languagePref createdAt updatedAt";
+const USER_FIELDS =
+  "name email phone role isSuperAdmin isVerified languagePref createdAt updatedAt";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -50,6 +52,13 @@ export const updateUserVerification = async (req, res, next) => {
       throw new Error("User not found");
     }
 
+    if (user.isSuperAdmin) {
+      res.status(403);
+      throw new Error(
+        "Super admin accounts require the server management command",
+      );
+    }
+
     if (typeof isVerified === "boolean") {
       user.isVerified = isVerified;
     } else {
@@ -90,6 +99,20 @@ export const updateUserRole = async (req, res, next) => {
     if (!user) {
       res.status(404);
       throw new Error("User not found");
+    }
+
+    if (user.isSuperAdmin) {
+      res.status(403);
+      throw new Error(
+        "Super admin accounts require the server management command",
+      );
+    }
+    if (
+      role === "admin" &&
+      (await SeedRecord.exists({ entity: "users", documentId: user._id }))
+    ) {
+      res.status(403);
+      throw new Error("Seed accounts cannot become administrators");
     }
 
     if (user._id.toString() === req.user._id.toString()) {

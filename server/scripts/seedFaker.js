@@ -1,0 +1,147 @@
+import "dotenv/config";
+import fs from "node:fs/promises";
+import crypto from "node:crypto";
+import mongoose from "mongoose";
+import { recipe, getSeedPresets, assert, safeError } from "../services/seed/config.js";
+import { buildDataset } from "../services/seed/generator.js";
+import {
+  initialize,
+  superAdmin,
+  requireWrite,
+} from "../services/seed/store.js";
+import {
+  createDataset,
+  previewGeneration,
+  startJob,
+} from "../services/seed/management.js";
+import { SeedDataset } from "../services/seed/models.js";
+import { runNextJob } from "../services/seed/jobs.js";
+try {
+  const args = process.argv.slice(2);
+  const presets = getSeedPresets();
+  const options = {};
+  for (let i = 0; i < args.length; i++) {
+    assert(
+      [
+        "--apply",
+        "--standard",
+        "--preset",
+        "--config",
+        "--namespace",
+        "--actor",
+        "--append",
+        "--analyze",
+      ].includes(args[i]),
+      `Unknown argument: ${args[i]}`,
+    );
+    const key = args[i];
+    if (["--config", "--namespace", "--actor", "--preset"].includes(key)) {
+      assert(
+        args[i + 1] && !args[i + 1].startsWith("--"),
+        `Supply a value for ${key}.`,
+      );
+      options[key] = args[++i];
+    } else {
+      options[key] = true;
+    }
+  }
+  assert(options["--preset"] !== "pakistan1500" || presets.pakistan1500,
+    "The 1500 property catalog is not ready. Run npm run seed:collect:pakistan first, or restore its packaged snapshot.");
+  assert(!options["--preset"] || Object.hasOwn(presets, options["--preset"]),
+    `Choose a preset: ${Object.keys(presets).join(", ")}`);
+  assert([options["--preset"], options["--standard"], options["--config"]].filter(Boolean).length <= 1,
+    "Choose only one of --preset, --standard or --config.");
+  let config = recipe(
+    options["--config"]
+      ? JSON.parse(await fs.readFile(options["--config"], "utf8"))
+      : options["--standard"]
+        ? presets.standard
+        : presets[options["--preset"] || "small"],
+  );
+  const namespace = options["--namespace"] || "fyp_demo";
+  if (!options["--apply"]) {
+    const items = buildDataset(namespace, config);
+    console.log(
+      JSON.stringify(
+        {
+          mode: "preview",
+          recipe: config,
+          records: items.length,
+          samples: ["users", "properties", "bookings", "reviews"].map((e) =>
+            items.find((i) => i.entity === e),
+          ),
+        },
+        null,
+        2,
+      ),
+    );
+  } else {
+    assert(
+      process.env.NODE_ENV !== "production",
+      "Production seeding is disabled.",
+    );
+    assert(
+      process.env.SEED_MONGO_URI && process.env.SEED_DATABASE_NAME,
+      "Set SEED_MONGO_URI and SEED_DATABASE_NAME explicitly.",
+    );
+    assert(
+      options["--actor"],
+      "Supply --actor with the ID of an existing super admin in the seed database.",
+    );
+    process.env.SEED_DASHBOARD_ENABLED = "true";
+    await mongoose.connect(process.env.SEED_MONGO_URI);
+    await requireWrite();
+    await initialize();
+    await superAdmin(options["--actor"]);
+    let ds = await SeedDataset.findOne({ namespace });
+    if (!ds)
+      ds = await createDataset(
+        { name: "FYP demo", namespace, recipe: config },
+        options["--actor"],
+      );
+    if (!options["--append"] && !options["--config"] && !options["--preset"] && !options["--standard"]) config = ds.recipe;
+    const preview = await previewGeneration(
+      ds._id,
+      { recipe: config, kind: options["--append"] ? "append" : "generate" },
+      options["--actor"],
+    );
+    const job = await startJob(
+      ds._id,
+      {
+        kind: options["--append"] ? "append" : "generate",
+        recipe: config,
+        confirmation: preview.confirmation,
+        requestKey: crypto.randomUUID(),
+        analyzeReviews: options["--analyze"] === true,
+      },
+      options["--actor"],
+    );
+    console.log(`Queued job ${job._id}.`);
+    const result = await runNextJob({ jobId: job._id });
+    assert(
+      result && String(result._id) === String(job._id),
+      "Another worker claimed this job. Follow its status in the dashboard.",
+    );
+    console.log(
+      JSON.stringify({
+        state: result.state,
+        total: result.total,
+        created: result.succeeded,
+        skipped: result.skipped,
+        error: result.error,
+      }),
+    );
+    if (result.state !== "completed") process.exitCode = 1;
+    if (result.state === "completed" && result.options?.analysisJob) {
+      const analysis = await runNextJob({ jobId: result.options.analysisJob });
+      assert(analysis, "Another worker claimed review analysis. Follow its status in the dashboard.");
+      console.log(JSON.stringify({ kind: "analyze_reviews", state: analysis.state, analyzed: analysis.succeeded, total: analysis.total, error: analysis.error }));
+      if (analysis.state !== "completed") process.exitCode = 1;
+    }
+  }
+} catch (e) {
+  console.error(safeError(e));
+  process.exitCode = 1;
+} finally {
+  await mongoose.disconnect();
+}

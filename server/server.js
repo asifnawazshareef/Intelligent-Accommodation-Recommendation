@@ -5,6 +5,13 @@ import dotenv from "dotenv";
 import cors from "cors";
 
 import connectDB from "./config/db.js";
+import seedRoutes from "./routes/seedRoutes.js";
+import { seedAppGuard } from "./services/seed/appGuard.js";
+import {
+  initialize as initializeSeed,
+  requireWrite as requireSeedWrite,
+} from "./services/seed/store.js";
+import { enabled as seedEnabled } from "./services/seed/config.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
 import propertyRoutes from "./routes/propertyRoutes.js";
@@ -22,7 +29,11 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-connectDB();
+await connectDB();
+if (seedEnabled()) {
+  await requireSeedWrite();
+  await initializeSeed();
+}
 
 const app = express();
 
@@ -49,6 +60,10 @@ app.get("/api/health", (req, res) => {
     message: "Backend server is healthy",
   });
 });
+
+app.use("/seed", express.static(path.join(__dirname, "public/seed")));
+app.use(seedAppGuard);
+app.use("/api/admin/seed", seedRoutes);
 
 // Feature routes
 app.use("/api/auth", authRoutes);
